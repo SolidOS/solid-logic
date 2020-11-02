@@ -2,7 +2,7 @@
   "name": "solid-logic",
   "version": "1.0.1",
   "description": "Core business logic of Solid OS",
-  "main": "dist/index.js",
+  "main": "lib/index.js",
   "scripts": {
     "build": "tsc",
     "test": "jest",

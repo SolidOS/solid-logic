@@ -1,7 +1,7 @@
 
 const rdf = require('rdflib');
 
-const ACL_LINK = rdf.sym('http://www.iana.org/assignments/link-relations/acl')
+export const ACL_LINK = rdf.sym('http://www.iana.org/assignments/link-relations/acl')
 
 export function getStore(authFetcher) {
   if (!authFetcher) {
