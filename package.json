@@ -21,15 +21,15 @@
   },
   "homepage": "https://github.com/solid/solid-logic#readme",
   "devDependencies": {
-    "@babel/plugin-proposal-class-properties": "^7.12.1",
-    "@babel/plugin-proposal-optional-chaining": "^7.12.1",
-    "@babel/plugin-transform-async-to-generator": "^7.12.1",
-    "@babel/plugin-transform-runtime": "^7.12.1",
-    "@babel/preset-env": "^7.12.1",
-    "@babel/preset-typescript": "^7.12.1",
-    "jest": "^26.6.1",
-    "ts-jest": "^26.4.3",
-    "typescript": "^4.0.5"
+    "@babel/plugin-proposal-class-properties": "7.12.1",
+    "@babel/plugin-proposal-optional-chaining": "7.12.1",
+    "@babel/plugin-transform-async-to-generator": "7.12.1",
+    "@babel/plugin-transform-runtime": "7.12.1",
+    "@babel/preset-env": "7.12.1",
+    "@babel/preset-typescript": "7.12.1",
+    "jest": "26.6.1",
+    "ts-jest": "26.4.3",
+    "typescript": "4.0.5"
   },
   "dependencies": {
     "rdflib": "^2.1.1",
