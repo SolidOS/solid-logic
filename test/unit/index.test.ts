@@ -1,7 +1,7 @@
-import { findAclDocUrl } from '../../src/index'
+import { SolidLogic } from '../../src/index'
 
-describe('findAclDocUrl', () => {
+describe('SolidLogic', () => {
   it('exists', () => {
-    expect (typeof findAclDocUrl).toEqual('function')
+    expect (typeof SolidLogic).toEqual('function')
   })
 })
