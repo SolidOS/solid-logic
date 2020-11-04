@@ -204,51 +204,27 @@ export class SolidLogic {
   }
 }
 
-export class UnauthorizedError extends Error {
+class CustomError extends Error {
   constructor (message?: string) {
     super(message)
     // see: typescriptlang.org/docs/handbook/release-notes/typescript-2-2.html
     Object.setPrototypeOf(this, new.target.prototype) // restore prototype chain
-    this.name = UnauthorizedError.name // stack traces display correctly now
+    this.name = new.target.name // stack traces display correctly now
   }
 }
 
-export class CrossOriginForbiddenError extends Error {
-  constructor (message?: string) {
-    super(message)
-    // see: typescriptlang.org/docs/handbook/release-notes/typescript-2-2.html
-    Object.setPrototypeOf(this, new.target.prototype) // restore prototype chain
-    this.name = CrossOriginForbiddenError.name // stack traces display correctly now
-  }
-}
+export class UnauthorizedError extends CustomError {}
 
-export class SameOriginForbiddenError extends Error {
-  constructor (message?: string) {
-    super(message)
-    // see: typescriptlang.org/docs/handbook/release-notes/typescript-2-2.html
-    Object.setPrototypeOf(this, new.target.prototype) // restore prototype chain
-    this.name = SameOriginForbiddenError.name // stack traces display correctly now
-  }
-}
+export class CrossOriginForbiddenError extends CustomError {}
 
-export class NotFoundError extends Error {
-  preferencesFile: string
-  constructor (preferencesFile: string, message?: string) {
-    super(message)
-    // see: typescriptlang.org/docs/handbook/release-notes/typescript-2-2.html
-    Object.setPrototypeOf(this, new.target.prototype) // restore prototype chain
-    this.name = NotFoundError.name // stack traces display correctly now
-    this.preferencesFile = preferencesFile
-  }
-}
+export class SameOriginForbiddenError extends CustomError {}
 
-export class FetchError extends Error {
+export class NotFoundError extends CustomError {}
+
+export class FetchError extends CustomError {
   status: number
   constructor (status: number, message?: string) {
     super(message)
-    // see: typescriptlang.org/docs/handbook/release-notes/typescript-2-2.html
-    Object.setPrototypeOf(this, new.target.prototype) // restore prototype chain
-    this.name = FetchError.name // stack traces display correctly now
     this.status = status
   }
 }
