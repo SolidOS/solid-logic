@@ -20,7 +20,8 @@ export class SolidLogic {
   }
 
   store: IndexedFomula
-  constructor (fetcher: { fetch: () => any }) {
+  me: string | undefined
+  constructor (fetcher: { fetch: () => any }, me?: string) {
     this.store = rdf.graph() // Make a Quad store
     rdf.fetcher(this.store, fetcher) // Attach a web I/O module, store.fetcher
     this.store.updater = new rdf.UpdateManager(this.store) // Add real-time live updates store.updater
@@ -28,6 +29,7 @@ export class SolidLogic {
       profileDocument: {},
       preferencesFile: {}
     }
+    this.me = me;
   }
 
   async findAclDocUrl (url: string | NamedNode) {
