@@ -144,8 +144,8 @@ export class SolidLogic {
     private: any,
     public: any
   }> {
-    let privateIndexes
-    let publicIndexes
+    let privateIndexes: any[] = []
+    let publicIndexes: any[] = []
     if (publicProfile) {
       publicIndexes = this.getTypeIndex(me, publicProfile, true)
       try {
