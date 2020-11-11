@@ -46,13 +46,16 @@ export class SolidLogic {
     // Load the profile into the knowledge base (fetcher.store)
     //   withCredentials: Web arch should let us just load by turning off creds helps CORS
     //   reload: Gets around a specific old Chrome bug caching/origin/cors
+    // console.log('loading', profileDocument)
     await this.store.fetcher
       .load(profileDocument, { withCredentials: false, cache: 'reload' })
+    // console.log('loaded', profileDocument, this.store)
   }
 
   async loadProfile (me: NamedNode): Promise<NamedNode> {
-    if (this.cache.preferencesFile[me]) {
-      return this.cache.preferencesFile[me]
+    // console.log('loadProfile', me)
+    if (this.cache.profileDocument[me]) {
+      return this.cache.profileDocument[me]
     }
     let profileDocument
     try {
@@ -66,11 +69,12 @@ export class SolidLogic {
   }
 
   async loadPreferences (me: NamedNode): Promise<NamedNode> {
+    // console.log('loadPreferences', me)
     if (this.cache.preferencesFile[me]) {
       return this.cache.preferencesFile[me]
     }
     const preferencesFile = this.store.any(me, ns.space('preferencesFile'))
-
+    // console.log('this.store.any()', this.store.any())
     /**
      * Are we working cross-origin?
      * Returns True if we are in a webapp at an origin, and the file origin is different
@@ -85,7 +89,7 @@ export class SolidLogic {
 
     // //// Load preference file
     try {
-      this.store.fetcher
+      await this.store.fetcher
         .load(preferencesFile, { withCredentials: true })
     } catch (err) {
       // Really important to look at why
@@ -111,6 +115,7 @@ export class SolidLogic {
   }
 
   getTypeIndex (me: NamedNode | string, preferencesFile: NamedNode | string, isPublic: boolean): NamedNode[] {
+    // console.log('getTypeIndex', this.store.each(me, undefined, undefined, preferencesFile), isPublic, preferencesFile)
     return this.store.each(
       me,
       (isPublic ? ns.solid('publicTypeIndex') : ns.solid('privateTypeIndex')),
@@ -155,12 +160,13 @@ export class SolidLogic {
       }
     }
     if (preferencesFile) {
-      privateIndexes = this.getTypeIndex(me, preferencesFile, true)
+      privateIndexes = this.getTypeIndex(me, preferencesFile, false)
+      // console.log({ privateIndexes })
       if (privateIndexes.length === 0) {
         await onWarning(new Error(`Your preference file ${preferencesFile} does not point to a private type index.`))
       } else {
         try {
-          await this.load(publicIndexes)
+          await this.load(privateIndexes)
         } catch (err) {
           onWarning(new Error(`loadIndex: loading private type index(es) ${err}`))
         }
