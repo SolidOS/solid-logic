@@ -171,10 +171,10 @@ export class SolidLogic {
           onWarning(new Error(`loadIndex: loading private type index(es) ${err}`))
         }
       }
-    } else {
-      debug.log(
-        'We know your preference file is not available, so we are not bothering with private type indexes.'
-      )
+    // } else {
+    //   debug.log(
+    //     'We know your preference file is not available, so we are not bothering with private type indexes.'
+    //   )
     }
 
     return {
