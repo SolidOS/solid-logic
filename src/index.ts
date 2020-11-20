@@ -207,6 +207,29 @@ export class SolidLogic {
     }) // promise
   }
 
+  isContainer(url: string) {
+    return (url.substr(-1) === '/');
+  }
+
+  async getContainerMembers(containerUrl) {
+    await this.store.fetcher.load(this.store.sym(containerUrl));
+    return this.store.statementsMatching(this.store.sym(containerUrl), this.store.sym('http://www.w3.org/ns/ldp#contains')).map((st: Statement) => st.object.value);
+  }
+
+  async recursiveDelete (url: string) {
+    try {
+      if (this.isContainer(url)) {
+        const aclDocUrl = await this.findAclDocUrl(url);
+        await this.store.fetcher.fetch(aclDocUrl, { method: 'DELETE' });
+        const containerMembers = await this.getContainerMembers(url);
+        await Promise.all(containerMembers.map(url => this.recursiveDelete(url)));
+      }
+      return this.store.fetcher.fetch(url, { method: 'DELETE' });
+    } catch (e) {
+      // console.log(`Please manually remove ${url} from your system under test.`, e);
+    }
+  }
+
   clearStore () {
     this.store.statements.slice().forEach(this.store.remove.bind(this.store))
   }
