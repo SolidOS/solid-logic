@@ -23,6 +23,7 @@ export class SolidLogic {
   me: string | undefined
   constructor (fetcher: { fetch: () => any }, me?: string) {
     this.store = rdf.graph() // Make a Quad store
+    this.store.features = [] // disable automatic node merging on store load
     rdf.fetcher(this.store, fetcher) // Attach a web I/O module, store.fetcher
     this.store.updater = new rdf.UpdateManager(this.store) // Add real-time live updates store.updater
     this.cache = {
