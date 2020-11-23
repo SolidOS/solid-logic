@@ -1,7 +1,7 @@
 
 import * as rdf from 'rdflib'
 import { NamedNode, Statement, IndexedFomula } from 'rdflib'
-import solidNamespace from 'solid-namespace'
+import * as solidNamespace from 'solid-namespace'
 
 import * as debug from './debug'
 
@@ -21,6 +21,7 @@ export class SolidLogic {
 
   store: IndexedFomula
   me: string | undefined
+  fetcher: { fetch: (url: string, options?: any) => any }
   constructor (fetcher: { fetch: () => any }, me?: string) {
     this.store = rdf.graph() // Make a Quad store
     rdf.fetcher(this.store, fetcher) // Attach a web I/O module, store.fetcher
@@ -29,7 +30,8 @@ export class SolidLogic {
       profileDocument: {},
       preferencesFile: {}
     }
-    this.me = me;
+    this.me = me
+    this.fetcher = fetcher
   }
 
   async findAclDocUrl (url: string | NamedNode) {
@@ -232,6 +234,10 @@ export class SolidLogic {
 
   clearStore () {
     this.store.statements.slice().forEach(this.store.remove.bind(this.store))
+  }
+
+  async fetch (url: string, options?: any) {
+    return this.fetcher.fetch(url, options)
   }
 }
 
