@@ -1,7 +1,7 @@
 
 import * as rdf from 'rdflib'
 import { NamedNode, Statement, IndexedFomula } from 'rdflib'
-import * as solidNamespace from 'solid-namespace'
+import solidNamespace from 'solid-namespace'
 
 import * as debug from './debug'
 
