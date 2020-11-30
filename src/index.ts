@@ -1,6 +1,6 @@
 
 import * as rdf from 'rdflib'
-import { NamedNode, Statement, IndexedFomula } from 'rdflib'
+import { NamedNode, Statement, IndexedFormula } from 'rdflib'
 import solidNamespace from 'solid-namespace'
 
 import * as debug from './debug'
@@ -19,7 +19,7 @@ export class SolidLogic {
     }
   }
 
-  store: IndexedFomula
+  store: IndexedFormula
   me: string | undefined
   fetcher: { fetch: (url: string, options?: any) => any }
   constructor (fetcher: { fetch: () => any }, me?: string) {
