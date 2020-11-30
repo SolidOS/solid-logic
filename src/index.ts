@@ -34,9 +34,9 @@ export class SolidLogic {
     this.fetcher = fetcher
   }
 
-  async findAclDocUrl (url: string | NamedNode) {
+  async findAclDocUrl (url: string) {
     const doc = this.store.sym(url)
-    await this.store.fetcher.load(doc)
+    await this.load(doc)
     const docNode = this.store.any(doc, ACL_LINK)
     if (!docNode) {
       throw new Error(`No ACL link discovered for ${url}`)
@@ -49,6 +49,9 @@ export class SolidLogic {
     //   withCredentials: Web arch should let us just load by turning off creds helps CORS
     //   reload: Gets around a specific old Chrome bug caching/origin/cors
     // console.log('loading', profileDocument)
+    if (!this.store.fetcher) {
+      throw new Error('Cannot load doc, have no fetcher')
+    }
     await this.store.fetcher
       .load(profileDocument, { withCredentials: false, cache: 'reload' })
     // console.log('loaded', profileDocument, this.store)
@@ -56,8 +59,8 @@ export class SolidLogic {
 
   async loadProfile (me: NamedNode): Promise<NamedNode> {
     // console.log('loadProfile', me)
-    if (this.cache.profileDocument[me]) {
-      return this.cache.profileDocument[me]
+    if (this.cache.profileDocument[me.value]) {
+      return this.cache.profileDocument[me.value]
     }
     let profileDocument
     try {
@@ -72,8 +75,8 @@ export class SolidLogic {
 
   async loadPreferences (me: NamedNode): Promise<NamedNode> {
     // console.log('loadPreferences', me)
-    if (this.cache.preferencesFile[me]) {
-      return this.cache.preferencesFile[me]
+    if (this.cache.preferencesFile[me.value]) {
+      return this.cache.preferencesFile[me.value]
     }
     const preferencesFile = this.store.any(me, ns.space('preferencesFile'))
     // console.log('this.store.any()', this.store.any())
@@ -82,17 +85,23 @@ export class SolidLogic {
      * Returns True if we are in a webapp at an origin, and the file origin is different
      */
     function differentOrigin (): boolean {
-      return `${window.location.origin}/` !== preferencesFile.site().uri
+      if (!preferencesFile) {
+        return true
+      }
+      return `${window.location.origin}/` !== new URL(preferencesFile.value).origin
     }
 
     if (!preferencesFile) {
       throw new Error(`Can't find a preference file pointer in profile ${me.doc()}`)
     }
 
+    if (!this.store.fetcher) {
+      throw new Error('Cannot load doc, have no fetcher')
+    }
     // //// Load preference file
     try {
       await this.store.fetcher
-        .load(preferencesFile, { withCredentials: true })
+        .load(preferencesFile as NamedNode, { withCredentials: true })
     } catch (err) {
       // Really important to look at why
       const status = err.status
@@ -109,21 +118,21 @@ export class SolidLogic {
         throw new SameOriginForbiddenError()
       }
       if (status === 404) {
-        throw new NotFoundError(preferencesFile)
+        throw new NotFoundError(preferencesFile.value)
       }
       throw new FetchError(err.status, err.message)
     }
-    return preferencesFile
+    return preferencesFile as NamedNode
   }
 
   getTypeIndex (me: NamedNode | string, preferencesFile: NamedNode | string, isPublic: boolean): NamedNode[] {
     // console.log('getTypeIndex', this.store.each(me, undefined, undefined, preferencesFile), isPublic, preferencesFile)
     return this.store.each(
-      me,
+      me as NamedNode,
       (isPublic ? ns.solid('publicTypeIndex') : ns.solid('privateTypeIndex')),
       undefined,
-      preferencesFile
-    )
+      preferencesFile as NamedNode
+    ) as NamedNode[]
   }
 
   getContainerElements (cont: NamedNode) {
@@ -138,7 +147,10 @@ export class SolidLogic {
       })
   }
 
-  load (doc: NamedNode | string) {
+  load (doc: NamedNode | NamedNode[] | string) {
+    if (!this.store.fetcher) {
+      throw new Error('Cannot load doc(s), have no fetcher')
+    }
     return this.store.fetcher.load(doc)
   }
 
@@ -156,7 +168,7 @@ export class SolidLogic {
     if (publicProfile) {
       publicIndexes = this.getTypeIndex(me, publicProfile, true)
       try {
-        await this.load(publicIndexes)
+        await this.load(publicIndexes as NamedNode[])
       } catch (err) {
         onWarning(new Error(`loadIndex: loading public type index(es) ${err}`))
       }
@@ -186,6 +198,9 @@ export class SolidLogic {
   }
 
   async createEmptyRdfDoc (doc: NamedNode, comment: string) {
+    if (!this.store.fetcher) {
+      throw new Error('Cannot create empty rdf doc, have no fetcher')
+    }
     await this.store.fetcher.webOperation('PUT', doc.uri, {
       data: `# ${new Date()} ${comment}
 `,
@@ -199,6 +214,9 @@ export class SolidLogic {
     ins: Array<Statement> = []
   ): Promise<void> {
     return new Promise((resolve, reject) => {
+      if (!this.store.updater) {
+        throw new Error('Cannot updatePromise, have no updater')
+      }
       this.store.updater.update(del, ins, function (_uri, ok, errorBody) {
         if (!ok) {
           reject(new Error(errorBody))
@@ -214,7 +232,7 @@ export class SolidLogic {
   }
 
   async getContainerMembers(containerUrl) {
-    await this.store.fetcher.load(this.store.sym(containerUrl));
+    await this.load(this.store.sym(containerUrl));
     return this.store.statementsMatching(this.store.sym(containerUrl), this.store.sym('http://www.w3.org/ns/ldp#contains')).map((st: Statement) => st.object.value);
   }
 
@@ -222,11 +240,11 @@ export class SolidLogic {
     try {
       if (this.isContainer(url)) {
         const aclDocUrl = await this.findAclDocUrl(url);
-        await this.store.fetcher.fetch(aclDocUrl, { method: 'DELETE' });
+        await this.fetcher.fetch(aclDocUrl, { method: 'DELETE' });
         const containerMembers = await this.getContainerMembers(url);
         await Promise.all(containerMembers.map(url => this.recursiveDelete(url)));
       }
-      return this.store.fetcher.fetch(url, { method: 'DELETE' });
+      return this.fetcher.fetch(url, { method: 'DELETE' });
     } catch (e) {
       // console.log(`Please manually remove ${url} from your system under test.`, e);
     }
