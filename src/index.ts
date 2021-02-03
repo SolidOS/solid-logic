@@ -153,7 +153,11 @@ export class SolidLogic {
     }
     // force = true to reload the doc
     // but first remove doc: this is to avoid just adding quads
-    if (options && options.force) this.store.removeDocument(doc as NamedNode)
+    if (options && options.force) {
+      let removeDoc: any[] = [doc].flat()
+      if (typeof doc === 'string') removeDoc = [this.store.sym(doc as string)]
+      removeDoc.forEach(item => this.store.removeDocument(item as NamedNode))
+    }
     return this.store.fetcher.load(doc, options)
   }
 
