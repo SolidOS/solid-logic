@@ -1,5 +1,4 @@
-import {sym} from "rdflib";
-import {AuthnLogic, Session} from "./index";
+import {AuthnLogic} from "./index";
 
 /**
  * Fallback, if no auth client has been provided to solid-logic

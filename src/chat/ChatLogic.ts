@@ -1,7 +1,7 @@
-import {NamedNode, st} from 'rdflib'
+import {NamedNode, Node, st, term} from 'rdflib'
 import {LiveStore} from "../index";
-import {newThing} from "../uri";
 import {ProfileLogic} from "../profile/ProfileLogic";
+import {newThing} from "../uri";
 import {determineChatContainer} from "./determineChatContainer";
 
 
@@ -107,20 +107,19 @@ export class ChatLogic {
 
     private mintNew (newPaneOptions) {
         const kb = this.store
-        var updater = kb.updater
+        const updater = kb.updater
         if (newPaneOptions.me && !newPaneOptions.me.uri) {
             throw new Error('chat mintNew:  Invalid userid ' + newPaneOptions.me)
         }
 
-        var newInstance = (newPaneOptions.newInstance =
+        const newInstance = (newPaneOptions.newInstance =
             newPaneOptions.newInstance ||
             kb.sym(newPaneOptions.newBase + CHAT_LOCATION_IN_CONTAINER))
-        var newChatDoc = newInstance.doc()
+        const newChatDoc = newInstance.doc()
 
         kb.add(newInstance, this.ns.rdf('type'), this.ns.meeting('LongChat'), newChatDoc)
         kb.add(newInstance, this.ns.dc('title'), 'Chat channel', newChatDoc)
-        // @ts-ignore
-        kb.add(newInstance, this.ns.dc('created'), new Date(Date.now()), newChatDoc)
+        kb.add(newInstance, this.ns.dc('created'), term<Node>(new Date(Date.now())), newChatDoc)
         if (newPaneOptions.me) {
             kb.add(newInstance, this.ns.dc('author'), newPaneOptions.me, newChatDoc)
         }
