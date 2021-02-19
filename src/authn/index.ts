@@ -1,9 +1,9 @@
-import {NamedNode} from "rdflib";
+import { NamedNode } from "rdflib";
 
 export interface Session {
-    webId: string
+  webId: string;
 }
 
 export interface AuthnLogic {
-    currentUser: () => NamedNode | null
+  currentUser: () => NamedNode | null;
 }

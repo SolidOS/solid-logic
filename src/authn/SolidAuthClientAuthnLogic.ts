@@ -1,19 +1,20 @@
-import {sym} from "rdflib";
-import {AuthnLogic, Session} from "./index";
+import { NamedNode, sym } from "rdflib";
+import { SolidAuthClient } from "..";
+import { AuthnLogic, Session } from "./index";
 
 /**
  * Implements AuthnLogic relying on solid-auth-client
  */
 export class SolidAuthClientAuthnLogic implements AuthnLogic {
-    private session?: Session;
+  private session?: Session;
 
-    constructor(solidAuthClient) {
-        solidAuthClient.trackSession(session => {
-            this.session = session
-        })
-    }
+  constructor(solidAuthClient: SolidAuthClient) {
+    solidAuthClient.trackSession((session) => {
+      this.session = session;
+    });
+  }
 
-    currentUser() {
-        return this.session?.webId ? sym(this.session?.webId) : null
-    }
+  currentUser(): NamedNode | null {
+    return this.session?.webId ? sym(this.session?.webId) : null;
+  }
 }
