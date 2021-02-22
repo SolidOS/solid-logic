@@ -61,7 +61,7 @@ describe("Utility logic", () => {
   function containerIsEmpty() {
     fetchMock.mockOnceIf(
       "https://container.com/",
-      " ", // FIXME: https://github.com/solid/solid-logic/issues/16
+      " ", // FIXME: https://github.com/jefflau/jest-fetch-mock/issues/189
       {
         headers: { "Content-Type": "text/turtle" },
       }
