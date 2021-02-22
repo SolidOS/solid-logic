@@ -61,6 +61,57 @@ describe("Inbox logic", () => {
       });
     });
   });
+  describe.only('createInboxFor', () => {
+    beforeEach(async () => {
+      aliceHasValidProfile();
+      fetchMock.mockIf(
+        "https://alice.example/p2p-inboxes/Peer%20Person/",
+        " ");
+      //   , {
+      //     status: 200,
+      //     headers: {
+      //       Link: '<https://some/acl>; rel="acl"',
+      //     }
+      //   }
+      // )
+      fetchMock.mockIf("https://some/acl", "Created", { status: 201 });
+
+      await inbox.createInboxFor('https://peer.com/#me', 'Peer Person');
+    });
+    it("creates the inbox", () => {
+      expect(fetchMock.mock.calls).toEqual([
+        [ "https://alice.example/profile/card", fetchMock.mock.calls[0][1] ],
+        [ "https://alice.example/p2p-inboxes/Peer%20Person/", {
+          body: " ",
+          headers: {
+            "Content-Type": "text/turtle",
+            "If-None-Match": "*",
+            Link: "<http://www.w3.org/ns/ldp#BasicContainer>; rel=\"type\"",
+          },
+          method: "PUT"      
+        }],
+        // [ "https://alice.example/p2p-inboxes/Peer%20Person/", undefined ],
+        // [ "https://some/acl", {
+        //   body: '@prefix acl: <http://www.w3.org/ns/auth/acl#>.\n' +
+        //   '\n' +
+        //   '<#alice> a acl:Authorization;\n' +
+        //   '  acl:agent <https://alice.example/profile/card#me>;\n' +
+        //   '  acl:accessTo <https://alice.example/p2p-inboxes/Peer%20Person/>;\n' +
+        //   '  acl:default <https://alice.example/p2p-inboxes/Peer%20Person/>;\n' +
+        //   '  acl:mode acl:Read, acl:Write, acl:Control.\n' +
+        //   '<#bobAccessTo> a acl:Authorization;\n' +
+        //   '  acl:agent <https://peer.com/#me>;\n' +
+        //   '  acl:accessTo <https://alice.example/p2p-inboxes/Peer%20Person/>;\n' +
+        //   '  acl:mode acl:Append.\n',
+        //   headers: [
+        //     [ 'Content-Type', 'text/turtle' ]
+        //   ],
+        //   method: 'PUT'
+        // }]
+      ]);
+    });
+
+  });
   describe('markAsRead', () => {
     beforeEach(async () => {
       fetchMock.mockOnceIf(
@@ -100,6 +151,22 @@ describe("Inbox logic", () => {
       ]);
     });
   });
+
+  function aliceHasValidProfile() {
+    fetchMock.mockOnceIf(
+      "https://alice.example/profile/card",
+      `
+            <https://alice.example/profile/card#me>
+              <http://www.w3.org/ns/pim/space#storage> <https://alice.example/> ;
+              <http://www.w3.org/ns/solid/terms#privateTypeIndex> <https://alice.example/settings/privateTypeIndex.ttl> ;
+            .`,
+      {
+        headers: {
+          "Content-Type": "text/turtle",
+        },
+      }
+    );
+  }
 
   function bobHasAnInbox() {
     fetchMock.mockOnceIf(

@@ -43,8 +43,8 @@ export class InboxLogic {
   }
   async createInboxFor(peerWebId: string, nick: string) {
     const myWebId: NamedNode = (await this.profile.loadMe());
-    const podRoot = await this.profile.getPodRoot(myWebId);
-    const ourInbox = `${podRoot}/p2p-inboxes/${nick}/`;
+    const podRoot: NamedNode = await this.profile.getPodRoot(myWebId);
+    const ourInbox = `${podRoot.value}p2p-inboxes/${encodeURIComponent(nick)}/`;
     await this.util.createContainer(ourInbox);
     const aclDocUrl = await this.util.findAclDocUrl(ourInbox);
     await this.util.setSinglePeerAccess({
