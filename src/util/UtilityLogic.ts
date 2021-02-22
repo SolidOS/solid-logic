@@ -58,7 +58,7 @@ export class UtilityLogic {
       '  acl:mode acl:Read, acl:Write, acl:Control.',
       ''
     ].join('\n')
-    if (accessToModes) {
+    if (options.accessToModes) {
       str += [
         '<#bobAccessTo> a acl:Authorization;',
         `  acl:agent <${options.peerWebId}>;`,
@@ -67,7 +67,7 @@ export class UtilityLogic {
         ''
       ].join('\n')
     }
-    if (defaultModes) {
+    if (options.defaultModes) {
       str += [
         '<#bobDefault> a acl:Authorization;',
         `  acl:agent <${options.peerWebId}>;`,
