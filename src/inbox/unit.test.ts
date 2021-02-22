@@ -21,8 +21,9 @@ describe("Inbox logic", () => {
     fetchMock.mockResponse("Not Found", {
       status: 404,
     });
+    const fetcher = { fetch: fetchMock };
     store = rdf.graph();
-    store.fetcher = rdf.fetcher(store, { fetch: fetchMock });
+    store.fetcher = rdf.fetcher(store, fetcher);
     store.updater = new UpdateManager(store);
     const authn = {
       currentUser: () => {
@@ -30,11 +31,11 @@ describe("Inbox logic", () => {
       },
     };
     const profile = new ProfileLogic(store, ns, authn);
-    const util = new UtilityLogic(store, ns, store.fetcher);
+    const util = new UtilityLogic(store, ns, fetcher);
     inbox = new InboxLogic(store, ns, profile, util);
   });
 
-  describe("getInboxMembers", () => {
+  describe("getNewMessages", () => {
     describe("When inbox is empty", () => {
       let result;
       beforeEach(async () => {
@@ -58,6 +59,44 @@ describe("Inbox logic", () => {
           'https://container.com/foo.txt'
         ].sort());
       });
+    });
+  });
+  describe('markAsRead', () => {
+    it('moves the item to archive', async () => {
+      fetchMock.mockOnceIf(
+        "https://container.com/item.ttl",
+        "<#some> <#inbox> <#item> .",
+        {
+          headers: { "Content-Type": "text/turtle" },
+        }
+      );
+      fetchMock.mockOnceIf(
+        "https://container.com/archive/2111/03/31/item.ttl",
+        "Created",
+        {
+          status: 201,
+          headers: { "Content-Type": "text/turtle" },
+        }
+      );
+
+      await inbox.markAsRead("https://container.com/item.ttl", new Date('31 March 2111 UTC'));
+      expect(fetchMock.mock.calls).toEqual([
+        [ "https://container.com/item.ttl" ],
+        [
+          "https://container.com/archive/2111/03/31/item.ttl",
+          {
+            "body": "<#some> <#inbox> <#item> .",
+            "headers": [
+              [
+                "Content-Type",
+                "text/turtle",
+              ],
+            ],
+            "method": "PUT",
+          },
+        ],
+        [ "https://container.com/item.ttl", { method: 'DELETE' } ],
+      ]);
     });
   });
 
@@ -85,6 +124,16 @@ describe("Inbox logic", () => {
     fetchMock.mockOnceIf(
       "https://container.com/",
       "<.> <http://www.w3.org/ns/ldp#contains> <./foo.txt>, <./bar/> .",
+      {
+        headers: { "Content-Type": "text/turtle" },
+      }
+    );
+  }
+
+  function inboxItemExists() {
+    fetchMock.mockOnceIf(
+      "https://container.com/item.ttl",
+      "<#some> <#inbox> <#item> .",
       {
         headers: { "Content-Type": "text/turtle" },
       }

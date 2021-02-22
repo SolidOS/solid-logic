@@ -92,4 +92,12 @@ export class UtilityLogic {
     this.store.statements.slice().forEach(this.store.remove.bind(this.store));
   }
 
+  getArchiveUrl(baseUrl: string, date: Date) {
+    const year = date.getUTCFullYear();
+    const month = ('0' + (date.getUTCMonth()+1)).slice(-2);
+    const day = ('0' + (date.getUTCDate())).slice(-2);
+    const parts = baseUrl.split('/');
+    const filename = parts[parts.length -1 ];
+    return new URL(`./archive/${year}/${month}/${day}/${filename}`, baseUrl).toString();
+  }
 }

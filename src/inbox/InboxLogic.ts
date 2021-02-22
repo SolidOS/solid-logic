@@ -40,4 +40,24 @@ export class InboxLogic {
     const urls = await this.util.getContainerMembers(inbox.value);
     return urls.filter(url => !this.util.isContainer(url));
   }
+  async markAsRead(url: string, date: Date) {
+    const downloaded = await this.util.fetcher.fetch(url);
+    if (downloaded.status !== 200) {
+      throw new Error(`Not OK! ${url}`);
+    }
+    const archiveUrl = this.util.getArchiveUrl(url, date);
+    const options =  {
+      method: 'PUT',
+      body: await downloaded.text(),
+      headers: [
+        [ 'Content-Type', downloaded.headers.get('Content-Type') || 'application/octet-stream' ]
+      ]
+    };
+    const uploaded = await this.util.fetcher.fetch(archiveUrl, options);
+    if (uploaded.status.toString()[0] === '2') {
+      await this.store.fetcher._fetch(url, {
+        method: 'DELETE'
+      });
+    }
+  }
 }
