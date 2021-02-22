@@ -8,10 +8,8 @@ import { SolidAuthClientAuthnLogic } from "./authn/SolidAuthClientAuthnLogic";
 import { ChatLogic } from "./chat/ChatLogic";
 import * as debug from "./debug";
 import { ProfileLogic } from "./profile/ProfileLogic";
+import { UtilityLogic } from "./util/UtilityLogic";
 
-export const ACL_LINK = rdf.sym(
-  "http://www.iana.org/assignments/link-relations/acl"
-);
 
 const ns: SolidNamespace = solidNamespace(rdf);
 
@@ -48,6 +46,7 @@ export class SolidLogic {
   chat: ChatLogic;
   profile: ProfileLogic;
   authn: AuthnLogic;
+  util: UtilityLogic;
 
   constructor(fetcher: { fetch: () => any }, solidAuthClient: SolidAuthClient) {
     this.store = rdf.graph() as LiveStore; // Make a Quad store
@@ -65,31 +64,15 @@ export class SolidLogic {
     }
     this.profile = new ProfileLogic(this.store, ns, this.authn);
     this.chat = new ChatLogic(this.store, ns, this.profile);
+    this.util = new UtilityLogic(this.store, ns, this.fetcher);
   }
 
-  async findAclDocUrl(url: string) {
-    const doc = this.store.sym(url);
-    await this.load(doc);
-    const docNode = this.store.any(doc, ACL_LINK);
-    if (!docNode) {
-      throw new Error(`No ACL link discovered for ${url}`);
-    }
-    return docNode.value;
+  findAclDocUrl(url: string) {
+    return this.util.findAclDocUrl(url);
   }
 
-  async loadDoc(profileDocument: NamedNode): Promise<void> {
-    // Load the profile into the knowledge base (fetcher.store)
-    //   withCredentials: Web arch should let us just load by turning off creds helps CORS
-    //   reload: Gets around a specific old Chrome bug caching/origin/cors
-    // console.log('loading', profileDocument)
-    if (!this.store.fetcher) {
-      throw new Error("Cannot load doc, have no fetcher");
-    }
-    await this.store.fetcher.load(profileDocument, {
-      withCredentials: false,
-      cache: "reload",
-    });
-    // console.log('loaded', profileDocument, this.store)
+  loadDoc(doc: NamedNode): Promise<void> {
+    return this.util.loadDoc(doc);
   }
 
   async loadProfile(me: NamedNode): Promise<NamedNode> {
@@ -176,10 +159,6 @@ export class SolidLogic {
       undefined,
       preferencesFile as NamedNode
     ) as NamedNode[];
-  }
-
-  getContainerElements(cont: NamedNode) {
-    return this.store.each(cont, ns.ldp("contains"));
   }
 
   getRegistrations(instance, theClass) {
@@ -279,37 +258,19 @@ export class SolidLogic {
   }
 
   isContainer(url: string) {
-    return url.substr(-1) === "/";
+    return this.util.isContainer(url);
   }
 
-  async getContainerMembers(containerUrl) {
-    await this.load(this.store.sym(containerUrl));
-    return this.store
-      .statementsMatching(
-        this.store.sym(containerUrl),
-        this.store.sym("http://www.w3.org/ns/ldp#contains")
-      )
-      .map((st: Statement) => st.object.value);
+  getContainerMembers(containerUrl) {
+    return this.util.getContainerMembers(containerUrl);
   }
 
   async recursiveDelete(url: string) {
-    try {
-      if (this.isContainer(url)) {
-        const aclDocUrl = await this.findAclDocUrl(url);
-        await this.fetcher.fetch(aclDocUrl, { method: "DELETE" });
-        const containerMembers = await this.getContainerMembers(url);
-        await Promise.all(
-          containerMembers.map((url) => this.recursiveDelete(url))
-        );
-      }
-      return this.fetcher.fetch(url, { method: "DELETE" });
-    } catch (e) {
-      // console.log(`Please manually remove ${url} from your system under test.`, e);
-    }
+    return this.util.recursiveDelete(url);
   }
 
   clearStore() {
-    this.store.statements.slice().forEach(this.store.remove.bind(this.store));
+    return this.util.clearStore();
   }
 
   async fetch(url: string, options?: any) {

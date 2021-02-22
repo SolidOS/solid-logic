@@ -30,6 +30,15 @@ export class ProfileLogic {
     return podRoot as NamedNode;
   }
 
+  async getMainInbox(user: NamedNode): Promise<NamedNode> {
+    await this.store.fetcher.load(user);
+    const mainInbox = this.store.any(user, this.ns.ldp("inbox"), undefined, user.doc());
+    if (!mainInbox) {
+      throw new Error("User main inbox not found!");
+    }
+    return mainInbox as NamedNode;
+  }
+
   private findStorage(me: NamedNode) {
     return this.store.any(me, this.ns.space("storage"), undefined, me.doc());
   }
