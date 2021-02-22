@@ -62,7 +62,7 @@ describe("Inbox logic", () => {
     });
   });
   describe('markAsRead', () => {
-    it('moves the item to archive', async () => {
+    beforeEach(async () => {
       fetchMock.mockOnceIf(
         "https://container.com/item.ttl",
         "<#some> <#inbox> <#item> .",
@@ -78,8 +78,9 @@ describe("Inbox logic", () => {
           headers: { "Content-Type": "text/turtle" },
         }
       );
-
       await inbox.markAsRead("https://container.com/item.ttl", new Date('31 March 2111 UTC'));
+    });
+    it('moves the item to archive', async () => {
       expect(fetchMock.mock.calls).toEqual([
         [ "https://container.com/item.ttl" ],
         [
