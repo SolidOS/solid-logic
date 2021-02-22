@@ -60,7 +60,7 @@ export class UtilityLogic {
     return url.substr(-1) === "/";
   }
 
-  async getContainerMembers(containerUrl) {
+  async getContainerMembers(containerUrl: string) {
     await this.store.fetcher.load(this.store.sym(containerUrl));
     return this.store
       .statementsMatching(
@@ -76,7 +76,7 @@ export class UtilityLogic {
     try {
       if (this.isContainer(url)) {
         const aclDocUrl = await this.findAclDocUrl(url);
-        await this.store.fetcher.fetch(aclDocUrl, { method: "DELETE" });
+        await this.fetcher.fetch(aclDocUrl, { method: "DELETE" });
         const containerMembers = await this.getContainerMembers(url);
         await Promise.all(
           containerMembers.map((url) => this.recursiveDelete(url))

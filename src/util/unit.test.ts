@@ -13,7 +13,7 @@ const alice = rdf.sym("https://alice.example/profile/card#me");
 const bob = rdf.sym("https://bob.example/profile/card#me");
 
 describe("Utility logic", () => {
-  let Utility;
+  let util;
   let store;
   beforeEach(() => {
     fetchMock.resetMocks();
@@ -29,7 +29,7 @@ describe("Utility logic", () => {
       },
     };
     const profile = new ProfileLogic(store, ns, authn);
-    Utility = new UtilityLogic(store, ns, store.fetcher);
+    util = new UtilityLogic(store, ns, store.fetcher);
   });
 
   describe("getContainerMembers", () => {
@@ -37,7 +37,7 @@ describe("Utility logic", () => {
       let result;
       beforeEach(async () => {
         containerIsEmpty();
-        result = await Utility.getContainerMembers('http://container.com/');
+        result = await util.getContainerMembers('https://container.com/');
       });
       it("Resolves to an empty array", () => {
         expect(result).toEqual([]);
@@ -47,7 +47,7 @@ describe("Utility logic", () => {
       let result;
       beforeEach(async () => {
         containerHasSomeContainmentTriples();
-        result = await Utility.getContainerMembers('https://container.com/');
+        result = await util.getContainerMembers('https://container.com/');
       });
       it("Resolves to an array with some URLs", () => {
         expect(result.sort()).toEqual([
@@ -61,7 +61,7 @@ describe("Utility logic", () => {
   function containerIsEmpty() {
     fetchMock.mockOnceIf(
       "https://container.com/",
-      "",
+      " ", // FIXME: https://github.com/solid/solid-logic/issues/16
       {
         headers: { "Content-Type": "text/turtle" },
       }
