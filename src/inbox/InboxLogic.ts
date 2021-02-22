@@ -41,20 +41,19 @@ export class InboxLogic {
     const urls = await this.util.getContainerMembers(inbox.value);
     return urls.filter(url => !this.util.isContainer(url));
   }
-  async createInboxFor(webId: string, nick: string) {
-    const podRoot = await this.profile.getPodRoot(await this.profile.loadMe());
-    const ourInbox = `${podRoot}/p2p-inboxes/${uuid()}/`;
+  async createInboxFor(peerWebId: string, nick: string) {
+    const myWebId: NamedNode = (await this.profile.loadMe());
+    const podRoot = await this.profile.getPodRoot(myWebId);
+    const ourInbox = `${podRoot}/p2p-inboxes/${nick}/`;
     await this.util.createContainer(ourInbox);
     const aclDocUrl = await this.util.findAclDocUrl(ourInbox);
-    this.util.fetcher.fetch(aclDocUrl, {
-      method: 'PUT',
-      body: '' +
-        '' +
-        '',
-      headers: [
-        [ 'Content-Type', 'text/turtle' ]
-      ]
-    })
+    await this.util.setSinglePeerAccess({
+      ownerWebId: myWebId.value,
+      peerWebId,
+      accessToModes: 'acl:Append',
+      target: ourInbox
+    });
+    return ourInbox;
   }
   async markAsRead(url: string, date: Date) {
     const downloaded = await this.util.fetcher.fetch(url);
