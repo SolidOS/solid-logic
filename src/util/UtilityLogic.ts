@@ -41,6 +41,51 @@ export class UtilityLogic {
     return docNode.value;
   }
 
+  // Copied from https://github.com/solid/web-access-control-tests/blob/v3.0.0/test/surface/delete.test.ts#L5
+  async setSinglePeerAccess(options: {
+    ownerWebId: string,
+    peerWebId: string,
+    accessToModes?: string,
+    defaultModes?: string,
+    target: string
+  }) {
+    let str = [
+      '@prefix acl: <http://www.w3.org/ns/auth/acl#>.',
+      '',
+      `<#alice> a acl:Authorization;\n  acl:agent <${options.ownerWebId}>;`,
+      `  acl:accessTo <${options.target}>;`,
+      `  acl:default <${options.target}>;`,
+      '  acl:mode acl:Read, acl:Write, acl:Control.',
+      ''
+    ].join('\n')
+    if (accessToModes) {
+      str += [
+        '<#bobAccessTo> a acl:Authorization;',
+        `  acl:agent <${options.peerWebId}>;`,
+        `  acl:accessTo <${options.target}>;`,
+        `  acl:mode ${options.accessToModes}.`,
+        ''
+      ].join('\n')
+    }
+    if (defaultModes) {
+      str += [
+        '<#bobDefault> a acl:Authorization;',
+        `  acl:agent <${options.peerWebId}>;`,
+        `  acl:default <${options.target}>;`,
+        `  acl:mode ${options.defaultModes}.`,
+        ''
+      ].join('\n')
+    }
+    const aclDocUrl = await this.findAclDocUrl(options.target);
+    return this.fetcher.fetch(aclDocUrl, {
+      method: 'PUT',
+      body: str,
+      headers: [
+        [ 'Content-Type', 'text/turtle' ]
+      ]
+    });
+  }
+
   async loadDoc(doc: NamedNode): Promise<void> {
     // Load a document into the knowledge base (fetcher.store)
     //   withCredentials: Web arch should let us just load by turning off creds helps CORS
@@ -58,6 +103,25 @@ export class UtilityLogic {
 
   isContainer(url: string) {
     return url.substr(-1) === "/";
+  }
+
+  async createContainer(url: string) {
+    if (!this.isContainer(url)) {
+      throw new Error(`Not a container URL ${url}`);
+    }
+    // Copied from https://github.com/solid/solid-crud-tests/blob/v3.1.0/test/surface/create-container.test.ts#L56-L64
+    const result = await this.fetcher.fetch(url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "text/turtle",
+        "If-None-Match": "*",
+        Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"', // See https://github.com/solid/node-solid-server/issues/1465
+      },
+      body: " ", // work around https://github.com/michielbdejong/community-server/issues/4#issuecomment-776222863
+    });
+    if (result.status.toString()[0] !== '2') {
+      throw new Error(`Not OK: got ${result.status} response while creating container at ${url}`);
+    }
   }
 
   async getContainerMembers(containerUrl: string) {

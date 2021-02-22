@@ -1,3 +1,4 @@
+import { v4 as uuid } from "uuid";
 import { NamedNode, Node, st, term } from "rdflib";
 import { LiveStore, SolidNamespace } from "../index";
 import { ProfileLogic } from "../profile/ProfileLogic";
@@ -39,6 +40,21 @@ export class InboxLogic {
     const inbox = await this.profile.getMainInbox(user);
     const urls = await this.util.getContainerMembers(inbox.value);
     return urls.filter(url => !this.util.isContainer(url));
+  }
+  async createInboxFor(webId: string, nick: string) {
+    const podRoot = await this.profile.getPodRoot(await this.profile.loadMe());
+    const ourInbox = `${podRoot}/p2p-inboxes/${uuid()}/`;
+    await this.util.createContainer(ourInbox);
+    const aclDocUrl = await this.util.findAclDocUrl(ourInbox);
+    this.util.fetcher.fetch(aclDocUrl, {
+      method: 'PUT',
+      body: '' +
+        '' +
+        '',
+      headers: [
+        [ 'Content-Type', 'text/turtle' ]
+      ]
+    })
   }
   async markAsRead(url: string, date: Date) {
     const downloaded = await this.util.fetcher.fetch(url);
