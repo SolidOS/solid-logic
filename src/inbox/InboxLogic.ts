@@ -37,7 +37,7 @@ export class InboxLogic {
       user = await this.profile.loadMe();
     }
     const inbox = await this.profile.getMainInbox(user);
-    const urls = await this.util.getContainerMembers(inbox);
+    const urls = await this.util.getContainerMembers(inbox.value);
     return urls.filter(url => !this.util.isContainer(url));
   }
 }
