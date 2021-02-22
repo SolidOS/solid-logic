@@ -69,7 +69,7 @@ export class SolidLogic {
 
   async findAclDocUrl (url: string) {
     const doc = this.store.sym(url)
-    await this.load(doc, { force: true })
+    await this.load(doc)
     const docNode = this.store.any(doc, ACL_LINK)
     if (!docNode) {
       throw new Error(`No ACL link discovered for ${url}`);
@@ -190,18 +190,11 @@ export class SolidLogic {
       });
   }
 
-  load (doc: NamedNode | NamedNode[] | string, options?: any) {
+  load (doc: NamedNode | NamedNode[] | string) {
     if (!this.store.fetcher) {
       throw new Error("Cannot load doc(s), have no fetcher");
     }
-    // force = true to reload the doc
-    // but first remove doc: this is to avoid just adding quads
-    if (options && options.force) {
-      let removeDoc: any[] = [doc].flat()
-      if (typeof doc === 'string') removeDoc = [this.store.sym(doc as string)]
-      removeDoc.forEach(item => this.store.removeDocument(item as NamedNode))
-    }
-    return this.store.fetcher.load(doc, options)
+    return this.store.fetcher.load(doc)
   }
 
   async loadIndexes(
@@ -290,7 +283,8 @@ export class SolidLogic {
   }
 
   async getContainerMembers(containerUrl) {
-    await this.load(this.store.sym(containerUrl), { force: true })
+    // update to latest index.ttl content
+    await this.store.fetcher.refresh(this.store.sym(containerUrl))
     return this.store.statementsMatching(this.store.sym(containerUrl), this.store.sym('http://www.w3.org/ns/ldp#contains')).map((st: Statement) => st.object.value);
   }
 
