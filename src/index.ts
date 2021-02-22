@@ -10,6 +10,7 @@ import * as debug from "./debug";
 import { ProfileLogic } from "./profile/ProfileLogic";
 import { UtilityLogic } from "./util/UtilityLogic";
 
+export { ACL_LINK } from './util/UtilityLogic';
 
 const ns: SolidNamespace = solidNamespace(rdf);
 
