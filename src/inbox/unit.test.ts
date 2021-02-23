@@ -61,19 +61,26 @@ describe("Inbox logic", () => {
       });
     });
   });
-  describe.only('createInboxFor', () => {
+  describe('createInboxFor', () => {
     beforeEach(async () => {
       aliceHasValidProfile();
-      fetchMock.mockIf(
+      // First for the PUT:
+      fetchMock.mockOnceIf(
         "https://alice.example/p2p-inboxes/Peer%20Person/",
-        " ");
-      //   , {
-      //     status: 200,
-      //     headers: {
-      //       Link: '<https://some/acl>; rel="acl"',
-      //     }
-      //   }
-      // )
+        "Created", {
+          status: 201
+        }
+      )
+      // Then for the GET to read the ACL link:
+      fetchMock.mockOnceIf(
+        "https://alice.example/p2p-inboxes/Peer%20Person/",
+        " ", {
+          status: 200,
+          headers: {
+            Link: '<https://some/acl>; rel="acl"',
+          }
+        }
+      )
       fetchMock.mockIf("https://some/acl", "Created", { status: 201 });
 
       await inbox.createInboxFor('https://peer.com/#me', 'Peer Person');
@@ -90,24 +97,24 @@ describe("Inbox logic", () => {
           },
           method: "PUT"      
         }],
-        // [ "https://alice.example/p2p-inboxes/Peer%20Person/", undefined ],
-        // [ "https://some/acl", {
-        //   body: '@prefix acl: <http://www.w3.org/ns/auth/acl#>.\n' +
-        //   '\n' +
-        //   '<#alice> a acl:Authorization;\n' +
-        //   '  acl:agent <https://alice.example/profile/card#me>;\n' +
-        //   '  acl:accessTo <https://alice.example/p2p-inboxes/Peer%20Person/>;\n' +
-        //   '  acl:default <https://alice.example/p2p-inboxes/Peer%20Person/>;\n' +
-        //   '  acl:mode acl:Read, acl:Write, acl:Control.\n' +
-        //   '<#bobAccessTo> a acl:Authorization;\n' +
-        //   '  acl:agent <https://peer.com/#me>;\n' +
-        //   '  acl:accessTo <https://alice.example/p2p-inboxes/Peer%20Person/>;\n' +
-        //   '  acl:mode acl:Append.\n',
-        //   headers: [
-        //     [ 'Content-Type', 'text/turtle' ]
-        //   ],
-        //   method: 'PUT'
-        // }]
+        [ "https://alice.example/p2p-inboxes/Peer%20Person/", fetchMock.mock.calls[2][1] ],
+        [ "https://some/acl", {
+          body: '@prefix acl: <http://www.w3.org/ns/auth/acl#>.\n' +
+          '\n' +
+          '<#alice> a acl:Authorization;\n' +
+          '  acl:agent <https://alice.example/profile/card#me>;\n' +
+          '  acl:accessTo <https://alice.example/p2p-inboxes/Peer%20Person/>;\n' +
+          '  acl:default <https://alice.example/p2p-inboxes/Peer%20Person/>;\n' +
+          '  acl:mode acl:Read, acl:Write, acl:Control.\n' +
+          '<#bobAccessTo> a acl:Authorization;\n' +
+          '  acl:agent <https://peer.com/#me>;\n' +
+          '  acl:accessTo <https://alice.example/p2p-inboxes/Peer%20Person/>;\n' +
+          '  acl:mode acl:Append.\n',
+          headers: [
+            [ 'Content-Type', 'text/turtle' ]
+          ],
+          method: 'PUT'
+        }]
       ]);
     });
 
