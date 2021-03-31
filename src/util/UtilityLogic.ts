@@ -124,16 +124,21 @@ export class UtilityLogic {
     }
   }
 
-  async getContainerMembers(containerUrl: string) {
-    await this.store.fetcher.load(this.store.sym(containerUrl));
+  async getContainerElements(containerNode: NamedNode): NamedNode[] {
+    await this.store.fetcher.load(containerNode);
     return this.store
       .statementsMatching(
-        this.store.sym(containerUrl),
+        containerNode,
         this.store.sym("http://www.w3.org/ns/ldp#contains"),
         undefined,
-        this.store.sym(containerUrl).doc()
+        containerNode.doc()
       )
-      .map((st: Statement) => st.object.value);
+      .map((st: Statement) => st.object);
+  }
+
+  async getContainerMembers(containerUrl: string): string[] {
+    const nodes = await this.getContainerElements(this.store.sym(containerUrl))
+    return nodes.map(node => node.value);
   }
 
   async recursiveDelete(url: string) {
