@@ -124,8 +124,7 @@ export class UtilityLogic {
     }
   }
 
-  async getContainerElements(containerNode: NamedNode): Promise<NamedNode[]> {
-    await this.store.fetcher.load(containerNode);
+  getContainerElements(containerNode: NamedNode): NamedNode[] {
     return this.store
       .statementsMatching(
         containerNode,
@@ -137,7 +136,9 @@ export class UtilityLogic {
   }
 
   async getContainerMembers(containerUrl: string): Promise<string[]> {
-    const nodes = await this.getContainerElements(this.store.sym(containerUrl))
+    const containerNode = this.store.sym(containerUrl);
+    await this.store.fetcher.load(containerNode);
+    const nodes = this.getContainerElements(containerNode);
     return nodes.map(node => node.value);
   }
 

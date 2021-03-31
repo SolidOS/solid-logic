@@ -262,7 +262,7 @@ export class SolidLogic {
     return this.util.isContainer(url);
   }
 
-  getContainerElements(containerNode: NamedNode): Promise<NamedNode[]> {
+  getContainerElements(containerNode: NamedNode): NamedNode[] {
     return this.util.getContainerElements(containerNode);
   }
 
