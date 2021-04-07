@@ -264,7 +264,11 @@ export class SolidLogic {
     return this.util.isContainer(url);
   }
 
-  getContainerMembers(containerUrl) {
+  getContainerElements(containerNode: NamedNode): NamedNode[] {
+    return this.util.getContainerElements(containerNode);
+  }
+
+  getContainerMembers(containerUrl: string): Promise<string[]> {
     return this.util.getContainerMembers(containerUrl);
   }
 
