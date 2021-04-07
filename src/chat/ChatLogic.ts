@@ -225,7 +225,7 @@ export class ChatLogic {
     }
     const inviteBody = `
 <> a <http://www.w3.org/ns/pim/meeting#LongChatInvite> ;
-${this.ns.rdf("seeAlso")} <${chatThing.value}> . 
+${this.ns.rdf("seeAlso")} <${chatThing.value}> .
   `;
 
     const inviteResponse = await this.store.fetcher.webOperation(
