@@ -1,9 +1,9 @@
-import { v4 as uuid } from "uuid";
+// import { v4 as uuid } from "uuid";
 import { NamedNode, Node, st, term } from "rdflib";
 import { LiveStore, SolidNamespace } from "../index";
 import { ProfileLogic } from "../profile/ProfileLogic";
 import { UtilityLogic } from "../util/UtilityLogic";
-import { newThing } from "../uri";
+// import { newThing } from "../uri";
 
 interface NewPaneOptions {
   me?: NamedNode;
