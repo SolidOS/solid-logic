@@ -23,25 +23,25 @@
   },
   "homepage": "https://github.com/solid/solid-logic#readme",
   "devDependencies": {
-    "@babel/plugin-proposal-class-properties": "7.13.0",
-    "@babel/plugin-proposal-optional-chaining": "7.14.2",
-    "@babel/plugin-transform-async-to-generator": "7.13.0",
-    "@babel/plugin-transform-runtime": "7.14.3",
-    "@babel/preset-env": "7.14.4",
-    "@babel/preset-typescript": "7.13.0",
-    "@inrupt/solid-client-authn-browser": "^1.10.1",
-    "@types/jest": "^26.0.23",
-    "@typescript-eslint/eslint-plugin": "^4.26.1",
-    "@typescript-eslint/parser": "^4.26.1",
-    "eslint": "^7.28.0",
-    "jest": "27.0.4",
+    "@babel/plugin-proposal-class-properties": "7.14.5",
+    "@babel/plugin-proposal-optional-chaining": "7.14.5",
+    "@babel/plugin-transform-async-to-generator": "7.14.5",
+    "@babel/plugin-transform-runtime": "7.15.8",
+    "@babel/preset-env": "7.15.8",
+    "@babel/preset-typescript": "7.15.0",
+    "@inrupt/solid-client-authn-browser": "^1.11.2",
+    "@types/jest": "^27.0.2",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "eslint": "^7.32.0",
+    "jest": "27.2.5",
     "jest-fetch-mock": "^3.0.3",
-    "prettier": "^2.3.1",
-    "ts-jest": "27.0.3",
-    "typescript": "4.3.2"
+    "prettier": "^2.4.1",
+    "ts-jest": "27.0.5",
+    "typescript": "4.4.4"
   },
   "dependencies": {
-    "rdflib": "^2.2.5",
+    "rdflib": "^2.2.7",
     "solid-namespace": "^0.5.1"
   }
 }
