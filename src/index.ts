@@ -22,18 +22,26 @@ interface ConnectedStore extends Store {
 export interface LiveStore extends ConnectedStore {
   updater: UpdateManager;
   /**
-   * HACK: Something is wrong with the types in rdflib
-   * Go back and figure out what's wrong with the types
+   * HACK: waiting for d.ts in rdflib
+   * https://github.com/linkeddata/rdflib.js/pull/513
    */
-  any: any;
-  each: any;
-  holds: any;
-  sym: any;
   add: any;
-  statementsMatching: any;
+  any: any;
+  anyJS: any;
+  anyValue: any;
+  bottomTypeURIs: any;
+  each: any;
+  findSuperClassesNT: any;
+  findTypeURIs: any;
+  fromNT: any;
+  holds: any;
+  query: any;
   slice: any;
-  remove: any;
   statements: any;
+  statementsMatching: any;
+  sym: any;
+  remove: any;
+  the: any;
 }
 
 export interface SolidNamespace {
