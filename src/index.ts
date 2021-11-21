@@ -21,27 +21,6 @@ interface ConnectedStore extends Store {
 
 export interface LiveStore extends ConnectedStore {
   updater: UpdateManager;
-  /**
-   * HACK: waiting for d.ts in rdflib
-   * https://github.com/linkeddata/rdflib.js/pull/513
-   */
-  add: any;
-  any: any;
-  anyJS: any;
-  anyValue: any;
-  bottomTypeURIs: any;
-  each: any;
-  findSuperClassesNT: any;
-  findTypeURIs: any;
-  fromNT: any;
-  holds: any;
-  query: any;
-  slice: any;
-  statements: any;
-  statementsMatching: any;
-  sym: any;
-  remove: any;
-  the: any;
 }
 
 export interface SolidNamespace {
