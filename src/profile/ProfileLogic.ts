@@ -1,5 +1,5 @@
 import { NamedNode } from "rdflib";
-import { AuthnLogic } from "../authn";
+import { AuthnLogic } from "../index";
 import { LiveStore, SolidNamespace } from "../index";
 
 export class ProfileLogic {

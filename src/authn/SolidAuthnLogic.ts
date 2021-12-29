@@ -1,5 +1,5 @@
 import { NamedNode, sym } from "rdflib";
-import { AuthnLogic } from "./index";
+import { AuthnLogic } from "../index";
 import { Session } from "@inrupt/solid-client-authn-browser";
 
 /**

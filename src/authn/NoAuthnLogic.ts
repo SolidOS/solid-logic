@@ -1,4 +1,4 @@
-import { AuthnLogic } from "./index";
+import { AuthnLogic } from "../index";
 
 /**
  * Fallback, if no auth client has been provided to solid-logic

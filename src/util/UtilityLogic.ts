@@ -1,7 +1,7 @@
 import { NamedNode, Node, st, term, sym, Statement } from "rdflib";
 import { LiveStore, SolidNamespace } from "../index";
 import { ProfileLogic } from "../profile/ProfileLogic";
-import { newThing } from "../uri";
+import { newThing } from "./uri";
 
 export const ACL_LINK = sym(
   "http://www.iana.org/assignments/link-relations/acl"

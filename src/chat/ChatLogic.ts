@@ -1,7 +1,7 @@
 import { NamedNode, Node, st, term } from "rdflib";
 import { LiveStore, SolidNamespace } from "../index";
 import { ProfileLogic } from "../profile/ProfileLogic";
-import { newThing } from "../uri";
+import { newThing } from "../util/uri";
 import { determineChatContainer } from "./determineChatContainer";
 
 const CHAT_LOCATION_IN_CONTAINER = "index.ttl#this";
