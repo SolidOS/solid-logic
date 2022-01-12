@@ -20,45 +20,18 @@
  * @packageDocumentation
  */
 import { graph, namedNode, NamedNode, Namespace, serialize, st, sym } from 'rdflib'
-//import { PaneDefinition } from 'pane-registry'
-//import * as widgets from '../widgets'
 import solidNamespace from 'solid-namespace'
-//import * as utils from '../utils'
-//import { alert } from '../log'
 import authSessionImport from './authSession'
 import * as debug from '../util/debug'
 import * as $rdf from 'rdflib'
-//import { textInputStyle, buttonStyle, commentStyle } from '../style'
-// eslint-disable-next-line camelcase
 import { newThing } from "../util/uri";
 import { ACL_LINK, AuthenticationContext, solidLogicSingleton } from '../index'
 import { CrossOriginForbiddenError, FetchError, NotFoundError, SameOriginForbiddenError, UnauthorizedError } from '../logic/CustomError';
-/* global confirm */
 
 export const authSession = authSessionImport
 
 export const ns = solidNamespace($rdf)
 
-const DEFAULT_ISSUERS = [
-  {
-    name: 'Solid Community',
-    uri: 'https://solidcommunity.net'
-  },
-  {
-    name: 'Solid Web',
-    uri: 'https://solidweb.org'
-  },
-  {
-    name: 'Inrupt.net',
-    uri: 'https://inrupt.net'
-  },
-  {
-    name: 'pod.Inrupt.com',
-    uri: 'https://broker.pod.inrupt.com'
-  }
-]
-
-// const userCheckSite = 'https://databox.me/'
 
 /**
  * Look for and load the User who has control over it
@@ -74,49 +47,13 @@ export function findOriginOwner (doc: NamedNode | string): string | boolean {
 }
 
 /**
- * Saves `webId` in `context.me`
- * @param webId
- * @param context
- *
- * @returns Returns the WebID, after setting it
- */
-export function saveUser (
-  webId: NamedNode | string | null,
-  context?: AuthenticationContext
-): NamedNode | null {
-  // @@ TODO Remove the need for having context as output argument
-  let webIdUri: string
-  if (webId) {
-    webIdUri = (typeof webId === 'string') ? webId : webId.uri
-    const me = namedNode(webIdUri)
-    if (context) {
-      context.me = me
-    }
-    return me
-  }
-  return null
-}
-
-/**
- * Wrapper around [[offlineTestID]]
- * @returns {NamedNode|null}
- */
-/* export function defaultTestUser (): NamedNode | null {
-  // Check for offline override
-  const offlineId = offlineTestID()
-
-  if (offlineId) {
-    return offlineId
-  }
-
-  return null
-} */
-
-/**
  * find a user or app's context as set in window.SolidAppContext
+ * export for test only
+ * this is a const, not a function, because we have problems to jest mock it otherwise
+ * see: https://github.com/facebook/jest/issues/936#issuecomment-545080082 for more
  * @return {any} - an appContext object
  */
-export function appContext ():any {
+export const appContext = ():any => {
   let { SolidAppContext }: any = window
   SolidAppContext ||= {}
   SolidAppContext.viewingNoAuthPage = false
@@ -155,7 +92,6 @@ export function currentUser (): NamedNode | null {
     return sym(authSession.info.webId)
   }
   return offlineTestID() // null unless testing
-  // JSON.parse(localStorage['solid-auth-client']).session.webId
 }
 
 /**
@@ -163,12 +99,10 @@ export function currentUser (): NamedNode | null {
  *
  * @param context
  */
-export function logIn (context: AuthenticationContext): Promise<AuthenticationContext> {
-  const app = appContext()
-  const me = app.viewingNoAuthPage ? sym(app.webId) : offlineTestID()     // defaultTestUser() // me is a NamedNode or null
-
+/* export const logIn = (context: AuthenticationContext): Promise<AuthenticationContext> => {
+  const me = currentUser()
   if (me) {
-    context.me = me
+    saveUser(me, context)
     return Promise.resolve(context)
   }
 
@@ -176,21 +110,21 @@ export function logIn (context: AuthenticationContext): Promise<AuthenticationCo
     checkUser().then(webId => {
       // Already logged in?
       if (webId) {
-        context.me = sym(webId as string)
-        debug.log(`logIn: Already logged in as ${context.me}`)
+        /* context.me = sym(webId as string) */
+      /*  debug.log(`logIn: Already logged in as ${context.me}`)
         return resolve(context)
       }
       if (!context.div || !context.dom) {
         return resolve(context)
       }
-      /* const box = loginStatusBox(context.dom, webIdUri => {
+      const box = loginStatusBox(context.dom,  webIdUri => {
         saveUser(webIdUri, context)
         resolve(context) // always pass growing context
       })
-      context.div.appendChild(box) */
+      context.div.appendChild(box) 
     })
   })
-}
+} */
 
 /**
  * Logs the user in and loads their WebID profile document into the store
@@ -199,8 +133,7 @@ export function logIn (context: AuthenticationContext): Promise<AuthenticationCo
  *
  * @returns Resolves with the context after login / fetch
  */
-export async function logInLoadProfile (context: AuthenticationContext): Promise<AuthenticationContext> {
-  // console.log('Solid UI logInLoadProfile')
+/*  export async function logInLoadProfile (context: AuthenticationContext): Promise<AuthenticationContext> {
   if (context.publicProfile) {
     return context
   } // already done
@@ -216,10 +149,10 @@ export async function logInLoadProfile (context: AuthenticationContext): Promise
         widgets.errorMessageBlock(context.dom, err.message)
       )
     } */
-    throw new Error(`Can't log in: ${err}`)
+   /*  throw new Error(`Can't log in: ${err}`)
   }
   return context
-}
+}  */
 
 /**
  * Loads preference file
@@ -229,10 +162,10 @@ export async function logInLoadProfile (context: AuthenticationContext): Promise
  *
  * @param context
  */
-export async function logInLoadPreferences (context: AuthenticationContext): Promise<AuthenticationContext> {
+/* export async function logInLoadPreferences (context: AuthenticationContext): Promise<AuthenticationContext> {
   // console.log('Solid UI logInLoadPreferences')
   if (context.preferencesFile) return Promise.resolve(context) // already done
-
+ */
   // const statusArea = context.statusArea || context.div || null
   // // let progressDisplay
   /* function complain (message) {
@@ -246,7 +179,7 @@ export async function logInLoadPreferences (context: AuthenticationContext): Pro
     debug.log(message)
     // reject(new Error(message))
   } */
-  try {
+/*   try {
     context = await logInLoadProfile(context)
 
     // console.log('back in Solid UI after logInLoadProfile', context)
@@ -254,7 +187,7 @@ export async function logInLoadPreferences (context: AuthenticationContext): Pro
     /* if (progressDisplay) {
       progressDisplay.parentNode.removeChild(progressDisplay)
     } */
-    context.preferencesFile = preferencesFile
+  /*  context.preferencesFile = preferencesFile
   } catch (err) {
     let m2: string
     if (err instanceof UnauthorizedError) {
@@ -276,7 +209,7 @@ export async function logInLoadPreferences (context: AuthenticationContext): Pro
         /* complain(
           new Error('Sorry; no code yet to create a preference file at ')
         ) */
-      } else {
+    /*  } else {
         throw (
           new Error(`User declined to create a preference file at ${(err as any).preferencesFile || '(?)'}`)
         )
@@ -289,7 +222,7 @@ export async function logInLoadPreferences (context: AuthenticationContext): Pro
     }
   }
   return context
-}
+} */
 
 /**
  * Resolves with the same context, outputting
@@ -297,7 +230,7 @@ export async function logInLoadPreferences (context: AuthenticationContext): Pro
  *
  * @see https://github.com/solid/solid/blob/main/proposals/data-discovery.md#discoverability
  */
-async function loadIndex (
+export async function loadIndex (
   context: AuthenticationContext,
   isPublic: boolean
 ): Promise<AuthenticationContext> {
@@ -314,6 +247,7 @@ async function loadIndex (
   return context
 }
 
+// ========== WHERE iS IT USED?
 export async function loadTypeIndexes (context: AuthenticationContext) {
   const indexes = await solidLogicSingleton.loadIndexes(
     context.me as NamedNode,
@@ -423,7 +357,7 @@ async function ensureOneTypeIndex (context: AuthenticationContext, isPublic: boo
  * 2016-12-11 change to include forClass arc a la
  * https://github.com/solid/solid/blob/main/proposals/data-discovery.md
  */
-export async function findAppInstances (
+/* export async function findAppInstances (
   context: AuthenticationContext,
   theClass: NamedNode,
   isPublic?: boolean
@@ -498,11 +432,12 @@ export async function findAppInstances (
     )
   }
   return context
-}
+} */
 
 /**
  * Register a new app in a type index
  */
+// =========== used in chat in bookmark.js (solid-ui)
 export async function registerInTypeIndex (
   context: AuthenticationContext,
   instance: NamedNode,
@@ -701,7 +636,8 @@ export async function registerInTypeIndex (
  *
  * @returns Resolves with aclDoc uri on successful write
  */
-export function setACLUserPublic (
+// ======================= NOT PART OF SOLID_UI
+export function setACLUserPublic ( 
   docURI: string,
   me: NamedNode,
   options: {
@@ -820,6 +756,8 @@ function genACLText (
 /**
  * Returns `sym($SolidTestEnvironment.username)` if
  * `$SolidTestEnvironment.username` is defined as a global
+ * or 
+ * returns testID defined in the HTML page
  * @returns {NamedNode|null}
  */
 export function offlineTestID (): NamedNode | null {
@@ -832,23 +770,20 @@ export function offlineTestID (): NamedNode | null {
     debug.log('Assuming the user is ' + $SolidTestEnvironment.username)
     return sym($SolidTestEnvironment.username)
   }
-
-  /*if (
+  // hack that makes SolidOS work in offline mode by adding the webId directly in html
+  // example usage: https://github.com/solid/mashlib/blob/29b8b53c46bf02e0e219f0bacd51b0e9951001dd/test/contact/local.html#L37
+  if (
     typeof document !== 'undefined' &&
-    document.location &&
-    ('' + document.location).slice(0, 16) === 'http://localhost'
+     document.location &&
+     ('' + document.location).slice(0, 16) === 'http://localhost'
   ) {
     const div = document.getElementById('appTarget')
     if (!div) return null
     const id = div.getAttribute('testID')
     if (!id) return null
-    /* me = solidLogicSingleton.store.any(subject, ns.acl('owner')); // when testing on plane with no WebID
-     */
-   /*
     debug.log('Assuming user is ' + id)
     return sym(id)
   }
-  */
   return null
 }
 
@@ -1088,15 +1023,37 @@ function isSubdomainOf (subdomain: string, domain: string): boolean {
  */
 function webIdFromSession (session?: { webId?: string, isLoggedIn: boolean }): string | null {
   const webId = session?.webId && session.isLoggedIn ? session.webId : null
-  if (webId) {
-    saveUser(webId)
-  }
   return webId
+}
+
+/**
+ * Saves `webId` in `context.me`
+ * @param webId
+ * @param context
+ *
+ * @returns Returns the WebID, after setting it
+ */
+ export function saveUser (
+  webId: NamedNode | string | null,
+  context?: AuthenticationContext
+): NamedNode | null {
+  // @@ TODO Remove the need for having context as output argument
+  let webIdUri: string
+  if (webId) {
+    webIdUri = (typeof webId === 'string') ? webId : webId.uri
+    const me = namedNode(webIdUri)
+    if (context) {
+      context.me = me
+    }
+    return me
+  }
+  return null
 }
 
 /**
  * Retrieves currently logged in webId from either
  * defaultTestUser or SolidAuth
+ * Also activates a session after login
  * @param [setUserCallback] Optional callback
  *
  * @returns Resolves with webId uri, if no callback provided
@@ -1142,16 +1099,15 @@ export async function checkUser<T> (
   }
 
   // Check to see if already logged in / have the WebID
-  //let me = defaultTestUser()
   let me = offlineTestID()
   if (me) {
     return Promise.resolve(setUserCallback ? setUserCallback(me) : me)
   }
 
-  // doc = solidLogicSingleton.store.any(doc, ns.link('userMirror')) || doc
   const webId = webIdFromSession(authSession.info)
-
-  me = saveUser(webId)
+  if (webId) {
+    me = saveUser(webId)
+  }
 
   if (me) {
     debug.log(`(Logged in as ${me} by authentication)`)
@@ -1271,7 +1227,7 @@ export async function checkUser<T> (
   return box
 } */
 
-authSession.onLogout(async () => {
+/* authSession.onLogout(async () => {
   const issuer = window.localStorage.getItem('loginIssuer')
   if (issuer) {
     try {
@@ -1289,7 +1245,7 @@ authSession.onLogout(async () => {
     }
   }
   window.location.reload()
-})
+}) */
 
 /**
  * Workspace selection etc
@@ -1575,7 +1531,7 @@ authSession.onLogout(async () => {
  * Retrieves whether the currently logged in user is a power user
  * and/or a developer
  */
-export async function getUserRoles (): Promise<Array<NamedNode>> {
+/* export async function getUserRoles (): Promise<Array<NamedNode>> {
   try {
     const {
       me,
@@ -1590,7 +1546,7 @@ export async function getUserRoles (): Promise<Array<NamedNode>> {
     debug.warn('Unable to fetch your preferences - this was the error: ', error)
   }
   return []
-}
+} */
 
 /**
  * Filters which panes should be available, based on the result of [[getUserRoles]]

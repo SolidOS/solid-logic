@@ -39,15 +39,6 @@ describe('currentUser', () => {
   })
 })
 
-describe('findAppInstances', () => {
-  it('exists', () => {
-    expect(findAppInstances).toBeInstanceOf(Function)
-  })
-  it('runs', async () => {
-    expect(await findAppInstances({}, sym('https://test.test#'), false)).toBeInstanceOf(Object)
-  })
-})
-
 describe('findOriginOwner', () => {
   it('exists', () => {
     expect(findOriginOwner).toBeInstanceOf(Function)
@@ -57,54 +48,12 @@ describe('findOriginOwner', () => {
   })
 })
 
-describe('getUserRoles', () => {
-  it('exists', () => {
-    expect(getUserRoles).toBeInstanceOf(Function)
-  })
-  it('runs', () => {
-    expect(getUserRoles()).toBeInstanceOf(Object)
-  })
-})
-
 describe('loadTypeIndexes', () => {
   it('exists', () => {
     expect(loadTypeIndexes).toBeInstanceOf(Function)
   })
   it('runs', () => {
     expect(loadTypeIndexes({})).toBeInstanceOf(Object)
-  })
-})
-
-describe('logIn', () => {
-  it('exists', () => {
-    expect(logIn).toBeInstanceOf(Function)
-  })
-  it('runs', () => {
-    expect(logIn({})).toBeInstanceOf(Object)
-  })
-})
-
-describe('logInLoadProfile', () => {
-  it('exists', () => {
-    expect(logInLoadProfile).toBeInstanceOf(Function)
-  })
-  it('runs', async () => {
-    expect.assertions(1)
-    await logInLoadProfile({}).catch((e) => {
-      expect(e.message).toEqual('Can\'t log in: Error: Could not log in')
-    })
-  })
-})
-
-describe('logInLoadPreferences', () => {
-  it('exists', () => {
-    expect(logInLoadPreferences).toBeInstanceOf(Function)
-  })
-  it('runs', async () => {
-    expect.assertions(1)
-    await logInLoadPreferences({}).catch((e) => {
-      expect(e.message).toEqual('(via loadPrefs) Error: Can\'t log in: Error: Could not log in')
-    })
   })
 })
 

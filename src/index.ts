@@ -8,25 +8,26 @@ import {
   // filterAvailablePanes, // Async
   getSuggestedIssuers,
   ensureTypeIndexes,
-  appContext,
-  findAppInstances,
+  // appContext, - no need to expose it
+  // findAppInstances, - in ui
   findOriginOwner,
-  getUserRoles, // Async
+  // getUserRoles, // Async - deleted
   loadTypeIndexes,
-  // logIn,
-  logInLoadProfile,
-  logInLoadPreferences,
-  // loginStatusBox,
-  // newAppInstance,
+  // logIn, - in ui renamed to loginContext
+  // logInLoadProfile, - deleted
+  // logInLoadPreferences, - deleted 
+  // loginStatusBox, - in ui
+  // newAppInstance, - in ui
   offlineTestID,
   registerInTypeIndex,
-  // registrationControl,
-  // registrationList,
-  // selectWorkspace,
+  // registrationControl, - in ui
+  // registrationList, - in ui
+  // selectWorkspace, - in ui
   setACLUserPublic,
   saveUser,
   authSession,
-  // renderSignInPopup
+  loadIndex,
+  // renderSignInPopup - in ui
 } from './authn/authn'
 import { SolidLogic } from "./logic/solidLogic";
 
@@ -37,14 +38,14 @@ export const authn = {
   // filterAvailablePanes, // Async
   getSuggestedIssuers,
   ensureTypeIndexes,
-  appContext,
-  findAppInstances,
+  // appContext,
+  // findAppInstances,
   findOriginOwner,
-  getUserRoles, // Async
+  // getUserRoles, // Async
   loadTypeIndexes,
   // logIn,
-  logInLoadProfile,
-  logInLoadPreferences,
+  // logInLoadProfile,
+  // logInLoadPreferences,
   // loginStatusBox,
   // newAppInstance,
   offlineTestID,
@@ -55,6 +56,7 @@ export const authn = {
   setACLUserPublic,
   saveUser,
   authSession,
+  loadIndex,
   // renderSignInPopup
 }
 export { SolidLogic } from './logic/solidLogic'
