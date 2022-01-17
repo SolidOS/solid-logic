@@ -1,6 +1,6 @@
 {
   "name": "solid-logic",
-  "version": "1.3.12",
+  "version": "1.3.12-bbf45639",
   "description": "Core business logic of Solid OS",
   "main": "lib/index.js",
   "scripts": {
