@@ -1,74 +1,45 @@
 
-import { Fetcher, NamedNode, Store, UpdateManager } from "rdflib";
-import * as debug from "./util/debug";
+import { Fetcher, NamedNode, Store, UpdateManager } from "rdflib"
+import * as debug from "./util/debug"
 import {
-  checkUser, // Async
-  currentUser, // Sync
-  // defaultTestUser, // Sync
-  // filterAvailablePanes, // Async
-  getSuggestedIssuers,
-  ensureTypeIndexes,
-  // appContext, - no need to expose it
-  // findAppInstances, - in ui
-  findOriginOwner,
-  // getUserRoles, // Async - deleted
-  loadTypeIndexes,
-  // logIn, - in ui renamed to loginContext
-  // logInLoadProfile, - deleted
-  // logInLoadPreferences, - deleted 
-  // loginStatusBox, - in ui
-  // newAppInstance, - in ui
-  offlineTestID,
-  registerInTypeIndex,
-  // registrationControl, - in ui
-  // registrationList, - in ui
-  // selectWorkspace, - in ui
   setACLUserPublic,
-  saveUser,
-  authSession,
-  loadIndex,
-  // renderSignInPopup - in ui
-} from './authn/authn'
-import { SolidLogic } from "./logic/solidLogic";
+  genACLText
+} from './acl/aclLogic'
+import {
+  ensureTypeIndexes,
+  loadTypeIndexes,
+  registerInTypeIndex,
+  loadIndex
+} from './typeIndex/typeIndex'
+import { SolidLogic } from "./logic/SolidLogic"
+import authSessionImport from './authn/authSession'
+import { offlineTestID, appContext } from './util/authUtil'
+import { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError } from './logic/CustomError'
+import { ACL_LINK } from './util/UtilityLogic'
+import { getSuggestedIssuers } from './issuer/issuer'
 
-export const authn = {
-  checkUser, // Async
-  currentUser, // Sync
-  // defaultTestUser, // Sync
-  // filterAvailablePanes, // Async
-  getSuggestedIssuers,
+const authSession = authSessionImport
+const typeIndexLogic = {
   ensureTypeIndexes,
-  // appContext,
-  // findAppInstances,
-  findOriginOwner,
-  // getUserRoles, // Async
   loadTypeIndexes,
-  // logIn,
-  // logInLoadProfile,
-  // logInLoadPreferences,
-  // loginStatusBox,
-  // newAppInstance,
-  offlineTestID,
   registerInTypeIndex,
-  // registrationControl,
-  // registrationList,
-  // selectWorkspace,
-  setACLUserPublic,
-  saveUser,
-  authSession,
-  loadIndex,
-  // renderSignInPopup
+  loadIndex
 }
-export { SolidLogic } from './logic/solidLogic'
 
-export { ACL_LINK } from './util/UtilityLogic';
+const aclLogic = {
+  setACLUserPublic,
+  genACLText
+}
 
-export type AppDetails = {
+const authUtil = { offlineTestID, appContext }
+
+const solidLogicError = { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError }
+
+type AppDetails = {
   noun: string
   appPathSegment: string
 }
-
-export type AuthenticationContext = {
+type AuthenticationContext = {
   containers?: Array<NamedNode>
   div?: HTMLElement
   dom?: HTMLDocument
@@ -81,17 +52,21 @@ export type AuthenticationContext = {
   publicProfile?: NamedNode
   statusArea?: HTMLElement
 }
-export interface AuthnLogic {
-  currentUser: () => NamedNode | null;
+interface AuthnLogic {
+  currentUser: () => NamedNode | null
+  checkUser: <T>(setUserCallback?: (me: NamedNode | null) => T) => Promise<NamedNode | T | null>
+  saveUser: (webId: NamedNode | string | null,
+    context?: AuthenticationContext) => NamedNode | null
+
 }
-export interface SolidNamespace {
+interface SolidNamespace {
     [key: string]: (term: string) => NamedNode
 }
 interface ConnectedStore extends Store {
   fetcher: Fetcher;
 }
 
-export interface LiveStore extends ConnectedStore {
+interface LiveStore extends ConnectedStore {
   updater: UpdateManager;
 }
 
@@ -104,15 +79,39 @@ const fetcher = async (url, requestInit) => {
   }
 }
 
-export const solidLogicSingleton = new SolidLogic({ fetch: fetcher }, authSession)
+const solidLogicSingleton = new SolidLogic({ fetch: fetcher }, authSession)
+
+const authn = solidLogicSingleton.authn
 
 // Make this directly accessible as it is what you need most of the time
-export const store = solidLogicSingleton.store
-export const kb = store // Very commonly used synonym of store - Knowledge Base
+const store = solidLogicSingleton.store
+const kb = store // Very commonly used synonym of store - Knowledge Base
 
 // export const authn = solidLogicSingleton.authn
-export const chat = solidLogicSingleton.chat
+const chat = solidLogicSingleton.chat
 
-export const profile = solidLogicSingleton.profile
+const profile = solidLogicSingleton.profile
 
 debug.log('Unique quadstore initialized.')
+
+export {
+  authSession,
+  typeIndexLogic,
+  aclLogic,
+  authUtil,
+  ACL_LINK,
+  getSuggestedIssuers,
+  solidLogicError,
+  solidLogicSingleton,
+  authn,
+  store,
+  kb,
+  chat,
+  profile,
+  SolidLogic, 
+  AppDetails,
+  LiveStore,
+  SolidNamespace,
+  AuthnLogic,
+  AuthenticationContext
+}

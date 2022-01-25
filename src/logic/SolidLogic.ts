@@ -1,16 +1,15 @@
-import { AuthnLogic, LiveStore, SolidNamespace } from "../index";
-import { ChatLogic } from "../chat/ChatLogic";
-import { ProfileLogic } from "../profile/ProfileLogic";
-import { UtilityLogic } from "../util/UtilityLogic";
-import { SolidAuthnLogic } from "../authn/SolidAuthnLogic";
-import { NoAuthnLogic } from "../authn/NoAuthnLogic";
-import { NamedNode, Statement } from "rdflib";
 import { Session } from "@inrupt/solid-client-authn-browser";
-import * as debug from "../util/debug";
-import solidNamespace from "solid-namespace";
 import * as rdf from "rdflib";
-
+import { NamedNode, Statement } from "rdflib";
+import solidNamespace from "solid-namespace";
+import { SolidAuthnLogic } from "../authn/SolidAuthnLogic";
+import { ChatLogic } from "../chat/ChatLogic";
+import { AuthnLogic, LiveStore, SolidNamespace } from "../index";
+import { ProfileLogic } from "../profile/ProfileLogic";
+import * as debug from "../util/debug";
+import { UtilityLogic } from "../util/UtilityLogic";
 import { CrossOriginForbiddenError, FetchError, NotFoundError, SameOriginForbiddenError, UnauthorizedError } from "./CustomError";
+
 
 const ns: SolidNamespace = solidNamespace(rdf);
 
@@ -33,7 +32,7 @@ export class SolidLogic {
     authn: AuthnLogic;
     util: UtilityLogic;
 
-    constructor(fetcher: { fetch: (url: any, requestInit: any) => any }, solidAuthSession: Session) {
+    constructor(fetcher: { fetch: (url: any, requestInit: any) => any }, session: Session) {
         this.store = rdf.graph() as LiveStore; // Make a Quad store
         rdf.fetcher(this.store, fetcher); // Attach a web I/O module, store.fetcher
         this.store.updater = new rdf.UpdateManager(this.store); // Add real-time live updates store.updater
@@ -42,11 +41,12 @@ export class SolidLogic {
         preferencesFile: {},
         };
         this.fetcher = fetcher;
-        if (solidAuthSession) {
-        this.authn = new SolidAuthnLogic(solidAuthSession);
-        } else {
+        // if (authSession) {
+        this.authn = new SolidAuthnLogic(session);
+        debug.log('SolidAuthnLogic initialized')
+        /* } else {
         this.authn = new NoAuthnLogic();
-        }
+        }*/
         this.profile = new ProfileLogic(this.store, ns, this.authn);
         this.chat = new ChatLogic(this.store, ns, this.profile);
         this.util = new UtilityLogic(this.store, ns, this.fetcher);
@@ -166,7 +166,7 @@ export class SolidLogic {
         publicProfile: NamedNode | string | null,
         preferencesFile: NamedNode | string | null,
         onWarning = async (_err: Error) => {
-        return undefined;
+            return undefined;
         }
     ): Promise<{
         private: any;

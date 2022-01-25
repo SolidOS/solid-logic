@@ -1,5 +1,5 @@
 // import { v4 as uuid } from "uuid";
-import { NamedNode, Node, st, term } from "rdflib";
+import { NamedNode } from "rdflib";
 import { LiveStore, SolidNamespace } from "../index";
 import { ProfileLogic } from "../profile/ProfileLogic";
 import { UtilityLogic } from "../util/UtilityLogic";

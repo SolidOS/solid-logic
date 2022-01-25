@@ -1,3 +1,4 @@
+import { NamedNode } from "rdflib";
 import { AuthnLogic } from "../index";
 
 /**
@@ -12,5 +13,13 @@ export class NoAuthnLogic implements AuthnLogic {
 
   currentUser(): null {
     return null;
+  }
+
+  async checkUser<T> (): Promise<NamedNode | T | null> {
+    return null
+  }
+
+  saveUser (): NamedNode | null {
+    return null
   }
 }
