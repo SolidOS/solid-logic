@@ -10,18 +10,19 @@ import { ChatLogic } from "./chat/ChatLogic";
 import * as debug from "./debug";
 import { ProfileLogic } from "./profile/ProfileLogic";
 import { UtilityLogic } from "./util/UtilityLogic";
+import { ConnectedStore, LiveStore } from 'rdflib'
 
 export { ACL_LINK } from './util/UtilityLogic';
 
 const ns: SolidNamespace = solidNamespace(rdf);
 
-interface ConnectedStore extends Store {
+/* interface ConnectedStore extends Store {
   fetcher: Fetcher;
 }
 
 export interface LiveStore extends ConnectedStore {
   updater: UpdateManager;
-}
+} */
 
 export interface SolidNamespace {
   [key: string]: (term: string) => NamedNode;

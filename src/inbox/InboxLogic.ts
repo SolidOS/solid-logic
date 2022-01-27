@@ -1,6 +1,6 @@
 // import { v4 as uuid } from "uuid";
-import { NamedNode, Node, st, term } from "rdflib";
-import { LiveStore, SolidNamespace } from "../index";
+import { LiveStore, NamedNode, Node, st, term } from "rdflib";
+import { SolidNamespace } from "../index";
 import { ProfileLogic } from "../profile/ProfileLogic";
 import { UtilityLogic } from "../util/UtilityLogic";
 // import { newThing } from "../uri";
@@ -70,7 +70,7 @@ export class InboxLogic {
     };
     const uploaded = await this.util.fetcher.fetch(archiveUrl, options);
     if (uploaded.status.toString()[0] === '2') {
-      await this.store.fetcher._fetch(url, {
+      await this.store.fetcher?._fetch(url, {
         method: 'DELETE'
       });
     }
