@@ -5,6 +5,7 @@
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc",
+    "clean": "rm -rf lib",
     "lint": "eslint ./src",
     "test": "jest",
     "preversion": "npm test",
@@ -42,6 +43,7 @@
   },
   "dependencies": {
     "rdflib": "^2.2.15",
-    "solid-namespace": "^0.5.2"
+    "solid-namespace": "^0.5.2",
+    "standard": "^16.0.4"
   }
 }
