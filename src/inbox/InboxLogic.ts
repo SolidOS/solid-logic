@@ -1,19 +1,7 @@
-// import { v4 as uuid } from "uuid";
 import { NamedNode } from "rdflib";
 import { LiveStore, SolidNamespace } from "../index";
 import { ProfileLogic } from "../profile/ProfileLogic";
 import { UtilityLogic } from "../util/UtilityLogic";
-// import { newThing } from "../uri";
-
-interface NewPaneOptions {
-  me?: NamedNode;
-  newInstance?: NamedNode;
-  newBase: string;
-}
-
-interface CreatedPaneOptions {
-  newInstance: NamedNode;
-}
 
 /**
  * Inbox-related logic

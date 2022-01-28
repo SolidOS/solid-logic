@@ -1,10 +1,8 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { ChatLogic } from "../src/chat/ChatLogic";
 import solidNamespace from "solid-namespace";
-
 import * as rdf from "rdflib";
 import { ProfileLogic } from "../src/profile/ProfileLogic";
-import fetchMock from "jest-fetch-mock";
 import { UpdateManager } from "rdflib";
 import { SolidNamespace } from "../src/index";
 

@@ -1,4 +1,4 @@
-import * as authUtil from '../src/util/authUtil'
+import * as authUtil from '../src/authn/authUtil'
 
 describe('offlineTestID', () => {
     it('exists', () => {
@@ -9,11 +9,11 @@ describe('offlineTestID', () => {
     })
 })
 
-describe('findOriginOwner', () => {
+describe('appContext', () => {
     it('exists', () => {
-        expect(authUtil.findOriginOwner).toBeInstanceOf(Function)
+        expect(authUtil.appContext).toBeInstanceOf(Function)
     })
     it('runs', () => {
-        expect(authUtil.findOriginOwner('')).toEqual(false)
+        expect(authUtil.appContext()).toEqual({"viewingNoAuthPage": false,})
     })
 })

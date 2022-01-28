@@ -20,7 +20,7 @@ const DEFAULT_ISSUERS = [
 /**
  * @returns - A list of suggested OIDC issuers
  */
- export function getSuggestedIssuers (): { name: string, uri: string }[] {
+export function getSuggestedIssuers (): { name: string, uri: string }[] {
     // Suggest a default list of OIDC issuers
     const issuers = [...DEFAULT_ISSUERS]
   

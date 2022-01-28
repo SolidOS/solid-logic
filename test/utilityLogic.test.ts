@@ -5,7 +5,7 @@ import solidNamespace from "solid-namespace";
 import * as rdf from "rdflib";
 import fetchMock from "jest-fetch-mock";
 import { UpdateManager } from "rdflib";
-import { SolidNamespace } from "../src";
+import { SolidNamespace } from "../src/types";
 
 const ns: SolidNamespace = solidNamespace(rdf);
 
