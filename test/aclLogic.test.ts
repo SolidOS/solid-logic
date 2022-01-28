@@ -1,5 +1,6 @@
 import { sym } from 'rdflib'
 import { setACLUserPublic } from '../src/acl/aclLogic' 
+
 describe('setACLUserPublic', () => {
     it('exists', () => {
         expect(setACLUserPublic).toBeInstanceOf(Function)

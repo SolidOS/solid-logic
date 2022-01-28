@@ -1,22 +1,22 @@
 import { sym } from 'rdflib'
-import { AuthenticationContext } from '../src'
-import * as typeIndex from '../src/typeIndex/typeIndex'
+import { AuthenticationContext } from '../src/types'
+import * as typeIndexLogic from '../src/typeIndex/typeIndexLogic'
 
 describe('loadTypeIndexes', () => {
     it('exists', () => {
-        expect(typeIndex.loadTypeIndexes).toBeInstanceOf(Function)
+        expect(typeIndexLogic.loadTypeIndexes).toBeInstanceOf(Function)
     })
     it('runs', () => {
-        expect(typeIndex.loadTypeIndexes({})).toBeInstanceOf(Object)
+        expect(typeIndexLogic.loadTypeIndexes({})).toBeInstanceOf(Object)
     })
 })
 
 describe('registerInTypeIndex', () => {
     it('exists', () => {
-        expect(typeIndex.registerInTypeIndex).toBeInstanceOf(Function)
+        expect(typeIndexLogic.registerInTypeIndex).toBeInstanceOf(Function)
     })
     it.skip('runs', async () => {
-        expect(await typeIndex.registerInTypeIndex(
+        expect(await typeIndexLogic.registerInTypeIndex(
         {} as AuthenticationContext,
         sym('https://test.test#'),
         sym('https://test.test#'),

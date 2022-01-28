@@ -1,14 +1,13 @@
 import { NamedNode, sym } from "rdflib"
-import * as debug from './debug'
+import * as debug from '../util/debug'
 
 /**
  * find a user or app's context as set in window.SolidAppContext
- * export for test only
  * this is a const, not a function, because we have problems to jest mock it otherwise
  * see: https://github.com/facebook/jest/issues/936#issuecomment-545080082 for more
  * @return {any} - an appContext object
  */
- export const appContext = ():any => {
+export const appContext = ():any => {
     let { SolidAppContext }: any = window
     SolidAppContext ||= {}
     SolidAppContext.viewingNoAuthPage = false
@@ -40,7 +39,7 @@ import * as debug from './debug'
  * returns testID defined in the HTML page
  * @returns {NamedNode|null}
  */
- export function offlineTestID (): NamedNode | null {
+export function offlineTestID (): NamedNode | null {
     const { $SolidTestEnvironment }: any = window
     if (
       typeof $SolidTestEnvironment !== 'undefined' &&
@@ -54,8 +53,8 @@ import * as debug from './debug'
     // example usage: https://github.com/solid/mashlib/blob/29b8b53c46bf02e0e219f0bacd51b0e9951001dd/test/contact/local.html#L37
     if (
       typeof document !== 'undefined' &&
-       document.location &&
-       ('' + document.location).slice(0, 16) === 'http://localhost'
+      document.location &&
+      ('' + document.location).slice(0, 16) === 'http://localhost'
     ) {
       const div = document.getElementById('appTarget')
       if (!div) return null
@@ -66,16 +65,3 @@ import * as debug from './debug'
     }
     return null
 }
-
-  /**
- * Look for and load the User who has control over it
- */
-export function findOriginOwner (doc: NamedNode | string): string | boolean {
-    const uri = (typeof doc === 'string') ? doc : doc.uri
-    const i = uri.indexOf('://')
-    if (i < 0) return false
-    const j = uri.indexOf('/', i + 3)
-    if (j < 0) return false
-    const origin = uri.slice(0, j + 1) // @@ TBC
-    return origin
- }

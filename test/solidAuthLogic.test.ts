@@ -1,7 +1,7 @@
 import { SolidAuthnLogic } from '../src/authn/SolidAuthnLogic'
 import { silenceDebugMessages } from './helpers/setup'
 import { AuthenticationContext } from '../src/index'
-import authSession from '../src/authn/authSession'
+import { default as authSession } from '../src/authSession/authSession'
 
 silenceDebugMessages()
 let solidAuthnLogic
