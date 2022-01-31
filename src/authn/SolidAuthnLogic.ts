@@ -15,13 +15,11 @@ export class SolidAuthnLogic implements AuthnLogic {
   }
 
   currentUser(): NamedNode | null {
-    // return this.session?.info.webId ? sym(this.session.info.webId) : null;
     const app = appContext()
     if (app.viewingNoAuthPage) {
       return sym(app.webId)
     }
     if (this.session.info.webId && this.session.info.isLoggedIn) {
-    // if (authSession.info.webId && authSession.info.isLoggedIn) {
       return sym(this.session.info.webId)
     }
     return offlineTestID() // null unless testing
@@ -32,7 +30,6 @@ export class SolidAuthnLogic implements AuthnLogic {
    * defaultTestUser or SolidAuth
    * Also activates a session after login
    * @param [setUserCallback] Optional callback
-   *
    * @returns Resolves with webId uri, if no callback provided
    */
   async checkUser<T> (
@@ -71,7 +68,7 @@ export class SolidAuthnLogic implements AuthnLogic {
         curUrl.hash = postLoginRedirectHash
       }
       // See https://stackoverflow.com/questions/3870057/how-can-i-update-window-location-hash-without-jumping-the-document
-      // indow.location.href = curUrl.toString()// @@ See https://developer.mozilla.org/en-US/docs/Web/API/Window/location
+      // window.location.href = curUrl.toString()// @@ See https://developer.mozilla.org/en-US/docs/Web/API/Window/location
       window.localStorage.setItem('preLoginRedirectHash', '')
     }
 
@@ -104,7 +101,6 @@ export class SolidAuthnLogic implements AuthnLogic {
     webId: NamedNode | string | null,
     context?: AuthenticationContext
   ): NamedNode | null {
-    // @@ TODO Remove the need for having context as output argument
     let webIdUri: string
     if (webId) {
       webIdUri = (typeof webId === 'string') ? webId : webId.uri
