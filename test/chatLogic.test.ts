@@ -4,7 +4,7 @@ import solidNamespace from "solid-namespace";
 import * as rdf from "rdflib";
 import { ProfileLogic } from "../src/profile/ProfileLogic";
 import { UpdateManager } from "rdflib";
-import { SolidNamespace } from "../src/index";
+import { SolidNamespace } from "../src/types";
 
 const ns: SolidNamespace = solidNamespace(rdf);
 
