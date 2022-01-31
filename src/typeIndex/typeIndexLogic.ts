@@ -1,9 +1,10 @@
 import { NamedNode, st, sym } from "rdflib"
-import { AuthenticationContext, solidLogicSingleton } from "../index"
 import * as debug from '../util/debug'
 import solidNamespace from 'solid-namespace'
 import * as $rdf from 'rdflib'
 import { newThing } from "../util/uri"
+import { AuthenticationContext } from "../types"
+import { solidLogicSingleton } from "../logic/solidLogicSingleton"
 
 export const ns = solidNamespace($rdf)
 

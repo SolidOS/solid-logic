@@ -2,10 +2,10 @@
 import solidNamespace from "solid-namespace";
 import * as rdf from "rdflib";
 import { UpdateManager } from "rdflib";
-import { SolidNamespace } from "../src/index";
 import { ProfileLogic } from "../src/profile/ProfileLogic";
 import { UtilityLogic } from "../src/util/UtilityLogic";
 import { InboxLogic } from "../src/inbox/InboxLogic";
+import { SolidNamespace } from "../src/types";
 
 const ns: SolidNamespace = solidNamespace(rdf);
 

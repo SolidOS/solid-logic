@@ -13,9 +13,10 @@
  */
 
 import { graph, NamedNode, Namespace, serialize } from "rdflib"
-import { ACL_LINK, solidLogicSingleton } from "../index"
 import solidNamespace from 'solid-namespace'
 import * as $rdf from 'rdflib'
+import { solidLogicSingleton } from "../logic/solidLogicSingleton"
+import { ACL_LINK } from "../util/UtilityLogic"
 
 export const ns = solidNamespace($rdf)
 

@@ -5,9 +5,12 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - "**"
   pull_request:
-    branches: [ main ]
+    branches:
+      - "**"  
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,8 +19,10 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [ 10.x, 12.x, 14.x, 15.x ]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+        node-version: 
+          - 12.x
+          - 14.x
+          - 16.x
 
     steps:
       - uses: actions/checkout@v2
@@ -26,6 +31,6 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm ci
-      - run: npm run lint
+      - run: npm run lint --if-present
       - run: npm test
       - run: npm run build --if-present

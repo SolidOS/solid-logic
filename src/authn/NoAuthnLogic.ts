@@ -1,5 +1,5 @@
 import { NamedNode } from "rdflib";
-import { AuthnLogic } from "../index";
+import { AuthnLogic } from "../types";
 
 /**
  * Fallback, if no auth client has been provided to solid-logic

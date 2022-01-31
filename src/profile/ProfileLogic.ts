@@ -1,6 +1,5 @@
 import { NamedNode } from "rdflib";
-import { AuthnLogic } from "../index";
-import { LiveStore, SolidNamespace } from "../index";
+import { AuthnLogic, LiveStore, SolidNamespace } from "../types";
 
 export class ProfileLogic {
   store: LiveStore;
@@ -18,7 +17,7 @@ export class ProfileLogic {
     if (me === null) {
       throw new Error("Current user not found! Not logged in?");
     }
-    await this.store.fetcher.load(me.doc());
+    await this.store.fetcher?.load(me.doc());
     return me;
   }
 
@@ -31,7 +30,7 @@ export class ProfileLogic {
   }
 
   async getMainInbox(user: NamedNode): Promise<NamedNode> {
-    await this.store.fetcher.load(user);
+    await this.store.fetcher?.load(user);
     const mainInbox = this.store.any(user, this.ns.ldp("inbox"), undefined, user.doc());
     if (!mainInbox) {
       throw new Error("User main inbox not found!");

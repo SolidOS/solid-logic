@@ -1,6 +1,6 @@
 import { NamedNode, Node, st, term } from "rdflib";
-import { LiveStore, SolidNamespace } from "../index";
 import { ProfileLogic } from "../profile/ProfileLogic";
+import { LiveStore, SolidNamespace } from "../types";
 import { newThing } from "../util/uri";
 import { determineChatContainer } from "./determineChatContainer";
 
@@ -38,7 +38,7 @@ export class ChatLogic {
     // Some servers don't present a Link http response header
     // if the container doesn't exist yet, so refetch the container
     // now that it has been created:
-    await this.store.fetcher.load(chatContainer);
+    await this.store.fetcher?.load(chatContainer);
 
     // FIXME: check the Why value on this quad:
     const chatAclDoc = this.store.any(
@@ -66,7 +66,7 @@ export class ChatLogic {
     acl:mode
         acl:Read, acl:Append.
 `;
-    await this.store.fetcher.webOperation("PUT", chatAclDoc.value, {
+    await this.store.fetcher?.webOperation("PUT", chatAclDoc.value, {
       data: aclBody,
       contentType: "text/turtle",
     });
@@ -81,7 +81,7 @@ export class ChatLogic {
     if (!privateTypeIndex) {
       throw new Error("Private type index not found!");
     }
-    await this.store.fetcher.load(privateTypeIndex);
+    await this.store.fetcher?.load(privateTypeIndex);
     const reg = newThing(privateTypeIndex);
     const ins = [
       st(
@@ -99,7 +99,7 @@ export class ChatLogic {
       st(reg, this.ns.solid("instance"), chatThing, privateTypeIndex.doc()),
     ];
     await new Promise((resolve, reject) => {
-      this.store.updater.update([], ins, function (_uri, ok, errm) {
+      this.store.updater?.update([], ins, function (_uri, ok, errm) {
         if (!ok) {
           reject(new Error(errm));
         } else {
@@ -115,7 +115,7 @@ export class ChatLogic {
     const chatContainer = determineChatContainer(invitee, podRoot);
     let exists = true;
     try {
-      await this.store.fetcher.load(
+      await this.store.fetcher?.load(
         new NamedNode(chatContainer.value + "index.ttl#this")
       );
     } catch (e) {
@@ -165,7 +165,7 @@ export class ChatLogic {
     }
 
     return new Promise(function (resolve, reject) {
-      updater.put(
+      updater?.put(
         newChatDoc,
         kb.statementsMatching(undefined, undefined, undefined, newChatDoc),
         "text/turtle",
@@ -213,7 +213,7 @@ export class ChatLogic {
   }
 
   private async sendInvite(invitee: NamedNode, chatThing: NamedNode) {
-    await this.store.fetcher.load(invitee.doc());
+    await this.store.fetcher?.load(invitee.doc());
     const inviteeInbox = this.store.any(
       invitee,
       this.ns.ldp("inbox"),
@@ -228,7 +228,7 @@ export class ChatLogic {
 ${this.ns.rdf("seeAlso")} <${chatThing.value}> . 
   `;
 
-    const inviteResponse = await this.store.fetcher.webOperation(
+    const inviteResponse = await this.store.fetcher?.webOperation(
       "POST",
       inviteeInbox.value,
       {
@@ -236,9 +236,9 @@ ${this.ns.rdf("seeAlso")} <${chatThing.value}> .
         contentType: "text/turtle",
       }
     );
-    const locationStr = inviteResponse.headers.get("location");
+    const locationStr = inviteResponse?.headers.get("location");
     if (!locationStr) {
-      throw new Error(`Invite sending returned a ${inviteResponse.status}`);
+      throw new Error(`Invite sending returned a ${inviteResponse?.status}`);
     }
   }
 }
