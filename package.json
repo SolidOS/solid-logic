@@ -38,11 +38,11 @@
     "jest": "27.4.5",
     "jest-fetch-mock": "^3.0.3",
     "prettier": "^2.5.1",
+    "standard": "^16.0.4",
     "ts-jest": "27.1.2",
     "typescript": "4.5.4"
   },
   "dependencies": {
-    "standard": "^16.0.4",
     "rdflib": "^2.2.17",
     "solid-namespace": "^0.5.2"
   }
