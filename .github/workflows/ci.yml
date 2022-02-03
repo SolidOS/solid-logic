@@ -35,6 +35,15 @@ jobs:
       # - run: npm run lint --if-present
       - run: npm test
       - run: npm run build --if-present
+      - name: Save build
+        if: matrix.node-version == '14.x'
+        uses: actions/upload-artifact@v2
+        with:
+          name: build
+          path: |
+            .
+            !node_modules
+          retention-days: 1
   npm-publish-build:
       needs: build
       runs-on: ubuntu-latest
