@@ -1,6 +1,6 @@
-import { NamedNode, Node, st, term } from "rdflib";
+import { NamedNode, Node, st, term, LiveStore } from "rdflib";
 import { ProfileLogic } from "../profile/ProfileLogic";
-import { LiveStore, SolidNamespace } from "../types";
+import { SolidNamespace } from "../types";
 import { newThing } from "../util/uri";
 import { determineChatContainer } from "./determineChatContainer";
 

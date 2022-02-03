@@ -1,5 +1,5 @@
-import { NamedNode } from "rdflib";
-import { AuthnLogic, LiveStore, SolidNamespace } from "../types";
+import { NamedNode, LiveStore } from "rdflib";
+import { AuthnLogic, SolidNamespace } from "../types";
 
 export class ProfileLogic {
   store: LiveStore;

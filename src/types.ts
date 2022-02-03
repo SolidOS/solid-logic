@@ -1,4 +1,4 @@
-import { Fetcher, NamedNode, Store, UpdateManager } from "rdflib"
+import { NamedNode } from "rdflib"
 
 export type AppDetails = {
     noun: string
@@ -19,14 +19,23 @@ export type AuthenticationContext = {
     statusArea?: HTMLElement
 }
 
+export interface AuthnLogic {
+    currentUser: () => NamedNode | null
+    checkUser: <T>(setUserCallback?: (me: NamedNode | null) => T) => Promise<NamedNode | T | null>
+    saveUser: (webId: NamedNode | string | null,
+        context?: AuthenticationContext) => NamedNode | null
+}
+
 export interface SolidNamespace {
     [key: string]: (term: string) => NamedNode
 }
 
-interface ConnectedStore extends Store {
-    fetcher: Fetcher;
+interface NewPaneOptions {
+    me?: NamedNode;
+    newInstance?: NamedNode;
+    newBase: string;
 }
 
-export interface LiveStore extends ConnectedStore {
-    updater: UpdateManager;
+interface CreatedPaneOptions {
+newInstance: NamedNode;
 }
