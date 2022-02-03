@@ -1,4 +1,4 @@
-import { Fetcher, NamedNode, Store, UpdateManager } from "rdflib"
+import { NamedNode } from "rdflib"
 
 export type AppDetails = {
     noun: string
@@ -30,10 +30,12 @@ export interface SolidNamespace {
     [key: string]: (term: string) => NamedNode
 }
 
-interface ConnectedStore extends Store {
-    fetcher: Fetcher;
+interface NewPaneOptions {
+    me?: NamedNode;
+    newInstance?: NamedNode;
+    newBase: string;
 }
 
-export interface LiveStore extends ConnectedStore {
-    updater: UpdateManager;
+interface CreatedPaneOptions {
+newInstance: NamedNode;
 }

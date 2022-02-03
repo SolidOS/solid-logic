@@ -1,19 +1,9 @@
-import { NamedNode, Statement, sym } from "rdflib";
-import { LiveStore, SolidNamespace } from "../types";
+import { NamedNode, Statement, sym, LiveStore } from "rdflib";
+import { SolidNamespace } from "../types";
 
 export const ACL_LINK = sym(
   "http://www.iana.org/assignments/link-relations/acl"
 );
-
-interface NewPaneOptions {
-  me?: NamedNode;
-  newInstance?: NamedNode;
-  newBase: string;
-}
-
-interface CreatedPaneOptions {
-  newInstance: NamedNode;
-}
 
 /**
  * Utility-related logic

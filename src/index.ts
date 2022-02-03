@@ -13,6 +13,6 @@ export { SolidLogic } from "./logic/SolidLogic"
 export { offlineTestID, appContext } from './authn/authUtil'
 export { ACL_LINK } from './util/UtilityLogic'
 export { getSuggestedIssuers } from './issuer/issuerLogic'
-export { AppDetails, LiveStore, SolidNamespace, AuthnLogic, AuthenticationContext } from './types'
+export { AppDetails, SolidNamespace, AuthenticationContext } from './types'
 export { solidLogicSingleton, authn, store, chat, profile } from './logic/solidLogicSingleton'
 export { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError } from './logic/CustomError'

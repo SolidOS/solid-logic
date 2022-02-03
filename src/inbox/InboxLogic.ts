@@ -1,6 +1,6 @@
-import { NamedNode } from "rdflib";
+import { NamedNode, LiveStore } from "rdflib";
 import { ProfileLogic } from "../profile/ProfileLogic";
-import { LiveStore, SolidNamespace } from "../types";
+import { SolidNamespace } from "../types";
 import { UtilityLogic } from "../util/UtilityLogic";
 
 /**

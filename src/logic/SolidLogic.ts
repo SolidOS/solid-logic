@@ -1,11 +1,11 @@
 import { Session } from "@inrupt/solid-client-authn-browser";
 import * as rdf from "rdflib";
-import { NamedNode, Statement } from "rdflib";
+import { NamedNode, Statement, LiveStore } from "rdflib";
 import solidNamespace from "solid-namespace";
 import { SolidAuthnLogic } from "../authn/SolidAuthnLogic";
 import { ChatLogic } from "../chat/ChatLogic";
 import { ProfileLogic } from "../profile/ProfileLogic";
-import { AuthnLogic, LiveStore, SolidNamespace } from "../types";
+import { AuthnLogic, SolidNamespace } from "../types";
 import * as debug from "../util/debug";
 import { UtilityLogic } from "../util/UtilityLogic";
 import { CrossOriginForbiddenError, FetchError, NotFoundError, SameOriginForbiddenError, UnauthorizedError } from "./CustomError";
@@ -41,12 +41,8 @@ export class SolidLogic {
         preferencesFile: {},
         };
         this.fetcher = fetcher;
-        // if (authSession) {
         this.authn = new SolidAuthnLogic(session);
         debug.log('SolidAuthnLogic initialized')
-        /* } else {
-        this.authn = new NoAuthnLogic();
-        }*/
         this.profile = new ProfileLogic(this.store, ns, this.authn);
         this.chat = new ChatLogic(this.store, ns, this.profile);
         this.util = new UtilityLogic(this.store, ns, this.fetcher);
