@@ -15,6 +15,7 @@ const solidLogicSingleton = new SolidLogic({ fetch: fetcher }, authSession)
 // Make this directly accessible as it is what you need most of the time
 const authn = solidLogicSingleton.authn
 const store = solidLogicSingleton.store
+
 const chat = solidLogicSingleton.chat
 const profile = solidLogicSingleton.profile
 

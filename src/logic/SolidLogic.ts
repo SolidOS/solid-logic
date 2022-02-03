@@ -41,12 +41,8 @@ export class SolidLogic {
         preferencesFile: {},
         };
         this.fetcher = fetcher;
-        // if (authSession) {
         this.authn = new SolidAuthnLogic(session);
         debug.log('SolidAuthnLogic initialized')
-        /* } else {
-        this.authn = new NoAuthnLogic();
-        }*/
         this.profile = new ProfileLogic(this.store, ns, this.authn);
         this.chat = new ChatLogic(this.store, ns, this.profile);
         this.util = new UtilityLogic(this.store, ns, this.fetcher);

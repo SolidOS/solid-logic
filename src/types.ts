@@ -19,13 +19,6 @@ export type AuthenticationContext = {
     statusArea?: HTMLElement
 }
 
-export interface AuthnLogic {
-    currentUser: () => NamedNode | null
-    checkUser: <T>(setUserCallback?: (me: NamedNode | null) => T) => Promise<NamedNode | T | null>
-    saveUser: (webId: NamedNode | string | null,
-        context?: AuthenticationContext) => NamedNode | null
-}
-
 export interface SolidNamespace {
     [key: string]: (term: string) => NamedNode
 }
