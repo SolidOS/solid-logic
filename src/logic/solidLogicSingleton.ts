@@ -1,5 +1,5 @@
 import * as debug from "../util/debug"
-import authSession from "../authSession/authSession"
+import { authSession } from "../authSession/authSession"
 import { SolidLogic } from "./SolidLogic"
 
 const fetcher = async (url, requestInit) => {

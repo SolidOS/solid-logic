@@ -4,7 +4,7 @@
   "description": "Core business logic of Solid OS",
   "main": "lib/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "npm run clean && tsc",
     "clean": "rm -rf lib",
     "lint": "eslint ./src",
     "test": "jest",

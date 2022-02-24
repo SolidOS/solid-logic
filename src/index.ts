@@ -8,8 +8,8 @@ export {
   registerInTypeIndex,
   loadIndex
 } from './typeIndex/typeIndexLogic'
-export { default as authSession } from './authSession/authSession'
-export { SolidLogic } from "./logic/SolidLogic"
+export { authSession } from './authSession/authSession'
+export { SolidLogic } from './logic/SolidLogic'
 export { offlineTestID, appContext } from './authn/authUtil'
 export { ACL_LINK } from './util/UtilityLogic'
 export { getSuggestedIssuers } from './issuer/issuerLogic'

@@ -1,3 +1,7 @@
+/**
+* @jest-environment jsdom
+* 
+*/
 import * as authUtil from '../src/authn/authUtil'
 
 describe('offlineTestID', () => {

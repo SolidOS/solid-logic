@@ -1,6 +1,10 @@
+/**
+* @jest-environment jsdom
+* 
+*/
 import { SolidAuthnLogic } from '../src/authn/SolidAuthnLogic'
 import { silenceDebugMessages } from './helpers/setup'
-import { default as authSession } from '../src/authSession/authSession'
+import { authSession } from '../src/authSession/authSession'
 import { AuthenticationContext } from '../src/types'
 
 silenceDebugMessages()

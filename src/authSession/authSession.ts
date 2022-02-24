@@ -3,20 +3,10 @@ import {
   getClientAuthenticationWithDependencies
 } from '@inrupt/solid-client-authn-browser'
 
-let authSession: Session
-// @ts-ignore
-if (!window.authSession) {
-  authSession = new Session(
+export const authSession = new Session(
     {
       clientAuthentication: getClientAuthenticationWithDependencies({})
     },
     'mySession'
   )
-  // @ts-ignore
-  window.authSession = authSession
-} else {
-  // @ts-ignore
-  authSession = window.authSession
-}
 
-export default authSession
