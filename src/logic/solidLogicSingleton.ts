@@ -12,13 +12,6 @@ const fetcher = async (url, requestInit) => {
 
 const solidLogicSingleton = new SolidLogic({ fetch: fetcher }, authSession)
 
-// Make this directly accessible as it is what you need most of the time
-const authn = solidLogicSingleton.authn
-const store = solidLogicSingleton.store
-
-const chat = solidLogicSingleton.chat
-const profile = solidLogicSingleton.profile
-
 debug.log('Unique quadstore initialized.')
 
-export { solidLogicSingleton, authn, store, chat, profile }
+export { solidLogicSingleton }

@@ -1,3 +1,4 @@
+import { Session } from "@inrupt/solid-client-authn-browser"
 import { NamedNode } from "rdflib"
 
 export type AppDetails = {
@@ -20,6 +21,7 @@ export type AuthenticationContext = {
 }
 
 export interface AuthnLogic {
+    authSession: Session //this needs to be deprecated in the future. Is only here to allow imports like panes.UI.authn.authSession prior to moving authn from ui to logic
     currentUser: () => NamedNode | null
     checkUser: <T>(setUserCallback?: (me: NamedNode | null) => T) => Promise<NamedNode | T | null>
     saveUser: (webId: NamedNode | string | null,

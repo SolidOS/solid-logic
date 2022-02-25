@@ -2,13 +2,16 @@ import { namedNode, NamedNode, sym } from "rdflib";
 import { appContext, offlineTestID } from "./authUtil";
 import * as debug from '../util/debug'
 import { Session } from "@inrupt/solid-client-authn-browser";
-import { AuthenticationContext } from "../types";
-export class SolidAuthnLogic {
-  private session: Session;
+import { AuthenticationContext, AuthnLogic } from "../types";
+export class SolidAuthnLogic implements AuthnLogic {
+  private session: Session; 
 
   constructor(solidAuthSession: Session) {
     this.session = solidAuthSession;
   }
+  
+  // we created authSession getter because we want to access it as authn.authSession externally
+  get authSession():Session { return this.session } 
 
   currentUser(): NamedNode | null {
     const app = appContext()
