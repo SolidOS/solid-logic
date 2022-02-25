@@ -10,6 +10,7 @@ const fetcher = async (url, requestInit) => {
     }
 }
 
+//this const makes solidLogicSingleton global accessible in mashlib
 const solidLogicSingleton = new SolidLogic({ fetch: fetcher }, authSession)
 
 debug.log('Unique quadstore initialized.')
