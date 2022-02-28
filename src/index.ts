@@ -1,30 +1,28 @@
+import { Session } from "@inrupt/solid-client-authn-browser";
 import * as rdf from "rdflib";
 import { Fetcher, NamedNode, Statement, Store, UpdateManager } from "rdflib";
 import solidNamespace from "solid-namespace";
 import { AuthnLogic } from "./authn";
 import { NoAuthnLogic } from "./authn/NoAuthnLogic";
-import { SolidAuthClientAuthnLogic } from "./authn/SolidAuthClientAuthnLogic";
+import { SolidAuthnLogic } from "./authn/SolidAuthnLogic";
 
 import { ChatLogic } from "./chat/ChatLogic";
 import * as debug from "./debug";
 import { ProfileLogic } from "./profile/ProfileLogic";
 import { UtilityLogic } from "./util/UtilityLogic";
+import { ConnectedStore, LiveStore } from 'rdflib'
 
 export { ACL_LINK } from './util/UtilityLogic';
 
 const ns: SolidNamespace = solidNamespace(rdf);
 
-interface ConnectedStore extends Store {
+/* interface ConnectedStore extends Store {
   fetcher: Fetcher;
 }
 
 export interface LiveStore extends ConnectedStore {
   updater: UpdateManager;
-}
-
-export interface SolidAuthClient {
-  trackSession: (session) => void;
-}
+} */
 
 export interface SolidNamespace {
   [key: string]: (term: string) => NamedNode;
@@ -49,7 +47,7 @@ export class SolidLogic {
   authn: AuthnLogic;
   util: UtilityLogic;
 
-  constructor(fetcher: { fetch: () => any }, solidAuthClient: SolidAuthClient) {
+  constructor(fetcher: { fetch: (url: any, requestInit: any) => any }, solidAuthSession: Session) {
     this.store = rdf.graph() as LiveStore; // Make a Quad store
     rdf.fetcher(this.store, fetcher); // Attach a web I/O module, store.fetcher
     this.store.updater = new rdf.UpdateManager(this.store); // Add real-time live updates store.updater
@@ -60,8 +58,8 @@ export class SolidLogic {
       preferencesFile: {},
     };
     this.fetcher = fetcher;
-    if (solidAuthClient) {
-      this.authn = new SolidAuthClientAuthnLogic(solidAuthClient);
+    if (solidAuthSession) {
+      this.authn = new SolidAuthnLogic(solidAuthSession);
     } else {
       this.authn = new NoAuthnLogic();
     }

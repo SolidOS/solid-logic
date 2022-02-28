@@ -88,16 +88,16 @@ describe("Chat logic", () => {
           "https://alice.example/IndividualChats/bob.example/index.ttl"
         );
         expect(request.body).toBe(`@prefix : <#>.
-@prefix mee: <http://www.w3.org/ns/pim/meeting#>.
-@prefix n0: <http://purl.org/dc/elements/1.1/>.
+@prefix dc: <http://purl.org/dc/elements/1.1/>.
+@prefix meeting: <http://www.w3.org/ns/pim/meeting#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
 @prefix c: </profile/card#>.
-@prefix XML: <http://www.w3.org/2001/XMLSchema#>.
 
 :this
-    a mee:LongChat;
-    n0:author c:me;
-    n0:created "2021-02-06T10:11:12Z"^^XML:dateTime;
-    n0:title "Chat channel".
+    a meeting:LongChat;
+    dc:author c:me;
+    dc:created "2021-02-06T10:11:12Z"^^xsd:dateTime;
+    dc:title "Chat channel".
 `);
       });
       it("allowed Bob to participate in the chat by adding an ACL", () => {
