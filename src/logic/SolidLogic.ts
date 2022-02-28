@@ -36,6 +36,7 @@ export class SolidLogic {
         this.store = rdf.graph() as LiveStore; // Make a Quad store
         rdf.fetcher(this.store, fetcher); // Attach a web I/O module, store.fetcher
         this.store.updater = new rdf.UpdateManager(this.store); // Add real-time live updates store.updater
+        this.store.features = [] // disable automatic node merging on store load
         this.cache = {
         profileDocument: {},
         preferencesFile: {},
