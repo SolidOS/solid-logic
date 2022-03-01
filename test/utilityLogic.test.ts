@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { UtilityLogic } from "./UtilityLogic";
+import { UtilityLogic } from "../src/util/UtilityLogic";
 import solidNamespace from "solid-namespace";
-
 import * as rdf from "rdflib";
-import { ProfileLogic } from "../profile/ProfileLogic";
 import fetchMock from "jest-fetch-mock";
 import { UpdateManager } from "rdflib";
+import { SolidNamespace } from "../src/types";
 
-const ns = solidNamespace(rdf);
+const ns: SolidNamespace = solidNamespace(rdf);
 
 const alice = rdf.sym("https://alice.example/profile/card#me");
 const bob = rdf.sym("https://bob.example/profile/card#me");

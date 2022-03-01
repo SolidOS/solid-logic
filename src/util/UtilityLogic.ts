@@ -1,21 +1,9 @@
-import { LiveStore, NamedNode, Node, st, term, sym, Statement } from "rdflib";
-import { SolidNamespace } from "../index";
-import { ProfileLogic } from "../profile/ProfileLogic";
-import { newThing } from "../uri";
+import { NamedNode, Statement, sym, LiveStore } from "rdflib";
+import { SolidNamespace } from "../types";
 
 export const ACL_LINK = sym(
   "http://www.iana.org/assignments/link-relations/acl"
 );
-
-interface NewPaneOptions {
-  me?: NamedNode;
-  newInstance?: NamedNode;
-  newBase: string;
-}
-
-interface CreatedPaneOptions {
-  newInstance: NamedNode;
-}
 
 /**
  * Utility-related logic

@@ -1,4 +1,7 @@
 module.exports = {
   verbose: true,
-  setupFilesAfterEnv: ["./jest.setup.ts"],
+  testEnvironment: 'node',
+  setupFilesAfterEnv: [
+    './test/helpers/setup.ts'
+  ]
 }
