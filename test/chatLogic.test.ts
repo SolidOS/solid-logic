@@ -124,11 +124,10 @@ describe("Chat logic", () => {
       });
       it("sent an invitation to invitee inbox", () => {
         const request = getRequestTo("POST", "https://bob.example/inbox");
-        expect(request.body).toBe(`
+        expect(request.body).toContain(`
 <> a <http://www.w3.org/ns/pim/meeting#LongChatInvite> ;
-<http://www.w3.org/1999/02/22-rdf-syntax-ns#seeAlso> <https://alice.example/IndividualChats/bob.example/index.ttl#this> . 
-  `);
-      });
+<http://www.w3.org/1999/02/22-rdf-syntax-ns#seeAlso> <https://alice.example/IndividualChats/bob.example/index.ttl#this> .
+  `);});
       it("added the new chat to private type index", () => {
         const request = getRequestTo(
           "PATCH",
