@@ -38,11 +38,14 @@ export class SolidLogic {
     util: UtilityLogic;
 
     constructor(fetcher: { fetch: (url: any, requestInit: any) => any }, session: Session) {
-        this.store = new rdf.LiveStore({})
-        this.store.fetcher._fetch = fetch
-        // this.store = rdf.graph() as LiveStore; // Make a Quad store
-        // rdf.fetcher(this.store, fetcher); // Attach a web I/O module, store.fetcher
-        // this.store.updater = new rdf.UpdateManager(this.store); // Add real-time live updates store.updater
+  // would xpect to be able to do it this way: but get TypeError:  Failed to execute 'fetch' on 'Window': Illegal invocation status: 999
+        // this.store = new rdf.LiveStore({})
+        // this.store.fetcher._fetch = fetch
+
+        this.store = rdf.graph() as LiveStore; // Make a Quad store
+        rdf.fetcher(this.store, fetch); // Attach a web I/O module, store.fetcher
+        this.store.updater = new rdf.UpdateManager(this.store); // Add real-time live updates store.updater
+
         this.store.features = [] // disable automatic node merging on store load
         this.cache = {
         profileDocument: {},
@@ -84,7 +87,7 @@ export class SolidLogic {
         return this.cache.preferencesFile[me.value];
         }
         await this.loadProfile(me) // Load pointer to pref file
-        const preferencesFile = this.store.any(me, ns.space("preferencesFile"));
+        const preferencesFile = this.store.any(me, ns.space('preferencesFile'), null, me.doc());
 
         // console.log('this.store.any()', this.store.any())
         /**
@@ -106,9 +109,6 @@ export class SolidLogic {
         );
         }
 
-        if (!this.store.fetcher) {
-        throw new Error("Cannot load doc, have no fetcher");
-        }
         // //// Load preference file
         try {
         await this.store.fetcher.load(preferencesFile as NamedNode, {
@@ -158,9 +158,6 @@ export class SolidLogic {
     }
 
     load(doc: NamedNode | NamedNode[] | string) {
-        if (!this.store.fetcher) {
-        throw new Error("Cannot load doc(s), have no fetcher");
-        }
         return this.store.fetcher.load(doc);
     }
 
@@ -216,9 +213,6 @@ export class SolidLogic {
     }
 
     async createEmptyRdfDoc(doc: NamedNode, comment: string) {
-        if (!this.store.fetcher) {
-        throw new Error("Cannot create empty rdf doc, have no fetcher");
-        }
         await this.store.fetcher.webOperation("PUT", doc.uri, {
         data: `# ${new Date()} ${comment}
     `,
@@ -232,9 +226,6 @@ export class SolidLogic {
         ins: Array<Statement> = []
     ): Promise<void> {
         return new Promise((resolve, reject) => {
-        if (!this.store.updater) {
-            throw new Error("Cannot updatePromise, have no updater");
-        }
         this.store.updater.update(del, ins, function (_uri, ok, errorBody) {
             if (!ok) {
             reject(new Error(errorBody));
