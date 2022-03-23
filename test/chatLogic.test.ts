@@ -20,7 +20,7 @@ describe("Chat logic", () => {
       status: 404,
     });
     store = rdf.graph();
-    store.fetcher = rdf.fetcher(store, { fetch: fetchMock });
+    store.fetcher = rdf.fetcher(store, { fetch: fetchMock, timeout: 5 });
     store.updater = new UpdateManager(store);
     const authn = {
       currentUser: () => {
