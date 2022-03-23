@@ -15,12 +15,13 @@ describe('registerInTypeIndex', () => {
     it('exists', () => {
         expect(typeIndexLogic.registerInTypeIndex).toBeInstanceOf(Function)
     })
-    it.skip('runs', async () => {
-        expect(await typeIndexLogic.registerInTypeIndex(
+    it('throws error', async () => {
+        expect(typeIndexLogic.registerInTypeIndex(
         {} as AuthenticationContext,
         sym('https://test.test#'),
         sym('https://test.test#'),
         false
-        )).toEqual(undefined)
+        )).rejects
+        .toThrow('@@ ensureLoadedPreferences: no user specified')
     })
 })
