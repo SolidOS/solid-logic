@@ -5,13 +5,23 @@ import * as $rdf from 'rdflib'
 import { newThing } from "../util/uri"
 import { AuthenticationContext } from "../types"
 import { solidLogicSingleton } from "../logic/solidLogicSingleton"
-
+// import { ensureLoadedPreferences } from '../logic/logic'
+import { loadPreferences, loadProfile } from '../discovery/discoveryLogic'
 export const ns = solidNamespace($rdf)
+
+const store = solidLogicSingleton.store
+
+async function ensureLoadedPreferences (context:AuthenticationContext) {
+  if (!context.me) throw new Error('@@ ensureLoadedPreferences: no user specified')
+  context.publicProfile = await loadProfile(store, context.me)
+  context.preferencesFile = await loadPreferences(store, context.me)
+  return context
+}
 
 /**
  * Resolves with the same context, outputting
  * output: index.public, index.private
- *
+ *  @@ This is a very bizare function
  * @see https://github.com/solid/solid/blob/main/proposals/data-discovery.md#discoverability
  */
 export async function loadIndex (
@@ -26,32 +36,44 @@ const indexes = await solidLogicSingleton.loadIndexes(
     async (err: Error) => debug.error(err.message) as undefined
 )
 context.index = context.index || {}
-context.index.private = indexes.private || context.index.private
-context.index.public = indexes.public || context.index.public
+context.index.private = indexes.private.concat(context.index.private)
+context.index.public = indexes.public.concat(context.index.public)
 return context
 }
 
 export async function loadTypeIndexes (context: AuthenticationContext) {
-const indexes = await solidLogicSingleton.loadIndexes(
-    context.me as NamedNode,
-    context.publicProfile || null,
-    context.preferencesFile || null,
-    // async (err: Error) => widgets.complain(context, err.message)
-    async (err: Error) => debug.warn(err.message) as undefined
-)
-context.index = context.index || {}
-context.index.private = indexes.private || context.index.private
-context.index.public = indexes.public || context.index.public
-return context
+    try {
+        await loadPreferences(solidLogicSingleton.store, context.me)
+    } catch (error) {
+        debug.warn(error.message) as undefined
+    }
+    try {
+        const indexes = await solidLogicSingleton.loadIndexes(
+            context.me as NamedNode,
+            context.publicProfile || null,
+            context.preferencesFile || null,
+            // async (err: Error) => widgets.complain(context, err.message)
+            // async (err: Error) => debug.warn(err.message) as undefined
+        )
+        context.index = context.index || {}
+        context.index.private = indexes.private || context.index.private
+        context.index.public = indexes.public || context.index.public
+        return context
+    } catch (error) {
+        async (error: Error) => debug.warn(error.message) as undefined
+    }
 }
 
 /**
  * Resolves with the same context, outputting
  * @see https://github.com/solid/solid/blob/main/proposals/data-discovery.md#discoverability
  */
-export async function ensureTypeIndexes (context: AuthenticationContext): Promise<AuthenticationContext> {
-await ensureOneTypeIndex(context, true)
-await ensureOneTypeIndex(context, false)
+export async function ensureTypeIndexes (context: AuthenticationContext, agent?: NamedNode): Promise<AuthenticationContext> {
+if (!context.me) {
+  throw new Error(`ensureTypeIndexes: @@ no user`)
+}
+await ensureOneTypeIndex(context, true, agent)
+await ensureOneTypeIndex(context, false, agent)
 return context
 }
 
@@ -63,9 +85,10 @@ return context
  * Adds its output to the context
  * @see https://github.com/solid/solid/blob/main/proposals/data-discovery.md#discoverability
  */
-async function ensureOneTypeIndex (context: AuthenticationContext, isPublic: boolean): Promise<AuthenticationContext | void> {
+async function ensureOneTypeIndex (context: AuthenticationContext, isPublic: boolean, agent?: NamedNode): Promise<AuthenticationContext | void> {
     async function makeIndexIfNecessary (context, isPublic) {
         const relevant = isPublic ? context.publicProfile : context.preferencesFile
+        if (!relevant) alert ('@@@@ relevent null')
         const visibility = isPublic ? 'public' : 'private'
 
         async function putIndex (newIndex) {
@@ -79,58 +102,65 @@ async function ensureOneTypeIndex (context: AuthenticationContext, isPublic: boo
             }
         } // putIndex
 
+
         context.index = context.index || {}
         context.index[visibility] = context.index[visibility] || []
         let newIndex
         if (context.index[visibility].length === 0) {
-        newIndex = sym(`${relevant.dir().uri + visibility}TypeIndex.ttl`)
-        debug.log(`Linking to new fresh type index ${newIndex}`)
-        if (!confirm(`OK to create a new empty index file at ${newIndex}, overwriting anything that is now there?`)) {
-            throw new Error('cancelled by user')
-        }
-        debug.log(`Linking to new fresh type index ${newIndex}`)
-        const addMe = [
-            st(context.me, ns.solid(`${visibility}TypeIndex`), newIndex, relevant)
-        ]
-        try {
-            await solidLogicSingleton.updatePromise([], addMe)
-        } catch (err) {
-            const msg = `Error saving type index link saving back ${newIndex}: ${err}`
-            //widgets.complain(context, msg)
-            debug.warn(msg)
-            return context
-        }
+            if (!store.updater.editable(relevant)) {
+              debug.log(`Not adding new type index as ${relevant} is not editable`)
+              return
+            }
+            newIndex = sym(`${relevant.dir().uri + visibility}TypeIndex.ttl`)
+            debug.log(`Linking to new fresh type index ${newIndex}`)
+            if (!confirm(`OK to create a new empty index file at ${newIndex}, overwriting anything that is now there?`)) {
+                throw new Error('cancelled by user')
+            }
+            debug.log(`Linking to new fresh type index ${newIndex}`)
+            const addMe = [
+                st(context.me, ns.solid(`${visibility}TypeIndex`), newIndex, relevant)
+            ]
+            try {
+                await solidLogicSingleton.updatePromise([], addMe)
+            } catch (err) {
+                const msg = `Error saving type index link saving back ${newIndex}: ${err}`
+                //widgets.complain(context, msg)
+                debug.warn(msg)
+                return context
+            }
 
-        debug.log(`Creating new fresh type index file${newIndex}`)
-        await putIndex(newIndex)
-        context.index[visibility].push(newIndex) // @@ wait
+            debug.log(`Creating new fresh type index file${newIndex}`)
+            await putIndex(newIndex)
+            context.index[visibility].push(newIndex) // @@ wait
         } else {
         // officially exists
-        const ixs = context.index[visibility]
-        try {
-            await solidLogicSingleton.load(ixs)
-        } catch (err) {
-            const msg = `ensureOneTypeIndex: loading indexes ${err}`
-            debug.warn(msg)
-            // widgets.complain(context, `ensureOneTypeIndex: loading indexes ${err}`)
-        }
+          const ixs = context.index[visibility]
+          try {
+              await solidLogicSingleton.load(ixs)
+          } catch (err) {
+              const msg = `ensureOneTypeIndex: loading indexes ${err}`
+              debug.warn(msg)
+              // widgets.complain(context, `ensureOneTypeIndex: loading indexes ${err}`)
+          }
         }
     } // makeIndexIfNecessary
 
+    const context2 = await ensureLoadedPreferences(context)
+    if (!context2.publicProfile) throw new Error(`@@ type index: no publicProfile`)
+    if (!context2.preferencesFile) throw new Error(`@@ type index: no preferencesFile for profile  ${context2.publicProfile}`)
+    const relevant = isPublic ? context2.publicProfile : context2.preferencesFile
+
     try {
-        await loadIndex(context, isPublic)
-        if (context.index) {
-        debug.log(
-            `ensureOneTypeIndex: Type index exists already ${isPublic
-            ? context.index.public[0]
-            : context.index.private[0]
-            }`
-        )
+        await loadIndex(context2, isPublic)
+        const pp = isPublic ? 'public' : 'private'
+        if (context2.index && context2.index[pp]&& context2.index[pp].length > 0) {
+          debug.log(`ensureOneTypeIndex: Type index exists already ${context2.index[pp]}`)
+          return context2
         }
-        return context
+        await makeIndexIfNecessary(context2, isPublic)
     } catch (error) {
-        await makeIndexIfNecessary(context, isPublic)
-        // widgets.complain(context, 'calling loadIndex:' + error)
+        await makeIndexIfNecessary(context2, isPublic)
+        // widgets.complain(context2, 'calling loadIndex:' + error)
     }
 }
 
@@ -142,9 +172,10 @@ export async function registerInTypeIndex (
 context: AuthenticationContext,
 instance: NamedNode,
 theClass: NamedNode,
-isPublic: boolean
+isPublic: boolean,
+agent?: NamedNode // Defaults to current user
 ): Promise<AuthenticationContext> {
-    await ensureOneTypeIndex(context, isPublic)
+    await ensureOneTypeIndex(context, isPublic, agent)
     if (!context.index) {
         throw new Error('registerInTypeIndex: No type index found')
     }

@@ -11,12 +11,12 @@ export const ACL_LINK = sym(
 export class UtilityLogic {
   store: LiveStore;
   ns: SolidNamespace;
-  fetcher: { fetch: (url: string, options?: any) => any };
+  underlyingFetch: { fetch: (url: string, options?: any) => any };
 
-  constructor(store: LiveStore, ns: SolidNamespace, fetcher: { fetch: (url: string, options?: any) => any }) {
+  constructor(store: LiveStore, ns: SolidNamespace, underlyingFetch: { fetch: (url: string, options?: any) => any }) {
     this.store = store;
     this.ns = ns;
-    this.fetcher = fetcher;
+    this.underlyingFetch = underlyingFetch;
   }
 
   async findAclDocUrl(url: string) {
@@ -65,7 +65,7 @@ export class UtilityLogic {
       ].join('\n')
     }
     const aclDocUrl = await this.findAclDocUrl(options.target);
-    return this.fetcher.fetch(aclDocUrl, {
+    return this.underlyingFetch.fetch(aclDocUrl, {
       method: 'PUT',
       body: str,
       headers: [
@@ -83,7 +83,7 @@ export class UtilityLogic {
       throw new Error("Cannot load doc, have no fetcher");
     }
     await this.store.fetcher.load(doc, {
-      withCredentials: false,
+      withCredentials: false, // @@ BUT this won't work when logged in an accessing private stuff!
       cache: "reload",
     });
     // console.log('loaded', profileDocument, this.store)
@@ -98,7 +98,7 @@ export class UtilityLogic {
       throw new Error(`Not a container URL ${url}`);
     }
     // Copied from https://github.com/solid/solid-crud-tests/blob/v3.1.0/test/surface/create-container.test.ts#L56-L64
-    const result = await this.fetcher.fetch(url, {
+    const result = await this.underlyingFetch.fetch(url, {
       method: "PUT",
       headers: {
         "Content-Type": "text/turtle",
@@ -134,13 +134,13 @@ export class UtilityLogic {
     try {
       if (this.isContainer(url)) {
         const aclDocUrl = await this.findAclDocUrl(url);
-        await this.fetcher.fetch(aclDocUrl, { method: "DELETE" });
+        await this.underlyingFetch.fetch(aclDocUrl, { method: "DELETE" });
         const containerMembers = await this.getContainerMembers(url);
         await Promise.all(
           containerMembers.map((url) => this.recursiveDelete(url))
         );
       }
-      return this.fetcher.fetch(url, { method: "DELETE" });
+      return this.underlyingFetch.fetch(url, { method: "DELETE" });
     } catch (e) {
       // console.log(`Please manually remove ${url} from your system under test.`, e);
     }
