@@ -25,8 +25,7 @@ export {
   loadPreferences,
   loadTypeIndexesFor,
   loadCommunityTypeIndexes,
-  loadAllTypeIndexes,
-  getAppInstances
+  loadAllTypeIndexes
 } from './discovery/discoveryLogic'
 
 export { SolidLogic } from './logic/SolidLogic'

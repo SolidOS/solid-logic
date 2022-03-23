@@ -1,13 +1,8 @@
 import { NamedNode, Namespace, LiveStore } from "rdflib";
-import { AuthnLogic, SolidNamespace } from "../types";
-import { solidLogicSingleton } from '../logic/solidLogicSingleton'
-// import { store } from './index'
 
 type TypeIndex = {  label: string, index: NamedNode, agent: NamedNode } ;
-const store = solidLogicSingleton.store
 
-
-const ns ={ // @@ todo: Make ns module from UI avaialble to logic
+const ns ={
   solid: Namespace('http://www.w3.org/ns/solid/terms#'),
   space: Namespace('http://www.w3.org/ns/pim/space#')
 }
@@ -57,8 +52,8 @@ export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Prom
   if (preferencesFile) { // watch out - can be in either as spec was not clear
     const privateTypeIndexes = store.each(user, ns.solid('privateTypeIndex'), undefined, preferencesFile as NamedNode)
       .concat(store.each(user, ns.solid('privateTypeIndex'), undefined, profile))
-     const priv = privateTypeIndexes.length > 0 ? [ { label: 'priSo @@@@@vate', index: privateTypeIndexes[0] as NamedNode, agent: user } ] : []
-     return pub.concat(priv)
+    const priv = privateTypeIndexes.length > 0 ? [ { label: 'priSo @@@@@vate', index: privateTypeIndexes[0] as NamedNode, agent: user } ] : []
+    return pub.concat(priv)
   }
   return pub
 }
