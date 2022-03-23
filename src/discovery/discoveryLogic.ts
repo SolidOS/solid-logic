@@ -88,6 +88,8 @@ export async function loadAllTypeIndexes (store:LiveStore, user:NamedNode) {
   return (await loadTypeIndexesFor(store, user)).concat((await loadCommunityTypeIndexes(store, user)).flat())
 }
 
+/*
 export async function getAppInstances (store:LiveStore, klass: NamedNode) {
 
 }
+*/
