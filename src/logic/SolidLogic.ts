@@ -9,7 +9,12 @@ import { AuthnLogic, SolidNamespace } from "../types";
 import * as debug from "../util/debug";
 import { UtilityLogic } from "../util/UtilityLogic";
 import { CrossOriginForbiddenError, FetchError, NotFoundError, SameOriginForbiddenError, UnauthorizedError } from "./CustomError";
-
+/*
+** It is important to distinquish `fetch`, a function provided by the browser
+** and `Fetcher`, a helper object for the rdflib Store which turns it
+** into a `ConnectedStore` or a `LiveStore`.  A Fetcher object is
+** available at store.fetcher, and `fetch` function at `store.fetcher._fetch`,
+*/
 
 const ns: SolidNamespace = solidNamespace(rdf);
 
@@ -25,7 +30,7 @@ export class SolidLogic {
 
     store: LiveStore;
     me: string | undefined;
-    fetcher: { fetch: (url: string, options?: any) => any };
+    underlyingFetch: { fetch: (url: string, options?: any) => any };
 
     chat: ChatLogic;
     profile: ProfileLogic;
@@ -33,52 +38,56 @@ export class SolidLogic {
     util: UtilityLogic;
 
     constructor(fetcher: { fetch: (url: any, requestInit: any) => any }, session: Session) {
+  // would xpect to be able to do it this way: but get TypeError:  Failed to execute 'fetch' on 'Window': Illegal invocation status: 999
+        // this.store = new rdf.LiveStore({})
+        // this.store.fetcher._fetch = fetch
+
         this.store = rdf.graph() as LiveStore; // Make a Quad store
-        rdf.fetcher(this.store, fetcher); // Attach a web I/O module, store.fetcher
+        rdf.fetcher(this.store, fetch); // Attach a web I/O module, store.fetcher
         this.store.updater = new rdf.UpdateManager(this.store); // Add real-time live updates store.updater
+
         this.store.features = [] // disable automatic node merging on store load
         this.cache = {
         profileDocument: {},
         preferencesFile: {},
         };
-        this.fetcher = fetcher;
+        this.underlyingFetch = { fetch: fetch };
         this.authn = new SolidAuthnLogic(session);
         debug.log('SolidAuthnLogic initialized')
         this.profile = new ProfileLogic(this.store, ns, this.authn);
         this.chat = new ChatLogic(this.store, ns, this.profile);
-        this.util = new UtilityLogic(this.store, ns, this.fetcher);
+        this.util = new UtilityLogic(this.store, ns, this.underlyingFetch);
     }
 
     findAclDocUrl(url: string) {
         return this.util.findAclDocUrl(url);
     }
 
-    loadDoc(doc: NamedNode): Promise<void> {
-        return this.util.loadDoc(doc);
-    }
-
     async loadProfile(me: NamedNode): Promise<NamedNode> {
-        // console.log('loadProfile', me)
+        /*
+      // console.log('loadProfile cache ', this.cache)
         if (this.cache.profileDocument[me.value]) {
         return this.cache.profileDocument[me.value];
-        }
-        let profileDocument;
+      }    @@ just use the cache in the store
+        */
+        console.log('loadProfile  me ', me)
+        const profileDocument = me.doc()
         try {
-        profileDocument = me.doc();
-        await this.loadDoc(profileDocument);
-        return profileDocument;
+          await this.store.fetcher.load(profileDocument);
+          return profileDocument;
         } catch (err) {
-        const message = `Logged in but cannot load profile ${profileDocument} : ${err}`;
+        const message = `Cannot load profile ${profileDocument} : ${err}`;
         throw new Error(message);
         }
     }
 
     async loadPreferences(me: NamedNode): Promise<NamedNode> {
-        // console.log('loadPreferences', me)
+        console.log('loadPreferences cache ', this.cache)
         if (this.cache.preferencesFile[me.value]) {
         return this.cache.preferencesFile[me.value];
         }
-        const preferencesFile = this.store.any(me, ns.space("preferencesFile"));
+        await this.loadProfile(me) // Load pointer to pref file
+        const preferencesFile = this.store.any(me, ns.space('preferencesFile'), null, me.doc());
 
         // console.log('this.store.any()', this.store.any())
         /**
@@ -100,9 +109,6 @@ export class SolidLogic {
         );
         }
 
-        if (!this.store.fetcher) {
-        throw new Error("Cannot load doc, have no fetcher");
-        }
         // //// Load preference file
         try {
         await this.store.fetcher.load(preferencesFile as NamedNode, {
@@ -152,9 +158,6 @@ export class SolidLogic {
     }
 
     load(doc: NamedNode | NamedNode[] | string) {
-        if (!this.store.fetcher) {
-        throw new Error("Cannot load doc(s), have no fetcher");
-        }
         return this.store.fetcher.load(doc);
     }
 
@@ -210,9 +213,6 @@ export class SolidLogic {
     }
 
     async createEmptyRdfDoc(doc: NamedNode, comment: string) {
-        if (!this.store.fetcher) {
-        throw new Error("Cannot create empty rdf doc, have no fetcher");
-        }
         await this.store.fetcher.webOperation("PUT", doc.uri, {
         data: `# ${new Date()} ${comment}
     `,
@@ -226,9 +226,6 @@ export class SolidLogic {
         ins: Array<Statement> = []
     ): Promise<void> {
         return new Promise((resolve, reject) => {
-        if (!this.store.updater) {
-            throw new Error("Cannot updatePromise, have no updater");
-        }
         this.store.updater.update(del, ins, function (_uri, ok, errorBody) {
             if (!ok) {
             reject(new Error(errorBody));
@@ -260,6 +257,6 @@ export class SolidLogic {
     }
 
     async fetch(url: string, options?: any) {
-        return this.fetcher.fetch(url, options);
+        return this.underlyingFetch.fetch(url, options);
     }
 }

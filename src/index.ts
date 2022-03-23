@@ -12,12 +12,22 @@ export {
   setACLUserPublic,
   genACLText
 } from './acl/aclLogic'
+
 export {
   ensureTypeIndexes,
   loadTypeIndexes,
   registerInTypeIndex,
   loadIndex
 } from './typeIndex/typeIndexLogic'
+
+export {
+  loadProfile,
+  loadPreferences,
+  loadTypeIndexesFor,
+  loadCommunityTypeIndexes,
+  loadAllTypeIndexes
+} from './discovery/discoveryLogic'
+
 export { SolidLogic } from './logic/SolidLogic'
 export { offlineTestID, appContext } from './authn/authUtil'
 export { ACL_LINK } from './util/UtilityLogic'
