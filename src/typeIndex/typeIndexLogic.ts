@@ -21,7 +21,7 @@ async function ensureLoadedPreferences (context:AuthenticationContext) {
 /**
  * Resolves with the same context, outputting
  * output: index.public, index.private
- *
+ *  @@ This is a very bizare function
  * @see https://github.com/solid/solid/blob/main/proposals/data-discovery.md#discoverability
  */
 export async function loadIndex (
@@ -36,8 +36,8 @@ const indexes = await solidLogicSingleton.loadIndexes(
     async (err: Error) => debug.error(err.message) as undefined
 )
 context.index = context.index || {}
-context.index.private = indexes.private || context.index.private
-context.index.public = indexes.public || context.index.public
+context.index.private = indexes.private.concat(context.index.private)
+context.index.public = indexes.public.concat(context.index.public)
 return context
 }
 
@@ -99,6 +99,10 @@ async function ensureOneTypeIndex (context: AuthenticationContext, isPublic: boo
         context.index[visibility] = context.index[visibility] || []
         let newIndex
         if (context.index[visibility].length === 0) {
+            if (!store.updater.editable(relevant)) {
+              debug.log(`Not adding new type index as ${relevant} is not editable`)
+              return
+            }
             newIndex = sym(`${relevant.dir().uri + visibility}TypeIndex.ttl`)
             debug.log(`Linking to new fresh type index ${newIndex}`)
             if (!confirm(`OK to create a new empty index file at ${newIndex}, overwriting anything that is now there?`)) {
