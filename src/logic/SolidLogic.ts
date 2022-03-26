@@ -43,7 +43,7 @@ export class SolidLogic {
   // would xpect to be able to do it this way: but get TypeError:  Failed to execute 'fetch' on 'Window': Illegal invocation status: 999
         // this.store = new rdf.LiveStore({})
         // this.store.fetcher._fetch = fetch
-        console.log("SolidLogic: Unique instance created.  There should only one of these.")
+        console.log("SolidLogic: Unique instance created.  There should only be one of these.")
         this.store = rdf.graph() as LiveStore; // Make a Quad store
         rdf.fetcher(this.store, { fetch: specialFetch.fetch}); // Attach a web I/O module, store.fetcher
         this.store.updater = new rdf.UpdateManager(this.store); // Add real-time live updates store.updater
