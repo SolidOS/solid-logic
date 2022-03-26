@@ -9,6 +9,8 @@ import { AuthnLogic, SolidNamespace } from "../types";
 import * as debug from "../util/debug";
 import { UtilityLogic } from "../util/UtilityLogic";
 import { CrossOriginForbiddenError, FetchError, NotFoundError, SameOriginForbiddenError, UnauthorizedError } from "./CustomError";
+
+import { solidLogicSingleton } from "../logic/solidLogicSingleton"
 /*
 ** It is important to distinquish `fetch`, a function provided by the browser
 ** and `Fetcher`, a helper object for the rdflib Store which turns it
@@ -37,13 +39,13 @@ export class SolidLogic {
     authn: AuthnLogic;
     util: UtilityLogic;
 
-    constructor(fetcher: { fetch: (url: any, requestInit: any) => any }, session: Session) {
+    constructor(specialFetch: { fetch: (url: any, requestInit: any) => any }, session: Session) {
   // would xpect to be able to do it this way: but get TypeError:  Failed to execute 'fetch' on 'Window': Illegal invocation status: 999
         // this.store = new rdf.LiveStore({})
         // this.store.fetcher._fetch = fetch
-
+        console.log("SolidLogic: Unique instance created.  There should only be one of these.")
         this.store = rdf.graph() as LiveStore; // Make a Quad store
-        rdf.fetcher(this.store, fetch); // Attach a web I/O module, store.fetcher
+        rdf.fetcher(this.store, { fetch: specialFetch.fetch}); // Attach a web I/O module, store.fetcher
         this.store.updater = new rdf.UpdateManager(this.store); // Add real-time live updates store.updater
 
         this.store.features = [] // disable automatic node merging on store load
@@ -51,7 +53,7 @@ export class SolidLogic {
         profileDocument: {},
         preferencesFile: {},
         };
-        this.underlyingFetch = { fetch: fetch };
+        this.underlyingFetch = { fetch: fetch }; // Note global one not the one passed
         this.authn = new SolidAuthnLogic(session);
         debug.log('SolidAuthnLogic initialized')
         this.profile = new ProfileLogic(this.store, ns, this.authn);
@@ -111,7 +113,7 @@ export class SolidLogic {
 
         // //// Load preference file
         try {
-        await this.store.fetcher.load(preferencesFile as NamedNode, {
+        await solidLogicSingleton.store.fetcher.load(preferencesFile as NamedNode, { // @@ was this.store.
             withCredentials: true,
         });
         } catch (err) {
