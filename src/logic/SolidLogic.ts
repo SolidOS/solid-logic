@@ -113,7 +113,7 @@ export class SolidLogic {
 
         // //// Load preference file
         try {
-        await solidLogicSingleton.store.fetcher.load(preferencesFile as NamedNode, { // @@ was this.store.
+        await this.store.fetcher.load(preferencesFile as NamedNode, {
             withCredentials: true,
         });
         } catch (err) {
