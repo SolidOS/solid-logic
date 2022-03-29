@@ -36,7 +36,9 @@ const indexes = await solidLogicSingleton.loadIndexes(
     async (err: Error) => debug.error(err.message) as undefined
 )
 context.index = context.index || {}
+context.index.private = context.index.private || [] // otherwise concat will wrongly add 'undefined' as a private index
 context.index.private = indexes.private.concat(context.index.private)
+context.index.public = context.index.public || [] // otherwise concat will wrongly add 'undefined' as a public index
 context.index.public = indexes.public.concat(context.index.public)
 return context
 }
