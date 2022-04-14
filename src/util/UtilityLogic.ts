@@ -29,7 +29,7 @@ export class UtilityLogic {
     return docNode.value;
   }
 
-  // Copied from https://github.com/solid/web-access-control-tests/blob/v3.0.0/test/surface/delete.test.ts#L5
+  // Copied from https://github.com/solidos/web-access-control-tests/blob/v3.0.0/test/surface/delete.test.ts#L5
   async setSinglePeerAccess(options: {
     ownerWebId: string,
     peerWebId: string,
@@ -97,13 +97,13 @@ export class UtilityLogic {
     if (!this.isContainer(url)) {
       throw new Error(`Not a container URL ${url}`);
     }
-    // Copied from https://github.com/solid/solid-crud-tests/blob/v3.1.0/test/surface/create-container.test.ts#L56-L64
+    // Copied from https://github.com/solidos/solid-crud-tests/blob/v3.1.0/test/surface/create-container.test.ts#L56-L64
     const result = await this.underlyingFetch.fetch(url, {
       method: "PUT",
       headers: {
         "Content-Type": "text/turtle",
         "If-None-Match": "*",
-        Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"', // See https://github.com/solid/node-solid-server/issues/1465
+        Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"', // See https://github.com/solidos/node-solid-server/issues/1465
       },
       body: " ", // work around https://github.com/michielbdejong/community-server/issues/4#issuecomment-776222863
     });
