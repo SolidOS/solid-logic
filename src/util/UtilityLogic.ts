@@ -123,7 +123,7 @@ export class UtilityLogic {
       .map((st: Statement) => st.object as NamedNode);
   }
 
-  async getContainerMembers(containerUrl: string): Promise<string[]> {
+  async getContainerMembers (containerNode: NamedNode): NamedNode[] {
     const containerNode = this.store.sym(containerUrl);
     await this.store.fetcher?.load(containerNode);
     const nodes = this.getContainerElements(containerNode);
