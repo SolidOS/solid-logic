@@ -124,7 +124,9 @@ export class UtilityLogic {
   }
 
   async getContainerMembers (containerNode: NamedNode): NamedNode[] {
-    const containerNode = this.store.sym(containerUrl);
+    containerNode = Promise<NamedNode[]>;
+    //old line (left in the code for reference/comparison reasons)
+    //const containerNode = this.store.sym(containerUrl);
     await this.store.fetcher?.load(containerNode);
     const nodes = this.getContainerElements(containerNode);
     return nodes.map(node => node.value);
