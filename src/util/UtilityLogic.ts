@@ -129,14 +129,14 @@ export class UtilityLogic {
     return nodes.map(node => node.value);
   }
 
-  async recursiveDelete(url: NamedNode) {
+  async recursiveDelete(containerNode: NamedNode) {
     try {
-      if (this.isContainer(url)) {
-        const aclDocUrl = await this.findAclDocUrl(url);
+      if (this.isContainer(containerNode)) {
+        const aclDocUrl = await this.findAclDocUrl(containerNode);
         await this.underlyingFetch.fetch(aclDocUrl, { method: "DELETE" });
         const containerMembers = await this.getContainerMembers(containerNode);
         await Promise.all(
-          containerMembers.map((url) => this.recursiveDelete(url))
+          containerMembers.map((url) => this.recursiveDelete(containerNode))
         );
       }
       return this.underlyingFetch.fetch(url, { method: "DELETE" });
