@@ -129,7 +129,7 @@ export class UtilityLogic {
     return nodes.map(node => node.value);
   }
 
-  async recursiveDelete(url: string) {
+  async recursiveDelete(url: NamedNode) {
     try {
       if (this.isContainer(url)) {
         const aclDocUrl = await this.findAclDocUrl(url);
