@@ -134,7 +134,7 @@ export class UtilityLogic {
       if (this.isContainer(url)) {
         const aclDocUrl = await this.findAclDocUrl(url);
         await this.underlyingFetch.fetch(aclDocUrl, { method: "DELETE" });
-        const containerMembers = await this.getContainerMembers(url);
+        const containerMembers = await this.getContainerMembers(containerNode);
         await Promise.all(
           containerMembers.map((url) => this.recursiveDelete(url))
         );
