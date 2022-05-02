@@ -123,12 +123,14 @@ export class UtilityLogic {
       .map((st: Statement) => st.object as NamedNode);
   }
 
+  //function getContainerMembers fixed 2022-05-02
   async getContainerMembers (containerNode: NamedNode): Promise<NamedNode[]> {
     await this.store.fetcher?.load(containerNode);
     const nodes = this.getContainerElements(containerNode);
     return nodes.map(node => node.value);
   }
 
+  //function recursiveDelete fixed 2022-05-02
   async recursiveDelete(containerNode: NamedNode) {
     try {
       if (this.isContainer(containerNode)) {
