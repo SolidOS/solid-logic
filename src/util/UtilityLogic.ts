@@ -118,7 +118,7 @@ export class UtilityLogic {
         containerNode,
         this.store.sym("http://www.w3.org/ns/ldp#contains"),
         undefined,
-        containerNode.doc()
+        //4th parameter is the doc itself : containerNode.doc()
       )
       .map((st: Statement) => st.object as NamedNode);
   }
