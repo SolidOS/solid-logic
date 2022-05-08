@@ -26,7 +26,7 @@ export class InboxLogic {
       user = await this.profile.loadMe();
     }
     const inbox = await this.profile.getMainInbox(user);
-    const urls = await this.util.getContainerMembers(inbox.value);
+    const urls = await this.util.getContainerMembers(inbox);
     return urls.filter(url => !this.util.isContainer(url));
   }
   async createInboxFor(peerWebId: string, nick: string) {
