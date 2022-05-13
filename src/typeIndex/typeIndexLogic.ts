@@ -42,6 +42,7 @@ return context
 }
 
 export async function loadTypeIndexes (context: AuthenticationContext) {
+if (!context.me) throw new Error('loadTypeIndexes: not logged in')
 const context2 = await loadPreferences(solidLogicSingleton.store, context.me)
 const indexes = await solidLogicSingleton.loadIndexes(
     context.me as NamedNode,

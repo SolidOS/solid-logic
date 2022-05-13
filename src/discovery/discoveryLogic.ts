@@ -81,7 +81,8 @@ export async function followOrCreateLink(store: LiveStore, subject: NamedNode, p
   return object
 }
 
-export async function loadProfile(store: LiveStore, user) {
+export async function loadProfile(store: LiveStore, user: NamedNode) {
+  console.log(' @@  loadProfile: user', user)
   if (!user) {
     throw new Error(`loadProfile: no user given.`)
   }
@@ -93,9 +94,11 @@ export async function loadProfile(store: LiveStore, user) {
   return user.doc()
 }
 
-export async function loadPreferences(store: LiveStore, user): Promise <NamedNode | undefined > {
+export async function loadPreferences(store: LiveStore, user: NamedNode): Promise <NamedNode | undefined > {
+  console.log('loadPreferences @@ user', user)
   const profile = await loadProfile(store as LiveStore, user)
   const preferencesFile = store.any(user, ns.space('preferencesFile'), undefined, profile)
+  console.log('loadPreferences @@ pref file', preferencesFile)
   if (!preferencesFile) {
     const message = `User ${user} has no pointer in profile to preferences file.`
     console.warn(message)
@@ -103,7 +106,7 @@ export async function loadPreferences(store: LiveStore, user): Promise <NamedNod
     return undefined
   }
   try {
-    store.fetcher.load(preferencesFile as NamedNode)
+    await store.fetcher.load(preferencesFile as NamedNode)
   } catch (err) { // Mabeb a permission propblem or origin problem
     return undefined
     // throw new Error(`Unable to load preferences file ${preferencesFile} of user <${user}>: ${err}`)
@@ -112,26 +115,41 @@ export async function loadPreferences(store: LiveStore, user): Promise <NamedNod
 }
 
 export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Promise<Array<TypeIndexScope>> {
+  console.log('@@ loadTypeIndexesFor user', user)
   if (!user) throw new Error(`loadTypeIndexesFor: No user given`)
   const profile = await loadProfile(store, user)
   const publicTypeIndex = store.any(user, ns.solid('publicTypeIndex'), undefined, profile)
-  if (publicTypeIndex) {
-    try {
-      await store.fetcher.load(publicTypeIndex as NamedNode)
-    } catch {
-      // never mind
-    }
-  }
-  const  pub = publicTypeIndex ? [ { label: 'public', index: publicTypeIndex as NamedNode, agent: user } ] : []
+  console.log('@@ loadTypeIndexesFor publicTypeIndex', publicTypeIndex)
 
-  const preferencesFile = await loadPreferences(store, user)
+  const  publicScopes = publicTypeIndex ? [ { label: 'public', index: publicTypeIndex as NamedNode, agent: user } ] : []
+
+  let preferencesFile
+  try {
+    preferencesFile = await loadPreferences(store, user)
+  } catch (err) {
+    preferencesFile = null
+  }
+
+  let priv
   if (preferencesFile) { // watch out - can be in either as spec was not clear
     const privateTypeIndexes = store.each(user, ns.solid('privateTypeIndex'), undefined, preferencesFile as NamedNode)
       .concat(store.each(user, ns.solid('privateTypeIndex'), undefined, profile))
-    const priv = privateTypeIndexes.length > 0 ? [ { label: 'private', index: privateTypeIndexes[0] as NamedNode, agent: user } ] : []
-    return pub.concat(priv)
+     console.log('@@ loadTypeIndexesFor privateTypeIndexes', privateTypeIndexes)
+
+    priv = privateTypeIndexes.length > 0 ? [ { label: 'private', index: privateTypeIndexes[0] as NamedNode, agent: user } ] : []
+  } else {
+    priv = []
   }
-  return pub
+  const scopes =  publicScopes.concat(priv)
+  if (scopes.length === 0) return scopes
+  const files = scopes.map(scope => scope.index)
+  console.log('@@ loadTypeIndexesFor files ', files)
+  try {
+    await store.fetcher.load(files)
+  } catch (err) {
+    console.warn('Problems loading type index: ', err)
+  }
+  return scopes
 }
 
 export async function loadCommunityTypeIndexes (store:LiveStore, user:NamedNode): Promise<TypeIndexScope[][]> {
@@ -152,7 +170,7 @@ export async function loadCommunityTypeIndexes (store:LiveStore, user:NamedNode)
     */
     // return communityTypeIndexesPromise.resolve()
   }
-  return []
+  return [] // No communities
 }
 
 export async function loadAllTypeIndexes (store:LiveStore, user:NamedNode) {
