@@ -115,7 +115,7 @@ export async function loadPreferences(store: LiveStore, user: NamedNode): Promis
 }
 
 export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Promise<Array<TypeIndexScope>> {
-  console.log('@@ loadTypeIndexesFor user', user)
+  // console.log('@@ loadTypeIndexesFor user', user)
   if (!user) throw new Error(`loadTypeIndexesFor: No user given`)
   const profile = await loadProfile(store, user)
   const publicTypeIndex = store.any(user, ns.solid('publicTypeIndex'), undefined, profile)
@@ -156,7 +156,7 @@ export async function loadCommunityTypeIndexes (store:LiveStore, user:NamedNode)
   const preferencesFile = await loadPreferences(store, user)
   if (preferencesFile) { // For now, pick up communities as simple links from the preferences file.
     const communities = store.each(user, ns.solid('community'), undefined, preferencesFile as NamedNode)
-    console.log('loadCommunityTypeIndexes communities: ',communities)
+    // console.log('loadCommunityTypeIndexes communities: ',communities)
     let result = []
     for (const org of communities) {
       result = result.concat(await loadTypeIndexesFor(store, org as NamedNode))
@@ -172,24 +172,21 @@ export async function loadAllTypeIndexes (store:LiveStore, user:NamedNode) {
   return (await loadTypeIndexesFor(store, user)).concat((await loadCommunityTypeIndexes(store, user)).flat())
 }
 
+// Utility: remove duplicates from Array of NamedNodes
 
 export function uniqueNodes (arr: NamedNode[]): NamedNode[] {
-  console.log('  uniqueNodes in: uniqueNodes', arr)
   const uris = arr.map(x => x.uri)
   const set = new Set(uris)
-  console.log(' set: ', set)
   const uris2 = Array.from(set)
-  console.log('   uris2', uris2)
   const arr2 = uris2.map(u => new NamedNode(u))
   return arr2 // Array.from(new Set(arr.map(x => x.uri))).map(u => sym(u))
 }
 
-
 export async function getScopedAppsFrommIndex (store, scope, theClass: NamedNode) {
-  console.log(`getScopedAppsFrommIndex agent ${scope.agent} index: ${scope.index}` )
+  // console.log(`getScopedAppsFrommIndex agent ${scope.agent} index: ${scope.index}` )
   const index = scope.index
   const registrations = store.each(undefined, ns.solid('forClass'), theClass, index)
-  console.log('    registrations', registrations )
+  // console.log('    registrations', registrations )
 
   // In practice it looks as though existing code does not put in the type explicitly so can't do this filter. Discuss.
   // const relevant = registrations.filter(reg => store.holds(reg, ns.rdf('type'), ns.solid('TypeRegistration'), index))
@@ -197,7 +194,7 @@ export async function getScopedAppsFrommIndex (store, scope, theClass: NamedNode
   const relevant = registrations
 
   const directInstances = registrations.map(reg => store.any(reg as NamedNode, ns.solid('instance'), null, index))
-  console.log('    directInstances', directInstances )
+  // console.log('    directInstances', directInstances )
   let instances = uniqueNodes(directInstances)
 
   //  instanceContainers may be deprocaatable if no on has used them
@@ -208,7 +205,7 @@ export async function getScopedAppsFrommIndex (store, scope, theClass: NamedNode
     return instances.map(instance => { return {instance, scope}})
   }
   // If the index gives containers, then look up all things within them
-  console.log('@@ CONTAINERS   ', JSON.stringify(containers))
+  // console.log('@@ CONTAINERS   ', JSON.stringify(containers))
 
   try {
     await store.fetcher.load(containers as NamedNode[])
@@ -230,7 +227,7 @@ export async function getScopedAppsFrommIndex (store, scope, theClass: NamedNode
 
 
 export async function getScopedAppInstances (store:LiveStore, klass: NamedNode, user: NamedNode):Promise<ScopedApp[]> {
-  console.log('getScopedAppInstances @@ ' + user)
+  // console.log('getScopedAppInstances @@ ' + user)
   const scopes = await loadAllTypeIndexes(store, user)
   let scopedApps = []
   for (const scope of scopes) {

@@ -13,6 +13,8 @@ import { loadOrCreateIfNotExists, makePreferencesFileURI, followOrCreateLink, lo
 
 const {  getContainerMembers, authn, store } = solidLogicSingleton
 
+/* global $SolidTestEnvironment  */
+
 /* Discovery Logic tests
 */
 
@@ -42,6 +44,8 @@ const ClubPreferencesFile = sym('https://club.example.com/settings/prefs.ttl')
 const ClubPublicTypeIndex = sym('https://club.example.com/profle/public-type-index.ttl')
 const ClubPrivateTypeIndex = sym('https://club.example.com/settings/private-type-index.ttl')
 
+window.$SolidTestEnvironment = { username: Alice.uri }
+
 const user = Alice
 const profile = user.doc()
 
@@ -53,18 +57,14 @@ const klass = ns.wf('Tracker')
 // const mockUser = jest.fn(() => Alice);
 // authn.currentUser = jest.fn(() => Alice)
 
-console.log('authn', authn)
-authn.session.test = 'TEST'
-authn.session.info = { sessionId: 'mySession', isLoggedIn: true, webId: Alice.uri }
-console.log('authn 2', authn)
+// console.log('authn', authn)
+// authn.session.test = 'TEST'
+// authn.session.info = { sessionId: 'mySession', isLoggedIn: true, webId: Alice.uri }
+// console.log('authn 2', authn)
 
-
-const mySession = authn.authSession()
-console.log('mySession', mySession)
-
-authn.session = {  info: {} }
-authn.session.info.webid = Alice.uri
-authn.session.info.isLoggedIn = true
+// authn.session = {  info: {} }
+// authn.session.info.webid = Alice.uri
+// authn.session.info.isLoggedIn = true
 /*
 this.session.info.webId && this.session.info.isLoggedIn) {
   return sym(this.session.info.webId)
@@ -554,13 +554,67 @@ const AliceAndClubScopes =
       })
   })
 
+const TRACKERS =
+  [
+     {
+       "classOrder": 5,
+       "termType": "NamedNode",
+       "value": "https://alice.example.com/publicStuff/actionItems.ttl#this",
+     },
+     {
+       "classOrder": 5,
+       "termType": "NamedNode",
+       "value": "https://alice.example.com/project4/issues.ttl#this",
+     },
+     {
+       "classOrder": 5,
+       "termType": "NamedNode",
+       "value": "https://alice.example.com/privateStuff/ToDo.ttl#this",
+     },
+     {
+       "classOrder": 5,
+       "termType": "NamedNode",
+       "value": "https://alice.example.com/privateStuff/Goals.ttl#this",
+     },
+     {
+       "classOrder": 5,
+       "termType": "NamedNode",
+       "value": "https://alice.example.com/privateStuff/workingOn.ttl#this",
+     },
+     {
+       "classOrder": 5,
+       "termType": "NamedNode",
+       "value": "https://club.example.com/publicStuff/actionItems.ttl#this",
+     },
+     {
+       "classOrder": 5,
+       "termType": "NamedNode",
+       "value": "https://club.example.com/project4/clubIssues.ttl#this",
+     },
+     {
+       "classOrder": 5,
+       "termType": "NamedNode",
+       "value": "https://club.example.com/privateStuff/ToDo.ttl#this",
+     },
+     {
+       "classOrder": 5,
+       "termType": "NamedNode",
+       "value": "https://club.example.com/privateStuff/Goals.ttl#this",
+     },
+     {
+       "classOrder": 5,
+       "termType": "NamedNode",
+       "value": "https://club.example.com/privateStuff/tasks.ttl#this",
+     },
+   ]
+
   describe('getAppInstances', () =>  {
       it('exists', () => {
           expect(getAppInstances).toBeInstanceOf(Function)
       })
       it('runs', async () => { // needs auth mock
-          const result = (await getAppInstances(store, klass)).toEqual([ 'TBD' ])
-          expect(result).toEqual([])
+          const result = await getAppInstances(store, klass)
+          expect(result).toEqual(TRACKERS)
           expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
       })
   })
