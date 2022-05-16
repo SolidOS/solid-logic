@@ -82,7 +82,7 @@ export async function followOrCreateLink(store: LiveStore, subject: NamedNode, p
 }
 
 export async function loadProfile(store: LiveStore, user: NamedNode) {
-  console.log(' @@  loadProfile: user', user)
+  // console.log(' @@  loadProfile: user', user)
   if (!user) {
     throw new Error(`loadProfile: no user given.`)
   }
@@ -95,10 +95,10 @@ export async function loadProfile(store: LiveStore, user: NamedNode) {
 }
 
 export async function loadPreferences(store: LiveStore, user: NamedNode): Promise <NamedNode | undefined > {
-  console.log('loadPreferences @@ user', user)
+  // console.log('loadPreferences @@ user', user)
   const profile = await loadProfile(store as LiveStore, user)
   const preferencesFile = store.any(user, ns.space('preferencesFile'), undefined, profile)
-  console.log('loadPreferences @@ pref file', preferencesFile)
+  // console.log('loadPreferences @@ pref file', preferencesFile)
   if (!preferencesFile) {
     const message = `User ${user} has no pointer in profile to preferences file.`
     console.warn(message)
@@ -119,7 +119,7 @@ export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Prom
   if (!user) throw new Error(`loadTypeIndexesFor: No user given`)
   const profile = await loadProfile(store, user)
   const publicTypeIndex = store.any(user, ns.solid('publicTypeIndex'), undefined, profile)
-  console.log('@@ loadTypeIndexesFor publicTypeIndex', publicTypeIndex)
+  // console.log('@@ loadTypeIndexesFor publicTypeIndex', publicTypeIndex)
 
   const  publicScopes = publicTypeIndex ? [ { label: 'public', index: publicTypeIndex as NamedNode, agent: user } ] : []
 
@@ -134,7 +134,7 @@ export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Prom
   if (preferencesFile) { // watch out - can be in either as spec was not clear
     const privateTypeIndexes = store.each(user, ns.solid('privateTypeIndex'), undefined, preferencesFile as NamedNode)
       .concat(store.each(user, ns.solid('privateTypeIndex'), undefined, profile))
-     console.log('@@ loadTypeIndexesFor privateTypeIndexes', privateTypeIndexes)
+     // console.log('@@ loadTypeIndexesFor privateTypeIndexes', privateTypeIndexes)
 
     priv = privateTypeIndexes.length > 0 ? [ { label: 'private', index: privateTypeIndexes[0] as NamedNode, agent: user } ] : []
   } else {
@@ -143,7 +143,7 @@ export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Prom
   const scopes =  publicScopes.concat(priv)
   if (scopes.length === 0) return scopes
   const files = scopes.map(scope => scope.index)
-  console.log('@@ loadTypeIndexesFor files ', files)
+  // console.log('@@ loadTypeIndexesFor files ', files)
   try {
     await store.fetcher.load(files)
   } catch (err) {
@@ -156,19 +156,14 @@ export async function loadCommunityTypeIndexes (store:LiveStore, user:NamedNode)
   const preferencesFile = await loadPreferences(store, user)
   if (preferencesFile) { // For now, pick up communities as simple links from the preferences file.
     const communities = store.each(user, ns.solid('community'), undefined, preferencesFile as NamedNode)
-    const communityTypeIndexesPromises = communities.map(async community => await loadTypeIndexesFor(store, community as NamedNode))
-    const result1 = Promise.all(communityTypeIndexesPromises)
-    // const result2 = Promise.all(result1)
-    // const flat = result2.flat()
-    return result1
-    // const communityTypeIndexes = await Promise.all(communityTypeIndexesPromise)
-      /*
-    let result = [] as TypeIndexScope[]
-    for(const community of communities) {
-      result = result.concat(await loadTypeIndexesFor(store, community as NamedNode)) as TypeIndexScope[] // @@ how oto make functional with async?
+    console.log('loadCommunityTypeIndexes communities: ',communities)
+    let result = []
+    for (const org of communities) {
+      result = result.concat(await loadTypeIndexesFor(store, org as NamedNode))
     }
-    */
-    // return communityTypeIndexesPromise.resolve()
+    // const communityTypeIndexesPromises = communities.map(async community => await loadTypeIndexesFor(store, community as NamedNode))
+    // const result1 = Promise.all(communityTypeIndexesPromises)
+    return result
   }
   return [] // No communities
 }
@@ -179,27 +174,36 @@ export async function loadAllTypeIndexes (store:LiveStore, user:NamedNode) {
 
 
 export function uniqueNodes (arr: NamedNode[]): NamedNode[] {
-  return Array.from(new Set(arr.map(x => x.uri))).map(u => sym(u))
+  console.log('  uniqueNodes in: uniqueNodes', arr)
+  const uris = arr.map(x => x.uri)
+  const set = new Set(uris)
+  console.log(' set: ', set)
+  const uris2 = Array.from(set)
+  console.log('   uris2', uris2)
+  const arr2 = uris2.map(u => new NamedNode(u))
+  return arr2 // Array.from(new Set(arr.map(x => x.uri))).map(u => sym(u))
 }
 
 
 export async function getScopedAppsFrommIndex (store, scope, theClass: NamedNode) {
+  console.log(`getScopedAppsFrommIndex agent ${scope.agent} index: ${scope.index}` )
   const index = scope.index
   const registrations = store.each(undefined, ns.solid('forClass'), theClass, index)
-  const relevant = registrations.filter(reg => store.holds(reg, ns.rdf('type'), ns.solid('TypeRegistration'), index))
-  const instances0 = relevant.map(reg => store.any(reg as NamedNode, ns.solid('instance'), null, index))
+  console.log('    registrations', registrations )
 
-/*    .map(ix =>
-    .reduce((acc, curr) => acc.concat(curr), [])
-  const instances0 = registrations
-    .map(reg => store.each(reg as NamedNode, ns.solid('instance')))
-    .reduce((acc, curr) => acc.concat(curr), [])
-*/
-  const containers0 = relevant.map(reg => store.each(reg as NamedNode, ns.solid('instanceContainer')))
+  // In practice it looks as though existing code does not put in the type explicitly so can't do this filter. Discuss.
+  // const relevant = registrations.filter(reg => store.holds(reg, ns.rdf('type'), ns.solid('TypeRegistration'), index))
+  // console.log('    relevant', relevant )
+  const relevant = registrations
 
-  let instances = instances0
-  instances = uniqueNodes(instances.concat(instances as NamedNode[]))
-  const containers = uniqueNodes(containers0)
+  const directInstances = registrations.map(reg => store.any(reg as NamedNode, ns.solid('instance'), null, index))
+  console.log('    directInstances', directInstances )
+  let instances = uniqueNodes(directInstances)
+
+  //  instanceContainers may be deprocaatable if no on has used them
+  const instanceContainers = relevant.map(reg => store.each(reg as NamedNode, ns.solid('instanceContainer'))).flat()
+
+  const containers = uniqueNodes(instanceContainers)
   if (!containers.length) {
     return instances.map(instance => { return {instance, scope}})
   }
@@ -209,7 +213,7 @@ export async function getScopedAppsFrommIndex (store, scope, theClass: NamedNode
   try {
     await store.fetcher.load(containers as NamedNode[])
   } catch (err) {
-    const e = new Error(`[FAI] Unable to load containers${err}`)
+    const e = new Error(`getScopedAppsFrommIndex [FAIL] Unable to load containers${err}`)
     debug.log(e) // complain
     // widgets.complain(context, `Error looking for ${utils.label(theClass)}:  ${err}`)
     // but then ignore it
@@ -226,6 +230,7 @@ export async function getScopedAppsFrommIndex (store, scope, theClass: NamedNode
 
 
 export async function getScopedAppInstances (store:LiveStore, klass: NamedNode, user: NamedNode):Promise<ScopedApp[]> {
+  console.log('getScopedAppInstances @@ ' + user)
   const scopes = await loadAllTypeIndexes(store, user)
   let scopedApps = []
   for (const scope of scopes) {
