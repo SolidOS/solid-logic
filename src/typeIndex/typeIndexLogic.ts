@@ -42,19 +42,26 @@ return context
 }
 
 export async function loadTypeIndexes (context: AuthenticationContext) {
-if (!context.me) throw new Error('loadTypeIndexes: not logged in')
-const context2 = await loadPreferences(solidLogicSingleton.store, context.me)
-const indexes = await solidLogicSingleton.loadIndexes(
-    context.me as NamedNode,
-    context.publicProfile || null,
-    context.preferencesFile || null,
-    // async (err: Error) => widgets.complain(context, err.message)
-    async (err: Error) => debug.warn(err.message) as undefined
-)
-context.index = context.index || {}
-context.index.private = indexes.private || context.index.private
-context.index.public = indexes.public || context.index.public
-return context
+    try {
+        await loadPreferences(solidLogicSingleton.store, context.me)
+    } catch (error) {
+        debug.warn(error.message) as undefined
+    }
+    try {
+        const indexes = await solidLogicSingleton.loadIndexes(
+            context.me as NamedNode,
+            context.publicProfile || null,
+            context.preferencesFile || null,
+            // async (err: Error) => widgets.complain(context, err.message)
+            // async (err: Error) => debug.warn(err.message) as undefined
+        )
+        context.index = context.index || {}
+        context.index.private = indexes.private || context.index.private
+        context.index.public = indexes.public || context.index.public
+        return context
+    } catch (error) {
+        async (error: Error) => debug.warn(error.message) as undefined
+    }
 }
 
 /**
