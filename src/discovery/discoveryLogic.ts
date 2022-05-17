@@ -22,9 +22,11 @@ const ns ={
  */
 export async function loadOrCreateIfNotExists (store: LiveStore, doc: NamedNode) {
     let response
+    // console.log('@@ store ',store)
     try {
       response = await store.fetcher.load(doc)
     } catch (err) {
+        // console.log('loadOrCreateIfNotExists err', err)
         if (err.response.status === 404) {
           debug.log('createIfNotExists doc does NOT exist, will create: ' + doc)
           try {
@@ -46,38 +48,50 @@ export async function loadOrCreateIfNotExists (store: LiveStore, doc: NamedNode)
     return response
 }
 
-export function HTTPStatus (doc: NamedNode): Number {
+/*
+export function HTTPStatus (doc: NamedNode): number {
   return 200 // @@ TBD
 }
+*/
+
 export function makePreferencesFileURI (store:LiveStore, me:NamedNode) {
   const stripped = me.uri.replace('/profile/', '/').replace('/public/', '/')
   // const stripped = me.uri.replace(\/[p|P]rofile/\g, '/').replace(\/[p|P]ublic/\g, '/')
   const folderURI = stripped.split('/').slice(0,-1).join('/') + '/Settings/'
   const fileURI = folderURI + 'Preferences.ttl'
-  const folder = sym(folderURI)
-
-  const folderStat = HTTPStatus(folder)
-  if (folderStat === 200) {
-
-  } else if (folderStat === 404) {
-
-  } else {
-    console.log('Abort Preferences creation: Settings folder HTTP status: ' + folderStat)
-    return null
-  }
-  // @@ To be completed TBC
-
+  return fileURI
 }
+
 /* Follow link from this doc to another thing, or else make a new link
 **
-**  null return means new one created
+**  return: null no ld one and failed to make a new one
 */
 export async function followOrCreateLink(store: LiveStore, subject: NamedNode, predicate: NamedNode,
      object: NamedNode, doc:NamedNode):Promise<NamedNode | null> {
   const result = store.any(subject, predicate, null, doc)
+  // console.log('@@ store 2',store)
+
   if (result) return result as NamedNode
-  if (!store.updater.editable(doc)) throw new Error(`followOrCreateLink: Cannot modify ${doc} to make link to ${object}`)
-  await store.updater.update([], [ st(subject, predicate, object, doc)])
+  if (!store.updater.editable(doc)) {
+    // console.log(`Can't modify ${doc} so can't make new link to ${object}.`)
+    return null
+  }
+  try {
+    await store.updater.update([], [ st(subject, predicate, object, doc)])
+  } catch (err) {
+    console.warn(`Error making link in ${doc} to ${object}: ${err}`)
+    return null
+  }
+
+  // console.log(`Success making link in ${doc} to ${object}` )
+
+  try {
+    loadOrCreateIfNotExists(store, object)
+    // store.fetcher.webOperation('PUT', object, { data: '', contentType: 'text/turtle'})
+  } catch (err) {
+    console.warn(`Error loading or saving new linked document: ${object}: ${err}`)
+  }
+  // console.log(`Success loading or saving new linked document: ${object}.`)
   return object
 }
 
@@ -97,7 +111,12 @@ export async function loadProfile(store: LiveStore, user: NamedNode) {
 export async function loadPreferences(store: LiveStore, user: NamedNode): Promise <NamedNode | undefined > {
   // console.log('loadPreferences @@ user', user)
   const profile = await loadProfile(store as LiveStore, user)
-  const preferencesFile = store.any(user, ns.space('preferencesFile'), undefined, profile)
+
+  const possiblePreferencesFile = sym(makePreferencesFileURI(store, user))
+
+  const preferencesFile = await followOrCreateLink(store, user,  ns.space('preferencesFile'), possiblePreferencesFile, user.doc())
+  // const preferencesFile = store.any(user, ns.space('preferencesFile'), undefined, profile)
+
   // console.log('loadPreferences @@ pref file', preferencesFile)
   if (!preferencesFile) {
     const message = `User ${user} has no pointer in profile to preferences file.`

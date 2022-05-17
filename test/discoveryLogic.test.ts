@@ -44,6 +44,8 @@ const ClubPreferencesFile = sym('https://club.example.com/settings/prefs.ttl')
 const ClubPublicTypeIndex = sym('https://club.example.com/profle/public-type-index.ttl')
 const ClubPrivateTypeIndex = sym('https://club.example.com/settings/private-type-index.ttl')
 
+const Bob = sym('https://bob.example.com/profile/card.ttl#me')
+
 window.$SolidTestEnvironment = { username: Alice.uri }
 
 const user = Alice
@@ -52,27 +54,6 @@ const profile = user.doc()
 // const klass = sym('http://www.w3.org/2006/vcard/ns#AddressBook')
 const klass = ns.wf('Tracker')
 
-// Mock out auth so we seemed to be logged in as Alice
-// @@ used?
-// const mockUser = jest.fn(() => Alice);
-// authn.currentUser = jest.fn(() => Alice)
-
-// console.log('authn', authn)
-// authn.session.test = 'TEST'
-// authn.session.info = { sessionId: 'mySession', isLoggedIn: true, webId: Alice.uri }
-// console.log('authn 2', authn)
-
-// authn.session = {  info: {} }
-// authn.session.info.webid = Alice.uri
-// authn.session.info.isLoggedIn = true
-/*
-this.session.info.webId && this.session.info.isLoggedIn) {
-  return sym(this.session.info.webId)
-}
-*/
-
-/*src/authn/SolidAuthnLogic.ts:
-*/
 //////////////////////////////////////////////////////////// User Alice
 const AliceProfile = `
 <#me> a vcard:Individual;
@@ -111,6 +92,14 @@ const AlicePrivateTypes = `
 :id1596123375929 solid:forClass meeting:Meeting; solid:instance  <../project4/meeting1.ttl#this>.
 
 `;
+
+
+//////////////////////////////////////////////////////////// User Bob
+const BobProfile = `
+<#me> a vcard:Individual;
+
+    vcard:fn "Bob" .
+`
 
 //////////////////////////////////////////////////////////// User Club
 const ClubProfile = `
@@ -156,29 +145,39 @@ web[AlicePreferencesFile.uri] = AlicePreferences
 web[AlicePrivateTypeIndex.uri] = AlicePrivateTypes
 web[AlicePublicTypeIndex.uri] = AlicePublicTypes
 
+web[Bob.doc().uri] = BobProfile
+
 web[Club.doc().uri] = ClubProfile
 web[ClubPreferencesFile.uri] = ClubPreferences
 web[ClubPrivateTypeIndex.uri] = ClubPrivateTypes
 web[ClubPublicTypeIndex.uri] = ClubPublicTypes
+
+let requests = []
 
 describe("Discovery Logic", () => {
   let store;
   let options;
   beforeEach(() => {
     fetchMock.resetMocks();
-
+    requests = []
     const init = {headers: { "Content-Type": "text/turtle" }} // Fetch options tend to be called this
 
     fetchMock.mockIf(/^https?.*$/, async req => {
-      // console.log('  Mock req.url: ', req.url)
 
+      if (req.method !== 'GET') {
+        // console.log('Not GET ' + req.url, req)
+        requests.push(req)
+        return { status: 200 }
+      }
       const contents = web[req.url]
       if (contents) {
         return {
           body: prefixes + contents, // Add namespaces to anything
           status: 200,
           headers: {
-            "Content-Type": "text/turtle"
+            "Content-Type": "text/turtle",
+            "WAC-Allow":    'user="write", public="read"',
+            "Accept-Patch": "application/sparql-update"
           }
         }
       } // if contents
@@ -220,14 +219,17 @@ describe('uniqueNodes', () => {
        it('exists', () => {
            expect(loadOrCreateIfNotExists).toBeInstanceOf(Function)
        })
-       it.skip('does nothing if existing file', async () => {
-           const result = await loadOrCreateIfNotExists(Alice.doc())
-           // @@ TBD
+       it('does nothing if existing file', async () => {
+           const result = await loadOrCreateIfNotExists(store, Alice.doc())
+            expect(requests).toEqual([])
 
        })
-       it.skip('creates exmpty file if did not exist', async () => {
-           const result = await loadOrCreateIfNotExists(Alice.doc())
-           // @@ TBD
+       it.skip('creates empty file if did not exist', async () => {
+           const result = await loadOrCreateIfNotExists(store, Bob.doc())
+           console.log('@@@@@ test requests', requests)
+           expect(requests[0].method).toEqual('PUT')
+           expect(requests[0].url).toEqual(Bob.doc().uri)
+           expect(requests[0].body).toEqual(null)
        })
    })
    describe('loadProfile', () => {
@@ -249,7 +251,7 @@ describe('uniqueNodes', () => {
           expect(loadPreferences).toBeInstanceOf(Function)
       })
       it('loads data', async () => {
-          const result = await loadPreferences(store, user)
+          const result = await loadPreferences(store, Alice)
           expect(result).toBeInstanceOf(Object)
           expect(result.uri).toEqual(AlicePreferencesFile.uri)
           expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
@@ -258,6 +260,23 @@ describe('uniqueNodes', () => {
           expect(store.statementsMatching(null, null, null, AlicePreferencesFile).length).toEqual(2)
           expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
       })
+      it('creates new file', async () => {
+          const result = await loadPreferences(store, Bob)
+
+          const patchRequest = requests[0]
+          expect(patchRequest.method).toEqual('PATCH')
+          expect(patchRequest.url).toEqual(Bob.doc().uri)
+          const text = await patchRequest.text()
+          expect(text).toContain('INSERT DATA { <https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://bob.example.com/Settings/Preferences.ttl> .')
+
+          const putRequest = requests[1]
+          expect(putRequest.method).toEqual('PUT')
+          expect(putRequest.url).toEqual('https://bob.example.com/Settings/Preferences.ttl')
+          const text2 = await putRequest.text()
+          expect(text2).toEqual('')
+
+      })
+
   })
 
   const AliceScopes = [ {
