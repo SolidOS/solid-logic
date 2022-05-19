@@ -21,7 +21,7 @@ export class InboxLogic {
 
   async getNewMessages(
     user?: NamedNode
-  ): Promise<string[]> {
+  ): Promise<NamedNode[]> {
     if (!user) {
       user = await this.profile.loadMe();
     }

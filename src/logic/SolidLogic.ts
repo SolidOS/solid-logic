@@ -236,7 +236,7 @@ export class SolidLogic {
         }); // promise
     }
 
-    isContainer(url: string) {
+    isContainer(url: NamedNode) {
         return this.util.isContainer(url);
     }
 

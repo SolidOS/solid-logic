@@ -89,8 +89,9 @@ export class UtilityLogic {
     // console.log('loaded', profileDocument, this.store)
   }
 
-  isContainer(url: string) {
-    return url.substr(-1) === "/";
+  isContainer(url: NamedNode) {
+    const nodeToString = url.toString()
+    return nodeToString.charAt(nodeToString.length-1) === "/";
   }
 
   async createContainer(url: string) {
@@ -126,8 +127,7 @@ export class UtilityLogic {
   //function getContainerMembers fixed 2022-05-02
   async getContainerMembers (containerNode: NamedNode): Promise<NamedNode[]> {
     await this.store.fetcher?.load(containerNode);
-    const nodes = this.getContainerElements(containerNode);
-    return nodes.map(node => node.value);
+    return this.getContainerElements(containerNode);
   }
 
   //function recursiveDelete fixed 2022-05-02
