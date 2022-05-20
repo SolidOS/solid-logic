@@ -239,20 +239,20 @@ describe('uniqueNodes', () => {
            expect(followOrCreateLink).toBeInstanceOf(Function)
        })
        it('follows existing link', async () => {
-           const result = await loadOrCreateIfNotExists(store, Alice, ns.solid('preferencesFile'), 'blah', Alice.doc())
-            expect(requests).toEqual(AlicePreferencesFile)
+           const result = await followOrCreateLink(store, Alice, ns.space('preferencesFile'), 'blah', Alice.doc())
+            expect(result).toEqual(AlicePreferencesFile)
 
        })
        it('creates empty file if did not exist and new link', async () => {
            const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
            const newFile = sym(suggestion)
-           const result = await loadOrCreateIfNotExists(store, Bob, ns.solid('preferencesFile'), sym(suggestion), Bob.doc())
+           const result = await followOrCreateLink(store, Bob, ns.space('preferencesFile'), sym(suggestion), Bob.doc())
            expect(result).toEqual(sym(suggestion))
            expect(requests[0].method).toEqual('PATCH') // or patch first?
            expect(requests[0].url).toEqual(Bob.doc().uri)
            expect(requests[1].method).toEqual('PUT') // or patch first?
            expect(requests[1].url).toEqual(suggestion)
-           expect(store.holds(Bob, ns.solid('preferencesFile'), sym(suggestion), Bob.doc())).toEqual(true)
+           expect(store.holds(Bob, ns.space('preferencesFile'), sym(suggestion), Bob.doc())).toEqual(true)
        })
    })
 

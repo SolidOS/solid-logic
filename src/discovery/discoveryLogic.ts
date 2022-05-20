@@ -70,18 +70,20 @@ export function suggestPrivateTypeIndexURI (preferencesFile:NamedNode) {
 */
 export async function followOrCreateLink(store: LiveStore, subject: NamedNode, predicate: NamedNode,
      object: NamedNode, doc:NamedNode):Promise<NamedNode | null> {
+  await store.fetcher.load(doc)
   const result = store.any(subject, predicate, null, doc)
-  // console.log('@@ store 2',store)
+  console.log('@@ followOrCreateLink result ', result)
 
   if (result) return result as NamedNode
   if (!store.updater.editable(doc)) {
-    // console.log(`Can't modify ${doc} so can't make new link to ${object}.`)
+    console.log(`followOrCreateLink:  Can't modify ${doc} so can't make new link to ${object}.`)
+    console.log('followOrCreateLink @@ connectedStatements', store.connectedStatements(subject))
     return null
   }
   try {
     await store.updater.update([], [ st(subject, predicate, object, doc)])
   } catch (err) {
-    console.warn(`Error making link in ${doc} to ${object}: ${err}`)
+    console.warn(`followOrCreateLink: Error making link in ${doc} to ${object}: ${err}`)
     return null
   }
 
@@ -91,9 +93,9 @@ export async function followOrCreateLink(store: LiveStore, subject: NamedNode, p
     await loadOrCreateIfNotExists(store, object)
     // store.fetcher.webOperation('PUT', object, { data: '', contentType: 'text/turtle'})
   } catch (err) {
-    console.warn(`Error loading or saving new linked document: ${object}: ${err}`)
+    console.warn(`followOrCreateLink: Error loading or saving new linked document: ${object}: ${err}`)
   }
-  // console.log(`Success loading or saving new linked document: ${object}.`)
+  console.log(`followOrCreateLink: Success loading or saving new linked document: ${object}.`)
   return object
 }
 
