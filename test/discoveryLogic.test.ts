@@ -9,8 +9,7 @@ import fetchMock from "jest-fetch-mock";
 
 import { loadOrCreateIfNotExists, makePreferencesFileURI, followOrCreateLink, loadCommunityTypeIndexes,
         getAppInstances, getScopedAppInstances, loadTypeIndexesFor, loadPreferences,
-        followOrCreateLink, uniqueNodes,
-        loadProfile } from '../src/discovery/discoveryLogic.ts'
+        uniqueNodes, loadProfile } from '../src/discovery/discoveryLogic.ts'
 
 const {  getContainerMembers, authn, store } = solidLogicSingleton
 
