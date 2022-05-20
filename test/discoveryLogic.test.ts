@@ -8,7 +8,8 @@ import { solidLogicSingleton } from "../src/logic/solidLogicSingleton"
 import fetchMock from "jest-fetch-mock";
 
 import { loadOrCreateIfNotExists, makePreferencesFileURI, followOrCreateLink, loadCommunityTypeIndexes,
-        getAppInstances, getScopedAppInstances, loadTypeIndexesFor, loadPreferences, uniqueNodes,
+        getAppInstances, getScopedAppInstances, loadTypeIndexesFor, loadPreferences,
+        followOrCreateLink, uniqueNodes,
         loadProfile } from '../src/discovery/discoveryLogic.ts'
 
 const {  getContainerMembers, authn, store } = solidLogicSingleton
@@ -226,12 +227,36 @@ describe('uniqueNodes', () => {
        })
        it.skip('creates empty file if did not exist', async () => {
            const result = await loadOrCreateIfNotExists(store, Bob.doc())
-           console.log('@@@@@ test requests', requests)
+           // console.log('@@@@@ test requests', requests)
            expect(requests[0].method).toEqual('PUT')
            expect(requests[0].url).toEqual(Bob.doc().uri)
-           expect(requests[0].body).toEqual(null)
        })
    })
+
+   // followOrCreateLink
+
+   describe('followOrCreateLink', () => {
+       it('exists', () => {
+           expect(followOrCreateLink).toBeInstanceOf(Function)
+       })
+       it('follows existing link', async () => {
+           const result = await loadOrCreateIfNotExists(store, Alice, ns.solid('preferencesFile'), 'blah', Alice.doc())
+            expect(requests).toEqual(AlicePreferencesFile)
+
+       })
+       it('creates empty file if did not exist and new link', async () => {
+           const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
+           const newFile = sym(suggestion)
+           const result = await loadOrCreateIfNotExists(store, Bob, ns.solid('preferencesFile'), sym(suggestion), Bob.doc())
+           expect(result).toEqual(sym(suggestion))
+           expect(requests[0].method).toEqual('PATCH') // or patch first?
+           expect(requests[0].url).toEqual(Bob.doc().uri)
+           expect(requests[1].method).toEqual('PUT') // or patch first?
+           expect(requests[1].url).toEqual(suggestion)
+           expect(store.holds(Bob, ns.solid('preferencesFile'), sym(suggestion), Bob.doc())).toEqual(true)
+       })
+   })
+
    describe('loadProfile', () => {
        it('exists', () => {
            expect(loadProfile).toBeInstanceOf(Function)
