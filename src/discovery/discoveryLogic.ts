@@ -22,47 +22,49 @@ const ns ={
  */
 export async function loadOrCreateIfNotExists (store: LiveStore, doc: NamedNode) {
     let response
-    // console.log('@@ store ',store)
+    console.log('@@ loadOrCreateIfNotExists doc ', doc)
     try {
       response = await store.fetcher.load(doc)
     } catch (err) {
-        // console.log('loadOrCreateIfNotExists err', err)
+      // console.log('loadOrCreateIfNotExists err:', err)
+      // console.log('loadOrCreateIfNotExists err.response', err.response)
+      console.log('loadOrCreateIfNotExists err.response.status', err.response.status)
         if (err.response.status === 404) {
-          debug.log('createIfNotExists doc does NOT exist, will create: ' + doc)
+          console.log('createIfNotExists doc does NOT exist, will create: ' + doc)
           try {
-            store.fetcher.webOperation('PUT', doc.uri, {data: '', contentType: 'text/turtle'})
+            store.fetcher.webOperation('PUT', doc, {data: '', contentType: 'text/turtle'})
           } catch (err) {
-            const msg = 'createIfNotExists doc FAILED: ' + doc + ': ' + err
-            debug.log(msg)
+            const msg = 'createIfNotExists doc PUT FAILED: ' + doc + ': ' + err
+            console.log(msg)
             throw new Error(msg)
           }
           delete store.fetcher.requested[doc.uri] // delete cached 404 error
-          debug.log('createIfNotExists doc created ok ' + doc)
+          console.log('createIfNotExists doc created ok ' + doc)
         } else {
           const msg =  'createIfNotExists doc load error NOT 404:  ' + doc + ': ' + err
-          debug.log(msg)
+          console.log(msg)
           throw new Error(msg) // @@ add nested errors
         }
     }
-    debug.log('createIfNotExists doc exists, all good ' + doc)
+    console.log('createIfNotExists doc exists, all good ' + doc)
     return response
 }
 
-export function suggestPreferencesFileURI (me:NamedNode) {
+export function suggestPreferencesFile (me:NamedNode) {
   const stripped = me.uri.replace('/profile/', '/').replace('/public/', '/')
   // const stripped = me.uri.replace(\/[p|P]rofile/\g, '/').replace(\/[p|P]ublic/\g, '/')
   const folderURI = stripped.split('/').slice(0,-1).join('/') + '/Settings/'
   const fileURI = folderURI + 'Preferences.ttl'
-  return fileURI
+  return sym(fileURI)
 }
 
-export function suggestPublicTypeIndexURI (me:NamedNode) {
-  return me.doc().dir().uri + 'publicTypeIndex.ttl'
+export function suggestPublicTypeIndex (me:NamedNode) {
+  return sym(me.doc().dir().uri + 'publicTypeIndex.ttl')
 }
 // Note this one is based off the pref file not the profile
 
-export function suggestPrivateTypeIndexURI (preferencesFile:NamedNode) {
-  return preferencesFile.doc().dir().uri + 'privateTypeIndex.ttl'
+export function suggestPrivateTypeIndex (preferencesFile:NamedNode) {
+  return sym(preferencesFile.doc().dir().uri + 'privateTypeIndex.ttl')
 }
 /* Follow link from this doc to another thing, or else make a new link
 **
@@ -116,7 +118,7 @@ export async function loadPreferences(store: LiveStore, user: NamedNode): Promis
   // console.log('loadPreferences @@ user', user)
   await loadProfile(store as LiveStore, user)
 
-  const possiblePreferencesFile = sym(suggestPreferencesFileURI(user))
+  const possiblePreferencesFile = suggestPreferencesFile(user)
 
   const preferencesFile = await followOrCreateLink(store, user,  ns.space('preferencesFile'), possiblePreferencesFile, user.doc())
   // const preferencesFile = store.any(user, ns.space('preferencesFile'), undefined, profile)
@@ -142,7 +144,7 @@ export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Prom
   if (!user) throw new Error(`loadTypeIndexesFor: No user given`)
   const profile = await loadProfile(store, user)
 
-  const suggestion = suggestPublicTypeIndexURI(user)
+  const suggestion = suggestPublicTypeIndex(user)
 
   const publicTypeIndex = await followOrCreateLink(store, user, ns.solid('publicTypeIndex'), suggestion, profile)
 
@@ -162,11 +164,11 @@ export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Prom
   if (preferencesFile) { // watch out - can be in either as spec was not clear.  Legacy is profile.
     // If there is a legacy one linked from the profile, use that.
     // Otherwiae use or make one linked from Preferences
-    const suggestedPrivateTypeIndexURI = suggestPrivateTypeIndexURI(preferencesFile)
+    const suggestedPrivateTypeIndex = suggestPrivateTypeIndex(preferencesFile)
 
     const privateTypeIndex = store.any(user, ns.solid('privateTypeIndex'), undefined, profile) ||
 
-        await followOrCreateLink(store, user, ns.solid('privateTypeIndex'), suggestedPrivateTypeIndexURI, preferencesFile)
+        await followOrCreateLink(store, user, ns.solid('privateTypeIndex'), suggestedPrivateTypeIndex, preferencesFile);
 
     privateScopes = privateTypeIndex ? [ { label: 'private', index: privateTypeIndex as NamedNode, agent: user } ] : []
   } else {
@@ -243,7 +245,7 @@ export async function getScopedAppsFrommIndex (store, scope, theClass: NamedNode
     await store.fetcher.load(containers as NamedNode[])
   } catch (err) {
     const e = new Error(`getScopedAppsFrommIndex [FAIL] Unable to load containers${err}`)
-    debug.log(e) // complain
+    console.log(e) // complain
     // widgets.complain(context, `Error looking for ${utils.label(theClass)}:  ${err}`)
     // but then ignore it
     // throw new Error(e)

@@ -167,10 +167,15 @@ describe("Discovery Logic", () => {
       if (req.method !== 'GET') {
         // console.log('Not GET ' + req.url, req)
         requests.push(req)
+        if (req.method === 'PUT') {
+          const contents = await req.text()
+          web[req.url] = contents // Update our dummy web
+          console.log(`Tetst: Updated ${req.url} on PUT to <<<${web[req.url]}>>>`)
+        }
         return { status: 200 }
       }
       const contents = web[req.url]
-      if (contents) {
+      if (contents !== undefined) { //
         return {
           body: prefixes + contents, // Add namespaces to anything
           status: 200,
@@ -296,8 +301,8 @@ describe('uniqueNodes', () => {
           const putRequest = requests[1]
           expect(putRequest.method).toEqual('PUT')
           expect(putRequest.url).toEqual('https://bob.example.com/Settings/Preferences.ttl')
-          const text2 = await putRequest.text()
-          expect(text2).toEqual('')
+          // const text2 = await putRequest.text()
+          expect(web[putRequest.url]).toEqual('')
 
       })
 
@@ -590,10 +595,34 @@ const AliceAndClubScopes =
       it('exists', () => {
           expect(getScopedAppInstances).toBeInstanceOf(Function)
       })
-      it('runs', async () => {
+      it('pulls in users scopes and also community ones', async () => {
           const result = await getScopedAppInstances(store, klass, user)
           expect(result).toEqual(AliceAndClubScopes)
-          // expect(result.length).toEqual(4) // @@ @@@@@@@@@
+      })
+      it('creates new typeIndeex files where they dont exist', async () => {
+          const result = await getScopedAppInstances(store, klass, Bob)
+
+          console.log('test getScopedAppInstances requests', requests)
+
+          expect(requests[0].method).toEqual('PATCH') // Add link to preferrencesFile
+          expect(requests[0].url).toEqual('https://bob.example.com/profile/card.ttl')
+
+          expect(requests[1].method).toEqual('PUT') // Link to pub typ ind
+          expect(requests[1].url).toEqual('https://bob.example.com/profile/publicTypeIndex.ttl')
+
+          expect(requests[2].method).toEqual('PATCH') // Add link to preferrencesFile
+          expect(requests[2].url).toEqual('https://bob.example.com/profile/card.ttl')
+
+          expect(requests[3].method).toEqual('PATCH')
+          expect(requests[3].url).toEqual('https://bob.example.com/Settings/Preferences.ttl')
+
+          expect(requests[4].method).toEqual('PUT')
+          expect(requests[4].url).toEqual('https://bob.example.com/Settings/privateTypeIndex.ttl')
+
+          expect(requests.length).toEqual(5)
+
+
+          // expect(requests[).toEqual(AliceAndClubScopes)
       })
   })
 
