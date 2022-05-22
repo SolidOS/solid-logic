@@ -18,13 +18,18 @@ const {  getContainerMembers, authn, store } = solidLogicSingleton
 /* Discovery Logic tests
 */
 
-const ns ={
+const ns = {
+  dct:     Namespace('http://purl.org/dc/terms/'),
+  ldp:     Namespace('http://www.w3.org/ns/ldp#'),
   meeting: Namespace('http://www.w3.org/ns/pim/meeting#'),
   rdf:     Namespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#'),
+  schema:  Namespace('http://schema.org/'),
   solid:   Namespace('http://www.w3.org/ns/solid/terms#'),
   space:   Namespace('http://www.w3.org/ns/pim/space#'),
+  stat:    Namespace('http://www.w3.org/ns/posix/stat#'),
   vcard:   Namespace('http://www.w3.org/2006/vcard/ns#'),
-  wf:      Namespace('http://www.w3.org/2005/01/wf/flow#')
+  wf:      Namespace('http://www.w3.org/2005/01/wf/flow#'),
+  xsd:     Namespace('http://www.w3.org/2001/XMLSchema#')
 }
 
 const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
@@ -34,6 +39,7 @@ const AliceProfileFile = Alice.doc()
 const AlicePreferencesFile = sym('https://alice.example.com/settings/prefs.ttl')
 const AlicePublicTypeIndex = sym('https://alice.example.com/profle/public-type-index.ttl')
 const AlicePrivateTypeIndex = sym('https://alice.example.com/settings/private-type-index.ttl')
+const AlicePhotoFolder = sym(Alice.dir().uri + "Photos/")
 
 // the Club is a community which Alice is involved and so she gets to
 // interact with things in its type indexes.
@@ -53,6 +59,8 @@ const profile = user.doc()
 
 // const klass = sym('http://www.w3.org/2006/vcard/ns#AddressBook')
 const klass = ns.wf('Tracker')
+const Tracker = ns.wf('Tracker')
+const Image = ns.schema('Image')
 
 //////////////////////////////////////////////////////////// User Alice
 const AliceProfile = `
@@ -66,8 +74,6 @@ const AlicePreferences =  `
      solid:community ${Club} .
 
 `
-// console.log('AlicePreferences: ' ,  AlicePreferences)
-
 const AlicePublicTypes = `
 
 :chat1 solid:forClass meeting:LongChat; solid:instance <../publicStuff/myChat.ttl#this> .
@@ -76,6 +82,7 @@ const AlicePublicTypes = `
 
 :issues solid:forClass wf:Tracker; solid:instance  <../project4/issues.ttl#this>.
 
+:photos solid:forClass schema:Image; solid:instanceContainer  ${AlicePhotoFolder} .
 # :bookmarks
 #    a solid:TypeRegistration;
 #    solid:forClass bookm:Bookmark;
@@ -93,6 +100,15 @@ const AlicePrivateTypes = `
 
 `;
 
+const AlicePhotos = `
+<>
+    a ldp:BasicContainer, ldp:Container;
+    dct:modified "2021-04-26T05:34:16Z"^^xsd:dateTime;
+    ldp:contains
+        <photo1.png>, <photo2.png>, <photo3.png> ;
+    stat:mtime 1619415256.541;
+    stat:size 4096 .
+`
 
 //////////////////////////////////////////////////////////// User Bob
 const BobProfile = `
@@ -144,7 +160,7 @@ web[profile.uri] = AliceProfile
 web[AlicePreferencesFile.uri] = AlicePreferences
 web[AlicePrivateTypeIndex.uri] = AlicePrivateTypes
 web[AlicePublicTypeIndex.uri] = AlicePublicTypes
-
+web[AlicePhotoFolder.uri] = AlicePhotos
 web[Bob.doc().uri] = BobProfile
 
 web[Club.doc().uri] = ClubProfile
@@ -165,7 +181,6 @@ describe("Discovery Logic", () => {
     fetchMock.mockIf(/^https?.*$/, async req => {
 
       if (req.method !== 'GET') {
-        // console.log('Not GET ' + req.url, req)
         requests.push(req)
         if (req.method === 'PUT') {
           const contents = await req.text()
@@ -343,8 +358,10 @@ describe('uniqueNodes', () => {
         it('loads data', async () => {
             const result = await loadTypeIndexesFor(store, user)
             expect(result).toEqual(AliceScopes)
-            expect(store.statementsMatching(null, null, null, AlicePrivateTypeIndex).length).toEqual(8)
-            expect(store.statementsMatching(null, null, null, AlicePublicTypeIndex).length).toEqual(6)
+            expect(store.statementsMatching(null, null, null, AlicePrivateTypeIndex).length).toEqual(
+
+              8)
+            expect(store.statementsMatching(null, null, null, AlicePublicTypeIndex).length).toEqual(8)
         })
     })
 
@@ -596,13 +613,11 @@ const AliceAndClubScopes =
           expect(getScopedAppInstances).toBeInstanceOf(Function)
       })
       it('pulls in users scopes and also community ones', async () => {
-          const result = await getScopedAppInstances(store, klass, user)
+          const result = await getScopedAppInstances(store, Tracker, user)
           expect(result).toEqual(AliceAndClubScopes)
       })
       it('creates new typeIndeex files where they dont exist', async () => {
-          const result = await getScopedAppInstances(store, klass, Bob)
-
-          console.log('test getScopedAppInstances requests', requests)
+          const result = await getScopedAppInstances(store, Tracker, Bob)
 
           expect(requests[0].method).toEqual('PATCH') // Add link to preferrencesFile
           expect(requests[0].url).toEqual('https://bob.example.com/profile/card.ttl')
@@ -621,8 +636,6 @@ const AliceAndClubScopes =
 
           expect(requests.length).toEqual(5)
 
-
-          // expect(requests[).toEqual(AliceAndClubScopes)
       })
   })
 
@@ -684,10 +697,16 @@ const TRACKERS =
       it('exists', () => {
           expect(getAppInstances).toBeInstanceOf(Function)
       })
-      it('runs', async () => { // needs auth mock
-          const result = await getAppInstances(store, klass)
+      it('finds trackers', async () => { // needs auth mock
+          const result = await getAppInstances(store, Tracker)
           expect(result).toEqual(TRACKERS)
           expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
+      })
+      it('finds images in containers', async () => { // needs auth mock
+          const result = await getAppInstances(store, Image)
+          expect(result.length).toEqual(3)
+          expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
+          expect(result.map(x => x.uri).join()).toEqual("https://alice.example.com/profile/Photos/photo1.png,https://alice.example.com/profile/Photos/photo2.png,https://alice.example.com/profile/Photos/photo3.png")
       })
   })
 })

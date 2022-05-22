@@ -1,18 +1,27 @@
 import { NamedNode, Namespace, LiveStore, sym, st } from "rdflib";
-import * as debug from '../util/debug'
+// import * as debug from '../util/debug'
 // import { getContainerMembers } from '../util/UtilityLogic'
 import { solidLogicSingleton } from "../logic/solidLogicSingleton"
 
-const {  getContainerMembers, authn } = solidLogicSingleton
+const {  authn } = solidLogicSingleton
 const { currentUser } = authn
 
 type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode } ;
 type ScopedApp = { instance: NamedNode, scope: TypeIndexScope }
 
 const ns ={
-  rdf:   Namespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#'),
-  solid: Namespace('http://www.w3.org/ns/solid/terms#'),
-  space: Namespace('http://www.w3.org/ns/pim/space#')
+  dct:     Namespace('http://purl.org/dc/terms/'),
+  ldp:     Namespace('http://www.w3.org/ns/ldp#'),
+  meeting: Namespace('http://www.w3.org/ns/pim/meeting#'),
+  rdf:     Namespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#'),
+  schema:  Namespace('http://schema.org/'),
+  solid:   Namespace('http://www.w3.org/ns/solid/terms#'),
+  space:   Namespace('http://www.w3.org/ns/pim/space#'),
+  stat:    Namespace('http://www.w3.org/ns/posix/stat#'),
+  vcard:   Namespace('http://www.w3.org/2006/vcard/ns#'),
+  wf:      Namespace('http://www.w3.org/2005/01/wf/flow#'),
+  xsd:     Namespace('http://www.w3.org/2001/XMLSchema#')
+
 }
 
 /** Create a resource if it really does not exist
@@ -22,31 +31,28 @@ const ns ={
  */
 export async function loadOrCreateIfNotExists (store: LiveStore, doc: NamedNode) {
     let response
-    console.log('@@ loadOrCreateIfNotExists doc ', doc)
+    // console.log('@@ loadOrCreateIfNotExists doc ', doc)
     try {
       response = await store.fetcher.load(doc)
     } catch (err) {
-      // console.log('loadOrCreateIfNotExists err:', err)
-      // console.log('loadOrCreateIfNotExists err.response', err.response)
-      console.log('loadOrCreateIfNotExists err.response.status', err.response.status)
         if (err.response.status === 404) {
-          console.log('createIfNotExists doc does NOT exist, will create: ' + doc)
+          // console.log('createIfNotExists doc does NOT exist, will create: ' + doc)
           try {
             store.fetcher.webOperation('PUT', doc, {data: '', contentType: 'text/turtle'})
           } catch (err) {
-            const msg = 'createIfNotExists doc PUT FAILED: ' + doc + ': ' + err
-            console.log(msg)
+            const msg = 'createIfNotExists: PUT FAILED: ' + doc + ': ' + err
+            // console.log(msg)
             throw new Error(msg)
           }
           delete store.fetcher.requested[doc.uri] // delete cached 404 error
-          console.log('createIfNotExists doc created ok ' + doc)
+          // console.log('createIfNotExists doc created ok ' + doc)
         } else {
           const msg =  'createIfNotExists doc load error NOT 404:  ' + doc + ': ' + err
-          console.log(msg)
+          // console.log(msg)
           throw new Error(msg) // @@ add nested errors
         }
     }
-    console.log('createIfNotExists doc exists, all good ' + doc)
+    // console.log('createIfNotExists doc exists, all good ' + doc)
     return response
 }
 
@@ -74,12 +80,12 @@ export async function followOrCreateLink(store: LiveStore, subject: NamedNode, p
      object: NamedNode, doc:NamedNode):Promise<NamedNode | null> {
   await store.fetcher.load(doc)
   const result = store.any(subject, predicate, null, doc)
-  console.log('@@ followOrCreateLink result ', result)
+  // console.log('@@ followOrCreateLink result ', result)
 
   if (result) return result as NamedNode
   if (!store.updater.editable(doc)) {
-    console.log(`followOrCreateLink:  Can't modify ${doc} so can't make new link to ${object}.`)
-    console.log('followOrCreateLink @@ connectedStatements', store.connectedStatements(subject))
+    // console.log(`followOrCreateLink:  Can't modify ${doc} so can't make new link to ${object}.`)
+    // console.log('followOrCreateLink @@ connectedStatements', store.connectedStatements(subject))
     return null
   }
   try {
@@ -97,7 +103,7 @@ export async function followOrCreateLink(store: LiveStore, subject: NamedNode, p
   } catch (err) {
     console.warn(`followOrCreateLink: Error loading or saving new linked document: ${object}: ${err}`)
   }
-  console.log(`followOrCreateLink: Success loading or saving new linked document: ${object}.`)
+  // console.log(`followOrCreateLink: Success loading or saving new linked document: ${object}.`)
   return object
 }
 
@@ -177,7 +183,7 @@ export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Prom
   const scopes =  publicScopes.concat(privateScopes)
   if (scopes.length === 0) return scopes
   const files = scopes.map(scope => scope.index)
-  console.log('@@ loadTypeIndexesFor files ', files)
+  // console.log('@@ loadTypeIndexesFor files ', files)
   try {
     await store.fetcher.load(files)
   } catch (err) {
@@ -222,39 +228,32 @@ export async function getScopedAppsFrommIndex (store, scope, theClass: NamedNode
   const registrations = store.each(undefined, ns.solid('forClass'), theClass, index)
   // console.log('    registrations', registrations )
 
-  // In practice it looks as though existing code does not put in the type explicitly so can't do this filter. Discuss.
-  // const relevant = registrations.filter(reg => store.holds(reg, ns.rdf('type'), ns.solid('TypeRegistration'), index))
-  // console.log('    relevant', relevant )
-  const relevant = registrations
-
-  const directInstances = registrations.map(reg => store.any(reg as NamedNode, ns.solid('instance'), null, index))
+  const directInstances = registrations.map(reg => store.each(reg as NamedNode, ns.solid('instance'), null, index)).flat()
   // console.log('    directInstances', directInstances )
   let instances = uniqueNodes(directInstances)
 
-  //  instanceContainers may be deprocaatable if no on has used them
-  const instanceContainers = relevant.map(reg => store.each(reg as NamedNode, ns.solid('instanceContainer'))).flat()
+/*
+  let instanceContainers = []
+  for (const reg of registrations) {
+    const cont = store.any(reg as NamedNode, ns.solid('instanceContainer'), null, index)
+    if (cont) {
+      // console.log('   @@ getScopedAppsFrommIndex got one: ', cont)
+      instanceContainers.push(cont)
+    }
+  }
+  */
+ const instanceContainers = registrations.map(
+     reg => store.each(reg as NamedNode, ns.solid('instanceContainer'), null, index)).flat()
+
+  //  instanceContainers may be deprocatable if no one has used them
 
   const containers = uniqueNodes(instanceContainers)
-  if (!containers.length) {
-    return instances.map(instance => { return {instance, scope}})
-  }
-  // If the index gives containers, then look up all things within them
-  // console.log('@@ CONTAINERS   ', JSON.stringify(containers))
-
-  try {
-    await store.fetcher.load(containers as NamedNode[])
-  } catch (err) {
-    const e = new Error(`getScopedAppsFrommIndex [FAIL] Unable to load containers${err}`)
-    console.log(e) // complain
-    // widgets.complain(context, `Error looking for ${utils.label(theClass)}:  ${err}`)
-    // but then ignore it
-    // throw new Error(e)
-  }
   for (let i = 0; i < containers.length; i++) {
     const cont = containers[i]
-    instances = instances.concat(
-      (await getContainerMembers(cont.value)).map(uri => store.sym(uri)) // @@ warning: uses strings not NN
-    )
+    await store.fetcher.load(cont)
+    const contents = store.each(cont, ns.ldp('contains'), null, cont)
+    // if (contents.length) console.log('getScopedAppsFrommIndex @@ instanceContainer contents:', contents)
+    instances = instances.concat(contents)
   }
   return instances.map(instance => { return {instance, scope}})
 }
