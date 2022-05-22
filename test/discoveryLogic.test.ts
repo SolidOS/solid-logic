@@ -169,6 +169,7 @@ web[ClubPrivateTypeIndex.uri] = ClubPrivateTypes
 web[ClubPublicTypeIndex.uri] = ClubPublicTypes
 
 let requests = []
+let statustoBeReturned  = 200
 
 describe("Discovery Logic", () => {
   let store;
@@ -176,6 +177,7 @@ describe("Discovery Logic", () => {
   beforeEach(() => {
     fetchMock.resetMocks();
     requests = []
+    statustoBeReturned = 200
     const init = {headers: { "Content-Type": "text/turtle" }} // Fetch options tend to be called this
 
     fetchMock.mockIf(/^https?.*$/, async req => {
@@ -187,7 +189,7 @@ describe("Discovery Logic", () => {
           web[req.url] = contents // Update our dummy web
           console.log(`Tetst: Updated ${req.url} on PUT to <<<${web[req.url]}>>>`)
         }
-        return { status: 200 }
+        return { status: statustoBeReturned }
       }
       const contents = web[req.url]
       if (contents !== undefined) { //
@@ -274,6 +276,15 @@ describe('uniqueNodes', () => {
            expect(requests[1].url).toEqual(suggestion)
            expect(store.holds(Bob, ns.space('preferencesFile'), sym(suggestion), Bob.doc())).toEqual(true)
        })
+       //
+       it('returns null if it cannot create the new file', async () => {
+           const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
+           const newFile = sym(suggestion)
+           statustoBeReturned = 403 // Unauthorized
+           const result = await followOrCreateLink(store, Bob, ns.space('preferencesFile'), sym(suggestion), Bob.doc())
+           expect(result).toEqual(null)
+       })
+
    })
 
    describe('loadProfile', () => {
