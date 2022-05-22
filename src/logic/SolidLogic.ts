@@ -248,7 +248,7 @@ export class SolidLogic {
         return this.util.getContainerMembers(containerNode);
     }
 
-    async recursiveDelete(url: string) {
+    async recursiveDelete(url: NamedNode) {
         return this.util.recursiveDelete(url);
     }
 
