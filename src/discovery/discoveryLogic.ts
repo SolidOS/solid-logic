@@ -2,6 +2,7 @@ import { NamedNode, Namespace, LiveStore, sym, st } from "rdflib";
 // import * as debug from '../util/debug'
 // import { getContainerMembers } from '../util/UtilityLogic'
 import { solidLogicSingleton } from "../logic/solidLogicSingleton"
+import { newThing } from "../util/uri"
 
 const {  authn } = solidLogicSingleton
 const { currentUser } = authn
@@ -278,5 +279,33 @@ export async function getAppInstances (store:LiveStore, klass: NamedNode): Promi
   const scopedAppInstances = await getScopedAppInstances(store, klass, user)
   return scopedAppInstances.map(scoped => scoped.instance)
 }
-
+/**
+ * Register a new app in a type index
+ * used in chat in bookmark.js (solid-ui)
+ * Returns the registration object if successful else null
+ */
+export async function registerInstanceInTypeIndex (
+  store:LiveStore,
+  instance: NamedNode,
+  index: NamedNode,
+  theClass: NamedNode,
+  // agent: NamedNode
+): Promise<NamedNode | null> {
+    const registration = newThing(index)
+    const ins = [
+        // See https://github.com/solid/solid/blob/main/proposals/data-discovery.md
+        st(registration, ns.rdf('type'), ns.solid('TypeRegistration'), index),
+        st(registration, ns.solid('forClass'), theClass, index),
+        st(registration, ns.solid('instance'), instance, index)
+    ]
+    try {
+      console.log('patching index', ins)
+        await store.updater.update([], ins)
+    } catch (err) {
+        const msg = `Unable to register ${instance} in index ${index}: ${err}`
+        console.warn(msg)
+        return null
+    }
+    return registration
+}
 // ENDS

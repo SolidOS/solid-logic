@@ -8,7 +8,7 @@ import { solidLogicSingleton } from "../src/logic/solidLogicSingleton"
 import fetchMock from "jest-fetch-mock";
 
 import { loadOrCreateIfNotExists, makePreferencesFileURI, followOrCreateLink, loadCommunityTypeIndexes,
-        getAppInstances, getScopedAppInstances, loadTypeIndexesFor, loadPreferences,
+        getAppInstances, getScopedAppInstances, loadTypeIndexesFor, loadPreferences, registerInstanceInTypeIndex,
         uniqueNodes, loadProfile } from '../src/discovery/discoveryLogic.ts'
 
 const {  getContainerMembers, authn, store } = solidLogicSingleton
@@ -244,11 +244,11 @@ describe('uniqueNodes', () => {
             expect(requests).toEqual([])
 
        })
-       it.skip('creates empty file if did not exist', async () => {
-           const result = await loadOrCreateIfNotExists(store, Bob.doc())
-           // console.log('@@@@@ test requests', requests)
+       it('creates empty file if did not exist', async () => {
+           const newFile = sym(Bob.doc().uri + /refhoijhoegg/)
+           const result = await loadOrCreateIfNotExists(store, newFile)
            expect(requests[0].method).toEqual('PUT')
-           expect(requests[0].url).toEqual(Bob.doc().uri)
+           expect(requests[0].url).toEqual(newFile.uri)
        })
    })
 
@@ -697,16 +697,33 @@ const TRACKERS =
       it('exists', () => {
           expect(getAppInstances).toBeInstanceOf(Function)
       })
-      it('finds trackers', async () => { // needs auth mock
+      it('finds trackers', async () => {
           const result = await getAppInstances(store, Tracker)
           expect(result).toEqual(TRACKERS)
           expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
       })
-      it('finds images in containers', async () => { // needs auth mock
+      it('finds images in containers', async () => {
           const result = await getAppInstances(store, Image)
           expect(result.length).toEqual(3)
           expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
           expect(result.map(x => x.uri).join()).toEqual("https://alice.example.com/profile/Photos/photo1.png,https://alice.example.com/profile/Photos/photo2.png,https://alice.example.com/profile/Photos/photo3.png")
       })
   })
+
+  describe('registerInstanceInTypeIndex', () =>  {
+      it('exists', () => {
+          expect(registerInstanceInTypeIndex).toBeInstanceOf(Function)
+      })
+      it('adds a registration', async () => {
+          const instance = sym(Alice.doc().uri + 'trackers/myToDo.ttl#this')
+          const index = AlicePublicTypeIndex
+          const result = await registerInstanceInTypeIndex(store, instance, index, klass)
+          expect(result.doc()).toEqual(index)
+          expect(store.any(result, ns.solid('forClass'), null, index)).toEqual(klass)
+          expect(store.any(result, ns.solid('instance'), null, index)).toEqual(instance)
+          expect(store.holds(result, ns.rdf('type'), ns.solid('TypeRegistration'), index)).toEqual(true)
+          expect(requests[0].url).toEqual(index.uri)
+      })
+  })
+
 })
