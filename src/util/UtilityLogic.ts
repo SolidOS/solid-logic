@@ -95,7 +95,8 @@ export class UtilityLogic {
   }
 
   async createContainer(url: string) {
-    if (!this.isContainer(url)) {
+    const stringToNode = new NamedNode (url);
+    if (!this.isContainer(stringToNode)) {
       throw new Error(`Not a container URL ${url}`);
     }
     // Copied from https://github.com/solidos/solid-crud-tests/blob/v3.1.0/test/surface/create-container.test.ts#L56-L64
@@ -134,14 +135,16 @@ export class UtilityLogic {
   async recursiveDelete(containerNode: NamedNode) {
     try {
       if (this.isContainer(containerNode)) {
-        const aclDocUrl = await this.findAclDocUrl(containerNode);
+        const cnodeToString = containerNode.toString();
+        const aclDocUrl = await this.findAclDocUrl(cnodeToString);
         await this.underlyingFetch.fetch(aclDocUrl, { method: "DELETE" });
         const containerMembers = await this.getContainerMembers(containerNode);
         await Promise.all(
           containerMembers.map((url) => this.recursiveDelete(containerNode))
         );
       }
-      return this.underlyingFetch.fetch(url, { method: "DELETE" });
+      const nodeToString_scope = containerNode.toString();
+      return this.underlyingFetch.fetch(nodeToString_scope, { method: "DELETE" });
     } catch (e) {
       // console.log(`Please manually remove ${url} from your system under test.`, e);
     }
