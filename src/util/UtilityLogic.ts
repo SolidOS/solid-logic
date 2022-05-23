@@ -120,18 +120,15 @@ export class UtilityLogic {
         containerNode,
         this.store.sym("http://www.w3.org/ns/ldp#contains"),
         undefined,
-        //4th parameter is the doc itself : containerNode.doc()
       )
       .map((st: Statement) => st.object as NamedNode);
   }
 
-  //function getContainerMembers fixed 2022-05-02
   async getContainerMembers (containerNode: NamedNode): Promise<NamedNode[]> {
     await this.store.fetcher?.load(containerNode);
     return this.getContainerElements(containerNode);
   }
 
-  //function recursiveDelete fixed 2022-05-02
   async recursiveDelete(containerNode: NamedNode) {
     try {
       if (this.isContainer(containerNode)) {
@@ -143,8 +140,8 @@ export class UtilityLogic {
           containerMembers.map((url) => this.recursiveDelete(containerNode))
         );
       }
-      const nodeToString_scope = containerNode.toString();
-      return this.underlyingFetch.fetch(nodeToString_scope, { method: "DELETE" });
+      const nodeToStringHere = containerNode.toString();
+      return this.underlyingFetch.fetch(nodeToStringHere, { method: "DELETE" });
     } catch (e) {
       // console.log(`Please manually remove ${url} from your system under test.`, e);
     }
