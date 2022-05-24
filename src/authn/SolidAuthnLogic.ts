@@ -4,21 +4,21 @@ import * as debug from '../util/debug'
 import { Session } from "@inrupt/solid-client-authn-browser";
 import { AuthenticationContext, AuthnLogic } from "../types";
 export class SolidAuthnLogic implements AuthnLogic {
-  private session: Session; 
+  private session: Session;
 
   constructor(solidAuthSession: Session) {
     this.session = solidAuthSession;
   }
-  
+
   // we created authSession getter because we want to access it as authn.authSession externally
-  get authSession():Session { return this.session } 
+  get authSession():Session { return this.session }
 
   currentUser(): NamedNode | null {
     const app = appContext()
     if (app.viewingNoAuthPage) {
       return sym(app.webId)
     }
-    if (this.session.info.webId && this.session.info.isLoggedIn) {
+    if (this && this.session && this.session.info && this.session.info.webId && this.session.info.isLoggedIn) {
       return sym(this.session.info.webId)
     }
     return offlineTestID() // null unless testing
