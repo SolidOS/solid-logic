@@ -9,8 +9,6 @@ import { AuthnLogic, SolidNamespace } from "../types";
 import * as debug from "../util/debug";
 import { UtilityLogic } from "../util/UtilityLogic";
 import { CrossOriginForbiddenError, FetchError, NotFoundError, SameOriginForbiddenError, UnauthorizedError } from "./CustomError";
-
-import { solidLogicSingleton } from "../logic/solidLogicSingleton"
 /*
 ** It is important to distinquish `fetch`, a function provided by the browser
 ** and `Fetcher`, a helper object for the rdflib Store which turns it
@@ -113,7 +111,7 @@ export class SolidLogic {
 
         // //// Load preference file
         try {
-        await solidLogicSingleton.store.fetcher.load(preferencesFile as NamedNode, { // @@ was this.store.
+        await this.store.fetcher.load(preferencesFile as NamedNode, {
             withCredentials: true,
         });
         } catch (err) {

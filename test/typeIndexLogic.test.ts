@@ -2,6 +2,20 @@ import { sym } from 'rdflib'
 import { AuthenticationContext } from '../src/types'
 import * as typeIndexLogic from '../src/typeIndex/typeIndexLogic'
 
+it('loadIndex', async () => {
+    const context = {
+        index: {}
+    }
+
+    const result = await typeIndexLogic.loadIndex(context, true)
+    expect(result).toEqual({
+        index: {
+        private: [],
+        public: []
+        },
+    })
+    })
+
 describe('loadTypeIndexes', () => {
     it('exists', () => {
         expect(typeIndexLogic.loadTypeIndexes).toBeInstanceOf(Function)

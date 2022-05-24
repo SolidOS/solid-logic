@@ -22,7 +22,7 @@ async function ensureLoadedPreferences (context:AuthenticationContext) {
  * Resolves with the same context, outputting
  * output: index.public, index.private
  *  @@ This is a very bizare function
- * @see https://github.com/solid/solid/blob/main/proposals/data-discovery.md#discoverability
+ * @see https://github.com/solidos/solid/blob/main/proposals/data-discovery.md#discoverability
  */
 export async function loadIndex (
 context: AuthenticationContext,
@@ -36,8 +36,8 @@ const indexes = await solidLogicSingleton.loadIndexes(
     async (err: Error) => debug.error(err.message) as undefined
 )
 context.index = context.index || {}
-context.index.private = indexes.private.concat(context.index.private)
-context.index.public = indexes.public.concat(context.index.public)
+context.index.private = indexes.private.concat(context.index.private || []) // otherwise concat will wrongly add 'undefined' as a private index
+context.index.public = indexes.public.concat(context.index.public || []) // otherwise concat will wrongly add 'undefined' as a public index
 return context
 }
 
@@ -66,7 +66,7 @@ export async function loadTypeIndexes (context: AuthenticationContext) {
 
 /**
  * Resolves with the same context, outputting
- * @see https://github.com/solid/solid/blob/main/proposals/data-discovery.md#discoverability
+ * @see https://github.com/solidos/solid/blob/main/proposals/data-discovery.md#discoverability
  */
 export async function ensureTypeIndexes (context: AuthenticationContext, agent?: NamedNode): Promise<AuthenticationContext> {
 if (!context.me) {
@@ -83,7 +83,7 @@ return context
  * Many reasons for failing including script not having permission etc
  *
  * Adds its output to the context
- * @see https://github.com/solid/solid/blob/main/proposals/data-discovery.md#discoverability
+ * @see https://github.com/solidos/solid/blob/main/proposals/data-discovery.md#discoverability
  */
 async function ensureOneTypeIndex (context: AuthenticationContext, isPublic: boolean, agent?: NamedNode): Promise<AuthenticationContext | void> {
     async function makeIndexIfNecessary (context, isPublic) {
@@ -186,7 +186,7 @@ agent?: NamedNode // Defaults to current user
     const index = indexes[0]
     const registration = newThing(index)
     const ins = [
-        // See https://github.com/solid/solid/blob/main/proposals/data-discovery.md
+        // See https://github.com/solidos/solid/blob/main/proposals/data-discovery.md
         st(registration, ns.rdf('type'), ns.solid('TypeRegistration'), index),
         st(registration, ns.solid('forClass'), theClass, index),
         st(registration, ns.solid('instance'), instance, index)

@@ -50,7 +50,7 @@ export function offlineTestID (): NamedNode | null {
       return sym($SolidTestEnvironment.username)
     }
     // hack that makes SolidOS work in offline mode by adding the webId directly in html
-    // example usage: https://github.com/solid/mashlib/blob/29b8b53c46bf02e0e219f0bacd51b0e9951001dd/test/contact/local.html#L37
+    // example usage: https://github.com/solidos/mashlib/blob/29b8b53c46bf02e0e219f0bacd51b0e9951001dd/test/contact/local.html#L37
     if (
       typeof document !== 'undefined' &&
       document.location &&
