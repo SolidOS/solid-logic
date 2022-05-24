@@ -10,7 +10,7 @@ const { currentUser } = authn
 type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode } ;
 type ScopedApp = { instance: NamedNode, scope: TypeIndexScope }
 
-const ns ={
+const ns = {
   dct:     Namespace('http://purl.org/dc/terms/'),
   ldp:     Namespace('http://www.w3.org/ns/ldp#'),
   meeting: Namespace('http://www.w3.org/ns/pim/meeting#'),
@@ -66,12 +66,12 @@ export function suggestPreferencesFile (me:NamedNode) {
 }
 
 export function suggestPublicTypeIndex (me:NamedNode) {
-  return sym(me.doc().dir().uri + 'publicTypeIndex.ttl')
+  return sym(me.doc().dir()?.uri + 'publicTypeIndex.ttl')
 }
 // Note this one is based off the pref file not the profile
 
 export function suggestPrivateTypeIndex (preferencesFile:NamedNode) {
-  return sym(preferencesFile.doc().dir().uri + 'privateTypeIndex.ttl')
+  return sym(preferencesFile.doc().dir()?.uri + 'privateTypeIndex.ttl')
 }
 /* Follow link from this doc to another thing, or else make a new link
 **
@@ -127,7 +127,7 @@ export async function loadPreferences(store: LiveStore, user: NamedNode): Promis
 
   const possiblePreferencesFile = suggestPreferencesFile(user)
 
-  const preferencesFile = await followOrCreateLink(store, user,  ns.space('preferencesFile'), possiblePreferencesFile, user.doc())
+  const preferencesFile = await followOrCreateLink(store, user,  ns.space('preferencesFile') as NamedNode, possiblePreferencesFile, user.doc())
   // const preferencesFile = store.any(user, ns.space('preferencesFile'), undefined, profile)
 
   // console.log('loadPreferences @@ pref file', preferencesFile)
@@ -153,7 +153,7 @@ export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Prom
 
   const suggestion = suggestPublicTypeIndex(user)
 
-  const publicTypeIndex = await followOrCreateLink(store, user, ns.solid('publicTypeIndex'), suggestion, profile)
+  const publicTypeIndex = await followOrCreateLink(store, user, ns.solid('publicTypeIndex') as NamedNode, suggestion, profile)
 
   // const publicTypeIndex = store.any(user, ns.solid('publicTypeIndex'), undefined, profile)
   // console.log('@@ loadTypeIndexesFor publicTypeIndex', publicTypeIndex)
@@ -175,7 +175,7 @@ export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Prom
 
     const privateTypeIndex = store.any(user, ns.solid('privateTypeIndex'), undefined, profile) ||
 
-        await followOrCreateLink(store, user, ns.solid('privateTypeIndex'), suggestedPrivateTypeIndex, preferencesFile);
+        await followOrCreateLink(store, user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile);
 
     privateScopes = privateTypeIndex ? [ { label: 'private', index: privateTypeIndex as NamedNode, agent: user } ] : []
   } else {
@@ -200,7 +200,7 @@ export async function loadCommunityTypeIndexes (store:LiveStore, user:NamedNode)
     // console.log('loadCommunityTypeIndexes communities: ',communities)
     let result = []
     for (const org of communities) {
-      result = result.concat(await loadTypeIndexesFor(store, org as NamedNode))
+      result = result.concat(await loadTypeIndexesFor(store, org as NamedNode) as any)
     }
     // const communityTypeIndexesPromises = communities.map(async community => await loadTypeIndexesFor(store, community as NamedNode))
     // const result1 = Promise.all(communityTypeIndexesPromises)
@@ -223,8 +223,8 @@ export function uniqueNodes (arr: NamedNode[]): NamedNode[] {
   return arr2 // Array.from(new Set(arr.map(x => x.uri))).map(u => sym(u))
 }
 
-export async function getScopedAppsFrommIndex (store, scope, theClass: NamedNode) {
-  // console.log(`getScopedAppsFrommIndex agent ${scope.agent} index: ${scope.index}` )
+export async function getScopedAppsfromIndex (store, scope, theClass: NamedNode) {
+  // console.log(`getScopedAppsfromIndex agent ${scope.agent} index: ${scope.index}` )
   const index = scope.index
   const registrations = store.each(undefined, ns.solid('forClass'), theClass, index)
   // console.log('    registrations', registrations )
@@ -238,7 +238,7 @@ export async function getScopedAppsFrommIndex (store, scope, theClass: NamedNode
   for (const reg of registrations) {
     const cont = store.any(reg as NamedNode, ns.solid('instanceContainer'), null, index)
     if (cont) {
-      // console.log('   @@ getScopedAppsFrommIndex got one: ', cont)
+      // console.log('   @@ getScopedAppsfromIndex got one: ', cont)
       instanceContainers.push(cont)
     }
   }
@@ -253,7 +253,7 @@ export async function getScopedAppsFrommIndex (store, scope, theClass: NamedNode
     const cont = containers[i]
     await store.fetcher.load(cont)
     const contents = store.each(cont, ns.ldp('contains'), null, cont)
-    // if (contents.length) console.log('getScopedAppsFrommIndex @@ instanceContainer contents:', contents)
+    // if (contents.length) console.log('getScopedAppsfromIndex @@ instanceContainer contents:', contents)
     instances = instances.concat(contents)
   }
   return instances.map(instance => { return {instance, scope}})
@@ -265,7 +265,7 @@ export async function getScopedAppInstances (store:LiveStore, klass: NamedNode, 
   const scopes = await loadAllTypeIndexes(store, user)
   let scopedApps = []
   for (const scope of scopes) {
-    const scopedApps0 = await getScopedAppsFrommIndex(store, scope, klass)
+    const scopedApps0 = await getScopedAppsfromIndex(store, scope, klass) as any
     scopedApps = scopedApps.concat(scopedApps0)
   }
   return scopedApps
