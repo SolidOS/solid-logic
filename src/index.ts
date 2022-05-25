@@ -26,7 +26,7 @@ export {
   followOrCreateLink,
   getAppInstances,
   getScopedAppInstances,
-  getScopedAppsFrommIndex,
+  getScopedAppsFromIndex,
   loadAllTypeIndexes,
   loadCommunityTypeIndexes,
   loadOrCreateIfNotExists,

@@ -3,10 +3,9 @@ import { NamedNode, Namespace, LiveStore, sym, st } from "rdflib";
 // import { getContainerMembers } from '../util/UtilityLogic'
 import { solidLogicSingleton } from "../logic/solidLogicSingleton"
 import { newThing } from "../util/uri"
-const {  authn, discovery } = solidLogicSingleton
+const {  authn } = solidLogicSingleton
 const { currentUser } = authn
 
-const { }
 type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode } ;
 type ScopedApp = { instance: NamedNode, scope: TypeIndexScope }
 
@@ -223,8 +222,8 @@ export function uniqueNodes (arr: NamedNode[]): NamedNode[] {
   return arr2 // Array.from(new Set(arr.map(x => x.uri))).map(u => sym(u))
 }
 
-export async function getScopedAppsfromIndex (store, scope, theClass: NamedNode) {
-  // console.log(`getScopedAppsfromIndex agent ${scope.agent} index: ${scope.index}` )
+export async function getScopedAppsFromIndex (store, scope, theClass: NamedNode) {
+  // console.log(`getScopedAppsFromIndex agent ${scope.agent} index: ${scope.index}` )
   const index = scope.index
   const registrations = store.each(undefined, ns.solid('forClass'), theClass, index)
   // console.log('    registrations', registrations )
@@ -238,7 +237,7 @@ export async function getScopedAppsfromIndex (store, scope, theClass: NamedNode)
   for (const reg of registrations) {
     const cont = store.any(reg as NamedNode, ns.solid('instanceContainer'), null, index)
     if (cont) {
-      // console.log('   @@ getScopedAppsfromIndex got one: ', cont)
+      // console.log('   @@ getScopedAppsFromIndex got one: ', cont)
       instanceContainers.push(cont)
     }
   }
@@ -253,7 +252,7 @@ export async function getScopedAppsfromIndex (store, scope, theClass: NamedNode)
     const cont = containers[i]
     await store.fetcher.load(cont)
     const contents = store.each(cont, ns.ldp('contains'), null, cont)
-    // if (contents.length) console.log('getScopedAppsfromIndex @@ instanceContainer contents:', contents)
+    // if (contents.length) console.log('getScopedAppsFromIndex @@ instanceContainer contents:', contents)
     instances = instances.concat(contents)
   }
   return instances.map(instance => { return {instance, scope}})
@@ -265,7 +264,7 @@ export async function getScopedAppInstances (store:LiveStore, klass: NamedNode, 
   const scopes = await loadAllTypeIndexes(store, user)
   let scopedApps = []
   for (const scope of scopes) {
-    const scopedApps0 = await getScopedAppsfromIndex(store, scope, klass) as any
+    const scopedApps0 = await getScopedAppsFromIndex(store, scope, klass) as any
     scopedApps = scopedApps.concat(scopedApps0)
   }
   return scopedApps
