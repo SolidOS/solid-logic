@@ -3,10 +3,10 @@ import { NamedNode, Namespace, LiveStore, sym, st } from "rdflib";
 // import { getContainerMembers } from '../util/UtilityLogic'
 import { solidLogicSingleton } from "../logic/solidLogicSingleton"
 import { newThing } from "../util/uri"
-
-const {  authn } = solidLogicSingleton
+const {  authn, discovery } = solidLogicSingleton
 const { currentUser } = authn
 
+const { }
 type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode } ;
 type ScopedApp = { instance: NamedNode, scope: TypeIndexScope }
 
@@ -77,7 +77,7 @@ export function suggestPrivateTypeIndex (preferencesFile:NamedNode) {
 **
 **  return: null no ld one and failed to make a new one
 */
-export async function followOrCreateLink(store: LiveStore, subject: NamedNode, predicate: NamedNode,
+export async function followOrCreateLink (store: LiveStore, subject: NamedNode, predicate: NamedNode,
      object: NamedNode, doc:NamedNode):Promise<NamedNode | null> {
   await store.fetcher.load(doc)
   const result = store.any(subject, predicate, null, doc)
@@ -108,7 +108,7 @@ export async function followOrCreateLink(store: LiveStore, subject: NamedNode, p
   return object
 }
 
-export async function loadProfile(store: LiveStore, user: NamedNode) {
+export async function loadProfile (store: LiveStore, user: NamedNode) {
   // console.log(' @@  loadProfile: user', user)
   if (!user) {
     throw new Error(`loadProfile: no user given.`)
@@ -121,7 +121,7 @@ export async function loadProfile(store: LiveStore, user: NamedNode) {
   return user.doc()
 }
 
-export async function loadPreferences(store: LiveStore, user: NamedNode): Promise <NamedNode | undefined > {
+export async function loadPreferences (store: LiveStore, user: NamedNode): Promise <NamedNode | undefined > {
   // console.log('loadPreferences @@ user', user)
   await loadProfile(store as LiveStore, user)
 
@@ -146,7 +146,7 @@ export async function loadPreferences(store: LiveStore, user: NamedNode): Promis
   return preferencesFile as NamedNode
 }
 
-export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Promise<Array<TypeIndexScope>> {
+export async function loadTypeIndexesFor (store: LiveStore, user:NamedNode): Promise<Array<TypeIndexScope>> {
   // console.log('@@ loadTypeIndexesFor user', user)
   if (!user) throw new Error(`loadTypeIndexesFor: No user given`)
   const profile = await loadProfile(store, user)
