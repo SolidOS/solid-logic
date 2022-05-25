@@ -2,35 +2,18 @@
 * @jest-environment jsdom
 *
 */
-import { Fetcher, Namespace, Store, sym, UpdateManager } from "rdflib";
-import { AuthenticationContext } from '../src/types'
-import { solidLogicSingleton } from "../src/logic/solidLogicSingleton"
-import fetchMock from "jest-fetch-mock";
+import fetchMock from 'jest-fetch-mock'
+import { Fetcher, Store, sym, UpdateManager } from 'rdflib'
+import * as $rdf from 'rdflib'
+import {
+  followOrCreateLink, getAppInstances, getScopedAppInstances, loadCommunityTypeIndexes, loadOrCreateIfNotExists,
+  loadPreferences, loadProfile, loadTypeIndexesFor, registerInstanceInTypeIndex, uniqueNodes
+} from '../src/discovery/discoveryLogic'
+import solidNamespace from 'solid-namespace'
 
-import { loadOrCreateIfNotExists, makePreferencesFileURI, followOrCreateLink, loadCommunityTypeIndexes,
-        getAppInstances, getScopedAppInstances, loadTypeIndexesFor, loadPreferences, registerInstanceInTypeIndex,
-        uniqueNodes, loadProfile } from '../src/discovery/discoveryLogic.ts'
+/* Discovery Logic tests */
 
-const {  getContainerMembers, authn, store } = solidLogicSingleton
-
-/* global $SolidTestEnvironment  */
-
-/* Discovery Logic tests
-*/
-
-const ns = {
-  dct:     Namespace('http://purl.org/dc/terms/'),
-  ldp:     Namespace('http://www.w3.org/ns/ldp#'),
-  meeting: Namespace('http://www.w3.org/ns/pim/meeting#'),
-  rdf:     Namespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#'),
-  schema:  Namespace('http://schema.org/'),
-  solid:   Namespace('http://www.w3.org/ns/solid/terms#'),
-  space:   Namespace('http://www.w3.org/ns/pim/space#'),
-  stat:    Namespace('http://www.w3.org/ns/posix/stat#'),
-  vcard:   Namespace('http://www.w3.org/2006/vcard/ns#'),
-  wf:      Namespace('http://www.w3.org/2005/01/wf/flow#'),
-  xsd:     Namespace('http://www.w3.org/2001/XMLSchema#')
-}
+const ns = solidNamespace($rdf)
 
 const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
 
@@ -71,8 +54,7 @@ const AliceProfile = `
 `
 const AlicePreferences =  `
   ${Alice} solid:privateTypeIndex ${AlicePrivateTypeIndex};
-     solid:community ${Club} .
-
+    solid:community ${Club} .
 `
 const AlicePublicTypes = `
 
@@ -102,28 +84,28 @@ const AlicePrivateTypes = `
 
 const AlicePhotos = `
 <>
-    a ldp:BasicContainer, ldp:Container;
-    dct:modified "2021-04-26T05:34:16Z"^^xsd:dateTime;
-    ldp:contains
-        <photo1.png>, <photo2.png>, <photo3.png> ;
-    stat:mtime 1619415256.541;
-    stat:size 4096 .
+  a ldp:BasicContainer, ldp:Container;
+  dct:modified "2021-04-26T05:34:16Z"^^xsd:dateTime;
+  ldp:contains
+      <photo1.png>, <photo2.png>, <photo3.png> ;
+  stat:mtime 1619415256.541;
+  stat:size 4096 .
 `
 
 //////////////////////////////////////////////////////////// User Bob
 const BobProfile = `
 <#me> a vcard:Individual;
 
-    vcard:fn "Bob" .
+  vcard:fn "Bob" .
 `
 
 //////////////////////////////////////////////////////////// User Club
 const ClubProfile = `
 
 <#it> a vcard:Organization;
-    space:preferencesFile ${ClubPreferencesFile};
-    solid:publicTypeIndex ${ClubPublicTypeIndex};
-    vcard:fn "Card Club" .
+  space:preferencesFile ${ClubPreferencesFile};
+  solid:publicTypeIndex ${ClubPublicTypeIndex};
+  vcard:fn "Card Club" .
 `
 const ClubPreferences =  `
   ${Club} solid:privateTypeIndex ${ClubPrivateTypeIndex} .
@@ -207,534 +189,524 @@ describe("Discovery Logic", () => {
         status: 404,
         body: 'Not Found'
         }
-      })
+    })
 
 
     options = { fetch: fetch };
     store = new Store()
     store.fetcher = new Fetcher (store, options);
     store.updater = new UpdateManager(store);
-    // util = new UtilityLogic(store, ns, fetcher);
   });
 
-// uniqueNodes
-
 describe('uniqueNodes', () => {
-    it('exists', () => {
-        expect(uniqueNodes).toBeInstanceOf(Function)
-    })
-    it('removed duplicates', async () => {
-        const input = [ sym('https://a.com/'), sym('https://b.com/'),sym('https://a.com/'), sym('https://a.com/'),  sym('https://c.com/'),  ]
-        const expected = [ sym('https://a.com/'), sym('https://b.com/'), sym('https://c.com/'),  ]
-        const result =  uniqueNodes(input)
-        expect(result).toEqual(expected)
+  it('exists', () => {
+    expect(uniqueNodes).toBeInstanceOf(Function)
+  })
+  it('removed duplicates', async () => {
+    const input = [ sym('https://a.com/'), sym('https://b.com/'),sym('https://a.com/'), sym('https://a.com/'),  sym('https://c.com/'),  ]
+    const expected = [ sym('https://a.com/'), sym('https://b.com/'), sym('https://c.com/'),  ]
+    const result =  uniqueNodes(input)
+    expect(result).toEqual(expected)
 
-    })
-    it('handles an empty array', async () => {
-        const result = await uniqueNodes([])
-        expect(result).toEqual([])
-    })
+  })
+  it('handles an empty array', async () => {
+    const result = await uniqueNodes([])
+    expect(result).toEqual([])
+  })
 })
- // loadOrCreateIfNotExists
+  
+describe('loadOrCreateIfNotExists', () => {
+  it('exists', () => {
+    expect(loadOrCreateIfNotExists).toBeInstanceOf(Function)
+  })
+  it('does nothing if existing file', async () => {
+    const result = await loadOrCreateIfNotExists(store, Alice.doc())
+    expect(requests).toEqual([])
 
-   describe('loadOrCreateIfNotExists', () => {
-       it('exists', () => {
-           expect(loadOrCreateIfNotExists).toBeInstanceOf(Function)
-       })
-       it('does nothing if existing file', async () => {
-           const result = await loadOrCreateIfNotExists(store, Alice.doc())
-            expect(requests).toEqual([])
+  })
+  it('creates empty file if did not exist', async () => {
+    const newFile = sym(Bob.doc().uri + '/refhoijhoegg/')
+    const result = await loadOrCreateIfNotExists(store, newFile)
+    expect(requests[0].method).toEqual('PUT')
+    expect(requests[0].url).toEqual(newFile.uri)
+  })
+})
 
-       })
-       it('creates empty file if did not exist', async () => {
-           const newFile = sym(Bob.doc().uri + /refhoijhoegg/)
-           const result = await loadOrCreateIfNotExists(store, newFile)
-           expect(requests[0].method).toEqual('PUT')
-           expect(requests[0].url).toEqual(newFile.uri)
-       })
-   })
+describe('followOrCreateLink', () => {
+  it('exists', () => {
+    expect(followOrCreateLink).toBeInstanceOf(Function)
+  })
+  it('follows existing link', async () => {
+    const suggestion = 'https://alice.example.com/settings/prefsSuggestion.ttl'
+    const result = await followOrCreateLink(store, Alice, ns.space('preferencesFile'), sym(suggestion), Alice.doc())
+    expect(result).toEqual(AlicePreferencesFile)
 
-   // followOrCreateLink
+    })
+  it('creates empty file if did not exist and new link', async () => {
+    const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
+    const result = await followOrCreateLink(store, Bob, ns.space('preferencesFile'), sym(suggestion), Bob.doc())
+    expect(result).toEqual(sym(suggestion))
+    expect(requests[0].method).toEqual('PATCH') // or patch first?
+    expect(requests[0].url).toEqual(Bob.doc().uri)
+    expect(requests[1].method).toEqual('PUT') // or patch first?
+    expect(requests[1].url).toEqual(suggestion)
+    expect(store.holds(Bob, ns.space('preferencesFile'), sym(suggestion), Bob.doc())).toEqual(true)
+  })
+  //
+  it('returns null if it cannot create the new file', async () => {
+    const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
+    statustoBeReturned = 403 // Unauthorized
+    const result = await followOrCreateLink(store, Bob, ns.space('preferencesFile'), sym(suggestion), Bob.doc())
+    expect(result).toEqual(null)
+  })
 
-   describe('followOrCreateLink', () => {
-       it('exists', () => {
-           expect(followOrCreateLink).toBeInstanceOf(Function)
-       })
-       it('follows existing link', async () => {
-           const result = await followOrCreateLink(store, Alice, ns.space('preferencesFile'), 'blah', Alice.doc())
-            expect(result).toEqual(AlicePreferencesFile)
+})
 
-       })
-       it('creates empty file if did not exist and new link', async () => {
-           const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
-           const newFile = sym(suggestion)
-           const result = await followOrCreateLink(store, Bob, ns.space('preferencesFile'), sym(suggestion), Bob.doc())
-           expect(result).toEqual(sym(suggestion))
-           expect(requests[0].method).toEqual('PATCH') // or patch first?
-           expect(requests[0].url).toEqual(Bob.doc().uri)
-           expect(requests[1].method).toEqual('PUT') // or patch first?
-           expect(requests[1].url).toEqual(suggestion)
-           expect(store.holds(Bob, ns.space('preferencesFile'), sym(suggestion), Bob.doc())).toEqual(true)
-       })
-       //
-       it('returns null if it cannot create the new file', async () => {
-           const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
-           const newFile = sym(suggestion)
-           statustoBeReturned = 403 // Unauthorized
-           const result = await followOrCreateLink(store, Bob, ns.space('preferencesFile'), sym(suggestion), Bob.doc())
-           expect(result).toEqual(null)
-       })
+describe('loadProfile', () => {
+  it('exists', () => {
+    expect(loadProfile).toBeInstanceOf(Function)
+  })
+  it('loads data', async () => {
+    const result = await loadProfile(store, user)
+    expect(result).toBeInstanceOf(Object)
+    expect(result.uri).toEqual(AliceProfileFile.uri)
+    expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
+    expect(store.holds(user, ns.space('preferencesFile'), AlicePreferencesFile, profile)).toEqual(true)
+    expect(store.statementsMatching(null, null, null, profile).length).toEqual(4)
+  })
+})
 
-   })
+describe('loadPreferences', () => {
+  it('exists', () => {
+    expect(loadPreferences).toBeInstanceOf(Function)
+  })
+  it('loads data', async () => {
+    const result = await loadPreferences(store, Alice)
+    expect(result).toBeInstanceOf(Object)
+    expect(result.uri).toEqual(AlicePreferencesFile.uri)
+    expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
+    expect(store.statementsMatching(null, null, null, profile).length).toEqual(4)
 
-   describe('loadProfile', () => {
-       it('exists', () => {
-           expect(loadProfile).toBeInstanceOf(Function)
-       })
-       it('loads data', async () => {
-           const result = await loadProfile(store, user)
-           expect(result).toBeInstanceOf(Object)
-           expect(result.uri).toEqual(AliceProfileFile.uri)
-           expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
-           expect(store.holds(user, ns.space('preferencesFile'), AlicePreferencesFile, profile)).toEqual(true)
-           expect(store.statementsMatching(null, null, null, profile).length).toEqual(4)
-       })
-   })
+    expect(store.statementsMatching(null, null, null, AlicePreferencesFile).length).toEqual(2)
+    expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
+  })
+  it('creates new file', async () => {
+    const result = await loadPreferences(store, Bob)
 
-  describe('loadPreferences', () => {
-      it('exists', () => {
-          expect(loadPreferences).toBeInstanceOf(Function)
-      })
-      it('loads data', async () => {
-          const result = await loadPreferences(store, Alice)
-          expect(result).toBeInstanceOf(Object)
-          expect(result.uri).toEqual(AlicePreferencesFile.uri)
-          expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
-          expect(store.statementsMatching(null, null, null, profile).length).toEqual(4)
+    const patchRequest = requests[0]
+    expect(patchRequest.method).toEqual('PATCH')
+    expect(patchRequest.url).toEqual(Bob.doc().uri)
+    const text = await patchRequest.text()
+    expect(text).toContain('INSERT DATA { <https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://bob.example.com/Settings/Preferences.ttl> .')
 
-          expect(store.statementsMatching(null, null, null, AlicePreferencesFile).length).toEqual(2)
-          expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
-      })
-      it('creates new file', async () => {
-          const result = await loadPreferences(store, Bob)
-
-          const patchRequest = requests[0]
-          expect(patchRequest.method).toEqual('PATCH')
-          expect(patchRequest.url).toEqual(Bob.doc().uri)
-          const text = await patchRequest.text()
-          expect(text).toContain('INSERT DATA { <https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://bob.example.com/Settings/Preferences.ttl> .')
-
-          const putRequest = requests[1]
-          expect(putRequest.method).toEqual('PUT')
-          expect(putRequest.url).toEqual('https://bob.example.com/Settings/Preferences.ttl')
-          // const text2 = await putRequest.text()
-          expect(web[putRequest.url]).toEqual('')
-
-      })
+    const putRequest = requests[1]
+    expect(putRequest.method).toEqual('PUT')
+    expect(putRequest.url).toEqual('https://bob.example.com/Settings/Preferences.ttl')
+    expect(web[putRequest.url]).toEqual('')
 
   })
 
-  const AliceScopes = [ {
-         "agent":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/profile/card.ttl#me",
-         },
-         "index": {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/profle/public-type-index.ttl",
-         },
-         "label": "public",
-       },
-        {
-         "agent": {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/profile/card.ttl#me",
-         },
-         "index": {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/settings/private-type-index.ttl",
-         },
-         "label": "private",
-       }
-    ];
+})
 
-    describe('loadTypeIndexesFor', () => {
-        it('exists', () => {
-            expect(loadTypeIndexesFor).toBeInstanceOf(Function)
-        })
-        it('loads data', async () => {
-            const result = await loadTypeIndexesFor(store, user)
-            expect(result).toEqual(AliceScopes)
-            expect(store.statementsMatching(null, null, null, AlicePrivateTypeIndex).length).toEqual(
+const AliceScopes = [ {
+    "agent":  {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://alice.example.com/profile/card.ttl#me",
+    },
+    "index": {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://alice.example.com/profle/public-type-index.ttl",
+    },
+    "label": "public",
+  },
+  {
+    "agent": {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://alice.example.com/profile/card.ttl#me",
+    },
+    "index": {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://alice.example.com/settings/private-type-index.ttl",
+    },
+    "label": "private",
+  }
+];
 
-              8)
-            expect(store.statementsMatching(null, null, null, AlicePublicTypeIndex).length).toEqual(8)
-        })
-    })
+describe('loadTypeIndexesFor', () => {
+  it('exists', () => {
+    expect(loadTypeIndexesFor).toBeInstanceOf(Function)
+  })
+  it('loads data', async () => {
+    const result = await loadTypeIndexesFor(store, user)
+    expect(result).toEqual(AliceScopes)
+    expect(store.statementsMatching(null, null, null, AlicePrivateTypeIndex).length).toEqual(8)
+    expect(store.statementsMatching(null, null, null, AlicePublicTypeIndex).length).toEqual(8)
+  })
+})
 
 const ClubScopes =
   [
+    {
+      "agent":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/profile/card.ttl#it",
+      },
+      "index":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/profle/public-type-index.ttl",
+      },
+      "label": "public",
+    },
       {
-       "agent":  {
-         "classOrder": 5,
-         "termType": "NamedNode",
-          "value": "https://club.example.com/profile/card.ttl#it",
-        },
-        "index":  {
-          "classOrder": 5,
-          "termType": "NamedNode",
-          "value": "https://club.example.com/profle/public-type-index.ttl",
-        },
-        "label": "public",
+      "agent":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/profile/card.ttl#it",
       },
-       {
-        "agent":  {
-          "classOrder": 5,
-          "termType": "NamedNode",
-          "value": "https://club.example.com/profile/card.ttl#it",
-        },
-        "index":  {
-          "classOrder": 5,
-          "termType": "NamedNode",
-          "value": "https://club.example.com/settings/private-type-index.ttl",
-        },
-        "label": "private",
+      "index":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/settings/private-type-index.ttl",
       },
-    ];
-    describe('loadCommunityTypeIndexes', () => {
-        it('exists', () => {
-            expect(loadCommunityTypeIndexes).toBeInstanceOf(Function)
-        })
-        it('loads data', async () => {
-            const result = await loadCommunityTypeIndexes(store, user) // @@ tbd
-            expect(result).toEqual(ClubScopes)
-        })
-    })
+      "label": "private",
+    },
+  ];
+describe('loadCommunityTypeIndexes', () => {
+  it('exists', () => {
+      expect(loadCommunityTypeIndexes).toBeInstanceOf(Function)
+  })
+  it('loads data', async () => {
+      const result = await loadCommunityTypeIndexes(store, user) // @@ tbd
+      expect(result).toEqual(ClubScopes)
+  })
+})
 
 const AliceAndClubScopes =
-   [
-      {
-       "instance":  {
-         "classOrder": 5,
-         "termType": "NamedNode",
-         "value": "https://alice.example.com/publicStuff/actionItems.ttl#this",
-       },
-       "scope":  {
-         "agent":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/profile/card.ttl#me",
-         },
-         "index":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/profle/public-type-index.ttl",
-         },
-         "label": "public",
-       },
-     },
-      {
-       "instance":  {
-         "classOrder": 5,
-         "termType": "NamedNode",
-         "value": "https://alice.example.com/project4/issues.ttl#this",
-       },
-       "scope": {
-         "agent":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/profile/card.ttl#me",
-         },
-         "index": {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/profle/public-type-index.ttl",
-         },
-         "label": "public",
-       },
-     },
-      {
-       "instance":  {
-         "classOrder": 5,
-         "termType": "NamedNode",
-         "value": "https://alice.example.com/privateStuff/ToDo.ttl#this",
-       },
-       "scope":  {
-         "agent": {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/profile/card.ttl#me",
-         },
-         "index":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/settings/private-type-index.ttl",
-         },
-         "label": "private",
-       },
-     },
-      {
-       "instance":  {
-         "classOrder": 5,
-         "termType": "NamedNode",
-         "value": "https://alice.example.com/privateStuff/Goals.ttl#this",
-       },
-       "scope": {
-         "agent":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/profile/card.ttl#me",
-         },
-         "index":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/settings/private-type-index.ttl",
-         },
-         "label": "private",
-       },
-     },
-      {
-       "instance":  {
-         "classOrder": 5,
-         "termType": "NamedNode",
-         "value": "https://alice.example.com/privateStuff/workingOn.ttl#this",
-       },
-       "scope":  {
-         "agent":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/profile/card.ttl#me",
-         },
-         "index":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://alice.example.com/settings/private-type-index.ttl",
-         },
-         "label": "private",
-       },
-     },
-      {
-       "instance":  {
-         "classOrder": 5,
-         "termType": "NamedNode",
-         "value": "https://club.example.com/publicStuff/actionItems.ttl#this",
-       },
-       "scope": {
-         "agent":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://club.example.com/profile/card.ttl#it",
-         },
-         "index":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://club.example.com/profle/public-type-index.ttl",
-         },
-         "label": "public",
-       },
-     },
-      {
-       "instance":  {
-         "classOrder": 5,
-         "termType": "NamedNode",
-         "value": "https://club.example.com/project4/clubIssues.ttl#this",
-       },
-       "scope":  {
-         "agent": {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://club.example.com/profile/card.ttl#it",
-         },
-         "index":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://club.example.com/profle/public-type-index.ttl",
-         },
-         "label": "public",
-       },
-     },
-      {
-       "instance": {
-         "classOrder": 5,
-         "termType": "NamedNode",
-         "value": "https://club.example.com/privateStuff/ToDo.ttl#this",
-       },
-       "scope":  {
-         "agent":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://club.example.com/profile/card.ttl#it",
-         },
-         "index":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://club.example.com/settings/private-type-index.ttl",
-         },
-         "label": "private",
-       },
-     },
-      {
-       "instance":  {
-         "classOrder": 5,
-         "termType": "NamedNode",
-         "value": "https://club.example.com/privateStuff/Goals.ttl#this",
-       },
-       "scope":  {
-         "agent":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://club.example.com/profile/card.ttl#it",
-         },
-         "index":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://club.example.com/settings/private-type-index.ttl",
-         },
-         "label": "private",
-       },
-     },
-      {
-       "instance":  {
-         "classOrder": 5,
-         "termType": "NamedNode",
-         "value": "https://club.example.com/privateStuff/tasks.ttl#this",
-       },
-       "scope":  {
-         "agent":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://club.example.com/profile/card.ttl#it",
-         },
-         "index":  {
-           "classOrder": 5,
-           "termType": "NamedNode",
-           "value": "https://club.example.com/settings/private-type-index.ttl",
-         },
-         "label": "private",
-       },
-     },
-   ]
+[
+  {
+    "instance":  {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://alice.example.com/publicStuff/actionItems.ttl#this",
+    },
+    "scope":  {
+      "agent":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://alice.example.com/profile/card.ttl#me",
+      },
+      "index":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://alice.example.com/profle/public-type-index.ttl",
+      },
+      "label": "public",
+    },
+  },
+  {
+    "instance":  {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://alice.example.com/project4/issues.ttl#this",
+    },
+    "scope": {
+      "agent":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://alice.example.com/profile/card.ttl#me",
+      },
+      "index": {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://alice.example.com/profle/public-type-index.ttl",
+      },
+      "label": "public",
+    },
+  },
+  {
+    "instance":  {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://alice.example.com/privateStuff/ToDo.ttl#this",
+    },
+    "scope":  {
+      "agent": {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://alice.example.com/profile/card.ttl#me",
+      },
+      "index":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://alice.example.com/settings/private-type-index.ttl",
+      },
+      "label": "private",
+    },
+  },
+  {
+    "instance":  {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://alice.example.com/privateStuff/Goals.ttl#this",
+    },
+    "scope": {
+      "agent":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://alice.example.com/profile/card.ttl#me",
+      },
+      "index":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://alice.example.com/settings/private-type-index.ttl",
+      },
+      "label": "private",
+    },
+  },
+  {
+    "instance":  {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://alice.example.com/privateStuff/workingOn.ttl#this",
+    },
+    "scope":  {
+      "agent":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://alice.example.com/profile/card.ttl#me",
+      },
+      "index":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://alice.example.com/settings/private-type-index.ttl",
+      },
+      "label": "private",
+    },
+  },
+  {
+    "instance":  {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://club.example.com/publicStuff/actionItems.ttl#this",
+    },
+    "scope": {
+      "agent":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/profile/card.ttl#it",
+      },
+      "index":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/profle/public-type-index.ttl",
+      },
+      "label": "public",
+    },
+  },
+  {
+    "instance":  {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://club.example.com/project4/clubIssues.ttl#this",
+    },
+    "scope":  {
+      "agent": {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/profile/card.ttl#it",
+      },
+      "index":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/profle/public-type-index.ttl",
+      },
+      "label": "public",
+    },
+  },
+  {
+    "instance": {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://club.example.com/privateStuff/ToDo.ttl#this",
+    },
+    "scope":  {
+      "agent":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/profile/card.ttl#it",
+      },
+      "index":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/settings/private-type-index.ttl",
+      },
+      "label": "private",
+    },
+  },
+  {
+    "instance":  {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://club.example.com/privateStuff/Goals.ttl#this",
+    },
+    "scope":  {
+      "agent":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/profile/card.ttl#it",
+      },
+      "index":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/settings/private-type-index.ttl",
+      },
+      "label": "private",
+    },
+  },
+  {
+    "instance":  {
+      "classOrder": 5,
+      "termType": "NamedNode",
+      "value": "https://club.example.com/privateStuff/tasks.ttl#this",
+    },
+    "scope":  {
+      "agent":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/profile/card.ttl#it",
+      },
+      "index":  {
+        "classOrder": 5,
+        "termType": "NamedNode",
+        "value": "https://club.example.com/settings/private-type-index.ttl",
+      },
+      "label": "private",
+    },
+  },
+]
 
-  describe('getScopedAppInstances', () => {
-      it('exists', () => {
-          expect(getScopedAppInstances).toBeInstanceOf(Function)
-      })
-      it('pulls in users scopes and also community ones', async () => {
-          const result = await getScopedAppInstances(store, Tracker, user)
-          expect(result).toEqual(AliceAndClubScopes)
-      })
-      it('creates new typeIndeex files where they dont exist', async () => {
-          const result = await getScopedAppInstances(store, Tracker, Bob)
-
-          expect(requests[0].method).toEqual('PATCH') // Add link to preferrencesFile
-          expect(requests[0].url).toEqual('https://bob.example.com/profile/card.ttl')
-
-          expect(requests[1].method).toEqual('PUT') // Link to pub typ ind
-          expect(requests[1].url).toEqual('https://bob.example.com/profile/publicTypeIndex.ttl')
-
-          expect(requests[2].method).toEqual('PATCH') // Add link to preferrencesFile
-          expect(requests[2].url).toEqual('https://bob.example.com/profile/card.ttl')
-
-          expect(requests[3].method).toEqual('PATCH')
-          expect(requests[3].url).toEqual('https://bob.example.com/Settings/Preferences.ttl')
-
-          expect(requests[4].method).toEqual('PUT')
-          expect(requests[4].url).toEqual('https://bob.example.com/Settings/privateTypeIndex.ttl')
-
-          expect(requests.length).toEqual(5)
-
-      })
+describe('getScopedAppInstances', () => {
+  it('exists', () => {
+    expect(getScopedAppInstances).toBeInstanceOf(Function)
   })
+  it('pulls in users scopes and also community ones', async () => {
+    const result = await getScopedAppInstances(store, Tracker, user)
+    expect(result).toEqual(AliceAndClubScopes)
+  })
+  it('creates new typeIndeex files where they dont exist', async () => {
+    const result = await getScopedAppInstances(store, Tracker, Bob)
+
+    expect(requests[0].method).toEqual('PATCH') // Add link to preferrencesFile
+    expect(requests[0].url).toEqual('https://bob.example.com/profile/card.ttl')
+
+    expect(requests[1].method).toEqual('PUT') // Link to pub typ ind
+    expect(requests[1].url).toEqual('https://bob.example.com/profile/publicTypeIndex.ttl')
+
+    expect(requests[2].method).toEqual('PATCH') // Add link to preferrencesFile
+    expect(requests[2].url).toEqual('https://bob.example.com/profile/card.ttl')
+
+    expect(requests[3].method).toEqual('PATCH')
+    expect(requests[3].url).toEqual('https://bob.example.com/Settings/Preferences.ttl')
+
+    expect(requests[4].method).toEqual('PUT')
+    expect(requests[4].url).toEqual('https://bob.example.com/Settings/privateTypeIndex.ttl')
+
+    expect(requests.length).toEqual(5)
+
+  })
+})
 
 const TRACKERS =
-  [
-     {
-       "classOrder": 5,
-       "termType": "NamedNode",
-       "value": "https://alice.example.com/publicStuff/actionItems.ttl#this",
-     },
-     {
-       "classOrder": 5,
-       "termType": "NamedNode",
-       "value": "https://alice.example.com/project4/issues.ttl#this",
-     },
-     {
-       "classOrder": 5,
-       "termType": "NamedNode",
-       "value": "https://alice.example.com/privateStuff/ToDo.ttl#this",
-     },
-     {
-       "classOrder": 5,
-       "termType": "NamedNode",
-       "value": "https://alice.example.com/privateStuff/Goals.ttl#this",
-     },
-     {
-       "classOrder": 5,
-       "termType": "NamedNode",
-       "value": "https://alice.example.com/privateStuff/workingOn.ttl#this",
-     },
-     {
-       "classOrder": 5,
-       "termType": "NamedNode",
-       "value": "https://club.example.com/publicStuff/actionItems.ttl#this",
-     },
-     {
-       "classOrder": 5,
-       "termType": "NamedNode",
-       "value": "https://club.example.com/project4/clubIssues.ttl#this",
-     },
-     {
-       "classOrder": 5,
-       "termType": "NamedNode",
-       "value": "https://club.example.com/privateStuff/ToDo.ttl#this",
-     },
-     {
-       "classOrder": 5,
-       "termType": "NamedNode",
-       "value": "https://club.example.com/privateStuff/Goals.ttl#this",
-     },
-     {
-       "classOrder": 5,
-       "termType": "NamedNode",
-       "value": "https://club.example.com/privateStuff/tasks.ttl#this",
-     },
-   ]
+[
+  {
+    "classOrder": 5,
+    "termType": "NamedNode",
+    "value": "https://alice.example.com/publicStuff/actionItems.ttl#this",
+  },
+  {
+    "classOrder": 5,
+    "termType": "NamedNode",
+    "value": "https://alice.example.com/project4/issues.ttl#this",
+  },
+  {
+    "classOrder": 5,
+    "termType": "NamedNode",
+    "value": "https://alice.example.com/privateStuff/ToDo.ttl#this",
+  },
+  {
+    "classOrder": 5,
+    "termType": "NamedNode",
+    "value": "https://alice.example.com/privateStuff/Goals.ttl#this",
+  },
+  {
+    "classOrder": 5,
+    "termType": "NamedNode",
+    "value": "https://alice.example.com/privateStuff/workingOn.ttl#this",
+  },
+  {
+    "classOrder": 5,
+    "termType": "NamedNode",
+    "value": "https://club.example.com/publicStuff/actionItems.ttl#this",
+  },
+  {
+    "classOrder": 5,
+    "termType": "NamedNode",
+    "value": "https://club.example.com/project4/clubIssues.ttl#this",
+  },
+  {
+    "classOrder": 5,
+    "termType": "NamedNode",
+    "value": "https://club.example.com/privateStuff/ToDo.ttl#this",
+  },
+  {
+    "classOrder": 5,
+    "termType": "NamedNode",
+    "value": "https://club.example.com/privateStuff/Goals.ttl#this",
+  },
+  {
+    "classOrder": 5,
+    "termType": "NamedNode",
+    "value": "https://club.example.com/privateStuff/tasks.ttl#this",
+  },
+]
 
-  describe('getAppInstances', () =>  {
-      it('exists', () => {
-          expect(getAppInstances).toBeInstanceOf(Function)
-      })
-      it('finds trackers', async () => {
-          const result = await getAppInstances(store, Tracker)
-          expect(result).toEqual(TRACKERS)
-          expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
-      })
-      it('finds images in containers', async () => {
-          const result = await getAppInstances(store, Image)
-          expect(result.length).toEqual(3)
-          expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
-          expect(result.map(x => x.uri).join()).toEqual("https://alice.example.com/profile/Photos/photo1.png,https://alice.example.com/profile/Photos/photo2.png,https://alice.example.com/profile/Photos/photo3.png")
-      })
+describe('getAppInstances', () =>  {
+  it('exists', () => {
+    expect(getAppInstances).toBeInstanceOf(Function)
   })
+  it('finds trackers', async () => {
+    const result = await getAppInstances(store, Tracker)
+    expect(result).toEqual(TRACKERS)
+    expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
+  })
+  it('finds images in containers', async () => {
+    const result = await getAppInstances(store, Image)
+    expect(result.length).toEqual(3)
+    expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
+    expect(result.map(x => x.uri).join()).toEqual("https://alice.example.com/profile/Photos/photo1.png,https://alice.example.com/profile/Photos/photo2.png,https://alice.example.com/profile/Photos/photo3.png")
+  })
+})
 
-  describe('registerInstanceInTypeIndex', () =>  {
-      it('exists', () => {
-          expect(registerInstanceInTypeIndex).toBeInstanceOf(Function)
-      })
-      it('adds a registration', async () => {
-          const instance = sym(Alice.doc().uri + 'trackers/myToDo.ttl#this')
-          const index = AlicePublicTypeIndex
-          const result = await registerInstanceInTypeIndex(store, instance, index, klass)
-          expect(result.doc()).toEqual(index)
-          expect(store.any(result, ns.solid('forClass'), null, index)).toEqual(klass)
-          expect(store.any(result, ns.solid('instance'), null, index)).toEqual(instance)
-          expect(store.holds(result, ns.rdf('type'), ns.solid('TypeRegistration'), index)).toEqual(true)
-          expect(requests[0].url).toEqual(index.uri)
-      })
+describe('registerInstanceInTypeIndex', () =>  {
+  it('exists', () => {
+    expect(registerInstanceInTypeIndex).toBeInstanceOf(Function)
   })
+  it('adds a registration', async () => {
+    const instance = sym(Alice.doc().uri + 'trackers/myToDo.ttl#this')
+    const index = AlicePublicTypeIndex
+    const result = await registerInstanceInTypeIndex(store, instance, index, klass)
+    expect(result.doc()).toEqual(index)
+    expect(store.any(result, ns.solid('forClass'), null, index)).toEqual(klass)
+    expect(store.any(result, ns.solid('instance'), null, index)).toEqual(instance)
+    expect(store.holds(result, ns.rdf('type'), ns.solid('TypeRegistration'), index)).toEqual(true)
+    expect(requests[0].url).toEqual(index.uri)
+  })
+})
 
 })

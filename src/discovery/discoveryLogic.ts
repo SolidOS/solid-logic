@@ -1,60 +1,47 @@
-import { NamedNode, Namespace, LiveStore, sym, st } from "rdflib";
-// import * as debug from '../util/debug'
-// import { getContainerMembers } from '../util/UtilityLogic'
-import { solidLogicSingleton } from "../logic/solidLogicSingleton"
-import { newThing } from "../util/uri"
+import * as $rdf from 'rdflib'
+import { LiveStore, NamedNode, st, sym } from 'rdflib'
+import solidNamespace from 'solid-namespace'
+import { solidLogicSingleton } from '../logic/solidLogicSingleton'
+import { newThing } from '../util/uri'
 
-const {  authn } = solidLogicSingleton
+const { authn } = solidLogicSingleton
 const { currentUser } = authn
+const ns = solidNamespace($rdf)
 
-type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode } ;
+type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode }
 type ScopedApp = { instance: NamedNode, scope: TypeIndexScope }
 
-const ns = {
-  dct:     Namespace('http://purl.org/dc/terms/'),
-  ldp:     Namespace('http://www.w3.org/ns/ldp#'),
-  meeting: Namespace('http://www.w3.org/ns/pim/meeting#'),
-  rdf:     Namespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#'),
-  schema:  Namespace('http://schema.org/'),
-  solid:   Namespace('http://www.w3.org/ns/solid/terms#'),
-  space:   Namespace('http://www.w3.org/ns/pim/space#'),
-  stat:    Namespace('http://www.w3.org/ns/posix/stat#'),
-  vcard:   Namespace('http://www.w3.org/2006/vcard/ns#'),
-  wf:      Namespace('http://www.w3.org/2005/01/wf/flow#'),
-  xsd:     Namespace('http://www.w3.org/2001/XMLSchema#')
-
-}
-
-/** Create a resource if it really does not exist
- *  Be absolutely sure something does not exist before creating a new empty file
+/**
+ * Create a resource if it really does not exist
+ * Be absolutely sure something does not exist before creating a new empty file
  * as otherwise existing could  be deleted.
  * @param doc {NamedNode} - The resource
  */
 export async function loadOrCreateIfNotExists (store: LiveStore, doc: NamedNode) {
-    let response
-    // console.log('@@ loadOrCreateIfNotExists doc ', doc)
-    try {
-      response = await store.fetcher.load(doc)
-    } catch (err) {
-        if (err.response.status === 404) {
-          // console.log('createIfNotExists doc does NOT exist, will create: ' + doc)
-          try {
-            store.fetcher.webOperation('PUT', doc, {data: '', contentType: 'text/turtle'})
-          } catch (err) {
-            const msg = 'createIfNotExists: PUT FAILED: ' + doc + ': ' + err
-            // console.log(msg)
-            throw new Error(msg)
-          }
-          delete store.fetcher.requested[doc.uri] // delete cached 404 error
-          // console.log('createIfNotExists doc created ok ' + doc)
-        } else {
-          const msg =  'createIfNotExists doc load error NOT 404:  ' + doc + ': ' + err
+  let response
+  // console.log('@@ loadOrCreateIfNotExists doc ', doc)
+  try {
+    response = await store.fetcher.load(doc)
+  } catch (err) {
+      if (err.response.status === 404) {
+        // console.log('createIfNotExists doc does NOT exist, will create: ' + doc)
+        try {
+          store.fetcher.webOperation('PUT', doc, {data: '', contentType: 'text/turtle'})
+        } catch (err) {
+          const msg = 'createIfNotExists: PUT FAILED: ' + doc + ': ' + err
           // console.log(msg)
-          throw new Error(msg) // @@ add nested errors
+          throw new Error(msg)
         }
-    }
-    // console.log('createIfNotExists doc exists, all good ' + doc)
-    return response
+        delete store.fetcher.requested[doc.uri] // delete cached 404 error
+        // console.log('createIfNotExists doc created ok ' + doc)
+      } else {
+        const msg =  'createIfNotExists doc load error NOT 404:  ' + doc + ': ' + err
+        // console.log(msg)
+        throw new Error(msg) // @@ add nested errors
+      }
+  }
+  // console.log('createIfNotExists doc exists, all good ' + doc)
+  return response
 }
 
 export function suggestPreferencesFile (me:NamedNode) {
@@ -73,12 +60,13 @@ export function suggestPublicTypeIndex (me:NamedNode) {
 export function suggestPrivateTypeIndex (preferencesFile:NamedNode) {
   return sym(preferencesFile.doc().dir()?.uri + 'privateTypeIndex.ttl')
 }
+
 /* Follow link from this doc to another thing, or else make a new link
 **
-**  return: null no ld one and failed to make a new one
+** return: null no ld one and failed to make a new one
 */
 export async function followOrCreateLink(store: LiveStore, subject: NamedNode, predicate: NamedNode,
-     object: NamedNode, doc:NamedNode):Promise<NamedNode | null> {
+  object: NamedNode, doc:NamedNode):Promise<NamedNode | null> {
   await store.fetcher.load(doc)
   const result = store.any(subject, predicate, null, doc)
   // console.log('@@ followOrCreateLink result ', result)
@@ -128,7 +116,6 @@ export async function loadPreferences(store: LiveStore, user: NamedNode): Promis
   const possiblePreferencesFile = suggestPreferencesFile(user)
 
   const preferencesFile = await followOrCreateLink(store, user,  ns.space('preferencesFile') as NamedNode, possiblePreferencesFile, user.doc())
-  // const preferencesFile = store.any(user, ns.space('preferencesFile'), undefined, profile)
 
   // console.log('loadPreferences @@ pref file', preferencesFile)
   if (!preferencesFile) {
@@ -139,7 +126,7 @@ export async function loadPreferences(store: LiveStore, user: NamedNode): Promis
   }
   try {
     await store.fetcher.load(preferencesFile as NamedNode)
-  } catch (err) { // Mabeb a permission propblem or origin problem
+  } catch (err) { // Maybe a permission propblem or origin problem
     return undefined
     // throw new Error(`Unable to load preferences file ${preferencesFile} of user <${user}>: ${err}`)
   }
@@ -175,7 +162,7 @@ export async function loadTypeIndexesFor(store: LiveStore, user:NamedNode): Prom
 
     const privateTypeIndex = store.any(user, ns.solid('privateTypeIndex'), undefined, profile) ||
 
-        await followOrCreateLink(store, user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile);
+    await followOrCreateLink(store, user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile);
 
     privateScopes = privateTypeIndex ? [ { label: 'private', index: privateTypeIndex as NamedNode, agent: user } ] : []
   } else {
@@ -214,7 +201,6 @@ export async function loadAllTypeIndexes (store:LiveStore, user:NamedNode) {
 }
 
 // Utility: remove duplicates from Array of NamedNodes
-
 export function uniqueNodes (arr: NamedNode[]): NamedNode[] {
   const uris = arr.map(x => x.uri)
   const set = new Set(uris)
@@ -233,21 +219,11 @@ export async function getScopedAppsfromIndex (store, scope, theClass: NamedNode)
   // console.log('    directInstances', directInstances )
   let instances = uniqueNodes(directInstances)
 
-/*
-  let instanceContainers = []
-  for (const reg of registrations) {
-    const cont = store.any(reg as NamedNode, ns.solid('instanceContainer'), null, index)
-    if (cont) {
-      // console.log('   @@ getScopedAppsfromIndex got one: ', cont)
-      instanceContainers.push(cont)
-    }
-  }
-  */
- const instanceContainers = registrations.map(
-     reg => store.each(reg as NamedNode, ns.solid('instanceContainer'), null, index)).flat()
+  const instanceContainers = registrations.map(
+    reg => store.each(reg as NamedNode, ns.solid('instanceContainer'), null, index)
+  ).flat()
 
   //  instanceContainers may be deprocatable if no one has used them
-
   const containers = uniqueNodes(instanceContainers)
   for (let i = 0; i < containers.length; i++) {
     const cont = containers[i]
@@ -259,7 +235,6 @@ export async function getScopedAppsfromIndex (store, scope, theClass: NamedNode)
   return instances.map(instance => { return {instance, scope}})
 }
 
-
 export async function getScopedAppInstances (store:LiveStore, klass: NamedNode, user: NamedNode):Promise<ScopedApp[]> {
   // console.log('getScopedAppInstances @@ ' + user)
   const scopes = await loadAllTypeIndexes(store, user)
@@ -270,6 +245,7 @@ export async function getScopedAppInstances (store:LiveStore, klass: NamedNode, 
   }
   return scopedApps
 }
+
 // This is the function signature which used to be in solid-ui/logic
 // Recommended to use getScopedAppInstances instead as it provides more information.
 //
@@ -279,7 +255,8 @@ export async function getAppInstances (store:LiveStore, klass: NamedNode): Promi
   const scopedAppInstances = await getScopedAppInstances(store, klass, user)
   return scopedAppInstances.map(scoped => scoped.instance)
 }
-/**
+
+/*
  * Register a new app in a type index
  * used in chat in bookmark.js (solid-ui)
  * Returns the registration object if successful else null
@@ -291,21 +268,21 @@ export async function registerInstanceInTypeIndex (
   theClass: NamedNode,
   // agent: NamedNode
 ): Promise<NamedNode | null> {
-    const registration = newThing(index)
-    const ins = [
-        // See https://github.com/solid/solid/blob/main/proposals/data-discovery.md
-        st(registration, ns.rdf('type'), ns.solid('TypeRegistration'), index),
-        st(registration, ns.solid('forClass'), theClass, index),
-        st(registration, ns.solid('instance'), instance, index)
-    ]
-    try {
-      console.log('patching index', ins)
-        await store.updater.update([], ins)
-    } catch (err) {
-        const msg = `Unable to register ${instance} in index ${index}: ${err}`
-        console.warn(msg)
-        return null
-    }
-    return registration
+  const registration = newThing(index)
+  const ins = [
+      // See https://github.com/solid/solid/blob/main/proposals/data-discovery.md
+      st(registration, ns.rdf('type'), ns.solid('TypeRegistration'), index),
+      st(registration, ns.solid('forClass'), theClass, index),
+      st(registration, ns.solid('instance'), instance, index)
+  ]
+  try {
+    console.log('patching index', ins)
+      await store.updater.update([], ins)
+  } catch (err) {
+      const msg = `Unable to register ${instance} in index ${index}: ${err}`
+      console.warn(msg)
+      return null
+  }
+  return registration
 }
 // ENDS
