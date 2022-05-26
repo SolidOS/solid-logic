@@ -43,7 +43,7 @@ return context
 
 export async function loadTypeIndexes (context: AuthenticationContext) {
     try {
-        await loadPreferences(solidLogicSingleton.store, context.me)
+        await loadPreferences(solidLogicSingleton.store, context.me as NamedNode)
     } catch (error) {
         debug.warn(error.message) as undefined
     }
