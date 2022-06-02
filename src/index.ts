@@ -23,6 +23,7 @@ export {
 // Generate by
 //  grep export src/discovery/discoveryLogic.ts | sed -e 's/export //g'  | sed -e 's/async //g'| sed -e 's/function //g' | sed -e 's/ .*/,/g' | sort
 export {
+  deleteTypeIndexRegistration,
   followOrCreateLink,
   getAppInstances,
   getScopedAppInstances,

@@ -222,26 +222,17 @@ export function uniqueNodes (arr: NamedNode[]): NamedNode[] {
   return arr2 // Array.from(new Set(arr.map(x => x.uri))).map(u => sym(u))
 }
 
-export async function getScopedAppsFromIndex (store, scope, theClass: NamedNode) {
+export async function getScopedAppsFromIndex (store, scope, theClass: NamedNode | null) {
   // console.log(`getScopedAppsFromIndex agent ${scope.agent} index: ${scope.index}` )
   const index = scope.index
-  const registrations = store.each(undefined, ns.solid('forClass'), theClass, index)
+  const registrations = store.statementsMatching(null, ns.solid('instance'), null, index).map(st => st.subject)
   // console.log('    registrations', registrations )
-
+  const relevant = theClass ? registrations.filter(reg => store.any(reg, ns.solid('forClass'), null, index).sameTerm(theClass))
+                            : registrations
   const directInstances = registrations.map(reg => store.each(reg as NamedNode, ns.solid('instance'), null, index)).flat()
   // console.log('    directInstances', directInstances )
   let instances = uniqueNodes(directInstances)
 
-/*
-  let instanceContainers = []
-  for (const reg of registrations) {
-    const cont = store.any(reg as NamedNode, ns.solid('instanceContainer'), null, index)
-    if (cont) {
-      // console.log('   @@ getScopedAppsFromIndex got one: ', cont)
-      instanceContainers.push(cont)
-    }
-  }
-  */
  const instanceContainers = registrations.map(
      reg => store.each(reg as NamedNode, ns.solid('instanceContainer'), null, index)).flat()
 
@@ -307,4 +298,12 @@ export async function registerInstanceInTypeIndex (
     }
     return registration
 }
+
+export async function deleteTypeIndexRegistration (store: LiveStore, item) {
+  const reg = store.the(null, ns.solid('instance'), item.instance, item.scope.index) as NamedNode
+  if (!reg) throw new Error(`deleteTypeIndexRegistration: No registration found for ${item.instance}`)
+  const statements = store.statementsMatching(reg, null, null, item.scope.index)
+  await store.updater.update(statements, [])
+}
+
 // ENDS
