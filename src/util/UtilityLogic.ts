@@ -90,7 +90,7 @@ export class UtilityLogic {
   }
 
   isContainer(url: NamedNode) {
-    const nodeToString = url.value;
+    const nodeToString = url.uri;
     return nodeToString.charAt(nodeToString.length-1) === "/";
   }
 
@@ -132,7 +132,7 @@ export class UtilityLogic {
   async recursiveDelete(containerNode: NamedNode) {
     try {
       if (this.isContainer(containerNode)) {
-        const cnodeToString = containerNode.value;
+        const cnodeToString = containerNode.uri;
         const aclDocUrl = await this.findAclDocUrl(cnodeToString);
         await this.underlyingFetch.fetch(aclDocUrl, { method: "DELETE" });
         const containerMembers = await this.getContainerMembers(containerNode);
@@ -140,7 +140,7 @@ export class UtilityLogic {
           containerMembers.map((url) => this.recursiveDelete(containerNode))
         );
       }
-      const nodeToStringHere = containerNode.value;
+      const nodeToStringHere = containerNode.uri;
       return this.underlyingFetch.fetch(nodeToStringHere, { method: "DELETE" });
     } catch (e) {
       // console.log(`Please manually remove ${url} from your system under test.`, e);
