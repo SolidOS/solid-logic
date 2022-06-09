@@ -8,6 +8,7 @@
     "clean": "rm -rf lib",
     "lint": "eslint ./src",
     "test": "jest",
+    "test-debug": "node --inspect-brk ./node_modules/.bin/jest -i --env jest-environment-node-debug",
     "preversion": "npm test",
     "postversion": "git push --follow-tags",
     "prepublishOnly": "npm run build",
@@ -35,6 +36,7 @@
     "@typescript-eslint/parser": "^5.19.0",
     "eslint": "^8.13.0",
     "jest": "^27.5.1",
+    "jest-environment-node-debug": "^2.0.0",
     "jest-fetch-mock": "^3.0.3",
     "typescript": "^4.6.3"
   },

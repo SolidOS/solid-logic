@@ -410,7 +410,7 @@ const ClubScopes =
             expect(loadCommunityTypeIndexes).toBeInstanceOf(Function)
         })
         it('loads data', async () => {
-            const result = await loadCommunityTypeIndexes(store, user) // @@ tbd
+            const result = await loadCommunityTypeIndexes(store, user)
             expect(result).toEqual(ClubScopes)
         })
     })
