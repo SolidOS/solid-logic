@@ -20,12 +20,25 @@ export {
   loadIndex
 } from './typeIndex/typeIndexLogic'
 
+// Generate by
+//  grep export src/discovery/discoveryLogic.ts | sed -e 's/export //g'  | sed -e 's/async //g'| sed -e 's/function //g' | sed -e 's/ .*/,/g' | sort
 export {
-  loadProfile,
-  loadPreferences,
-  loadTypeIndexesFor,
+  deleteTypeIndexRegistration,
+  followOrCreateLink,
+  getAppInstances,
+  getScopedAppInstances,
+  getScopedAppsFromIndex,
+  loadAllTypeIndexes,
   loadCommunityTypeIndexes,
-  loadAllTypeIndexes
+  loadOrCreateIfNotExists,
+  loadPreferences,
+  loadProfile,
+  loadTypeIndexesFor,
+  registerInstanceInTypeIndex,
+  suggestPreferencesFile,
+  suggestPrivateTypeIndex,
+  suggestPublicTypeIndex,
+  uniqueNodes
 } from './discovery/discoveryLogic'
 
 export { SolidLogic } from './logic/SolidLogic'
