@@ -1,29 +1,19 @@
-import { NamedNode, Namespace, LiveStore, sym, st } from "rdflib";
+import { NamedNode, LiveStore, sym, st } from 'rdflib'
+import * as $rdf from 'rdflib'
 import { solidLogicSingleton } from "../logic/solidLogicSingleton"
 import { newThing } from "../util/uri"
-const {  authn } = solidLogicSingleton
-const { currentUser } = authn
+import solidNamespace from 'solid-namespace'
 
-type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode } ;
+const { authn } = solidLogicSingleton
+const { currentUser } = authn
+const ns = solidNamespace($rdf)
+
+type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode }
 type ScopedApp = { instance: NamedNode, scope: TypeIndexScope }
 
-const ns = {
-  dct:     Namespace('http://purl.org/dc/terms/'),
-  ldp:     Namespace('http://www.w3.org/ns/ldp#'),
-  meeting: Namespace('http://www.w3.org/ns/pim/meeting#'),
-  rdf:     Namespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#'),
-  schema:  Namespace('http://schema.org/'),
-  solid:   Namespace('http://www.w3.org/ns/solid/terms#'),
-  space:   Namespace('http://www.w3.org/ns/pim/space#'),
-  stat:    Namespace('http://www.w3.org/ns/posix/stat#'),
-  vcard:   Namespace('http://www.w3.org/2006/vcard/ns#'),
-  wf:      Namespace('http://www.w3.org/2005/01/wf/flow#'),
-  xsd:     Namespace('http://www.w3.org/2001/XMLSchema#')
-
-}
-
-/** Create a resource if it really does not exist
- *  Be absolutely sure something does not exist before creating a new empty file
+/**
+ * Create a resource if it really does not exist
+ * Be absolutely sure something does not exist before creating a new empty file
  * as otherwise existing could  be deleted.
  * @param doc {NamedNode} - The resource
  */
@@ -64,9 +54,10 @@ export function suggestPublicTypeIndex (me:NamedNode) {
 export function suggestPrivateTypeIndex (preferencesFile:NamedNode) {
   return sym(preferencesFile.doc().dir()?.uri + 'privateTypeIndex.ttl')
 }
+
 /* Follow link from this doc to another thing, or else make a new link
 **
-**  return: null no ld one and failed to make a new one
+** return: null no ld one and failed to make a new one
 */
 export async function followOrCreateLink (store: LiveStore, subject: NamedNode, predicate: NamedNode,
      object: NamedNode, doc:NamedNode):Promise<NamedNode | null> {
@@ -119,7 +110,7 @@ export async function loadPreferences (store: LiveStore, user: NamedNode): Promi
   }
   try {
     await store.fetcher.load(preferencesFile as NamedNode)
-  } catch (err) { // Mabeb a permission propblem or origin problem
+  } catch (err) { // Maybe a permission propblem or origin problem
     return undefined
   }
   return preferencesFile as NamedNode
@@ -150,7 +141,7 @@ export async function loadTypeIndexesFor (store: LiveStore, user:NamedNode): Pro
 
     const privateTypeIndex = store.any(user, ns.solid('privateTypeIndex'), undefined, profile) ||
 
-        await followOrCreateLink(store, user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile);
+    await followOrCreateLink(store, user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile);
 
     privateScopes = privateTypeIndex ? [ { label: 'private', index: privateTypeIndex as NamedNode, agent: user } ] : []
   } else {
@@ -187,7 +178,6 @@ export async function loadAllTypeIndexes (store:LiveStore, user:NamedNode) {
 }
 
 // Utility: remove duplicates from Array of NamedNodes
-
 export function uniqueNodes (arr: NamedNode[]): NamedNode[] {
   const uris = arr.map(x => x.uri)
   const set = new Set(uris)
@@ -210,7 +200,6 @@ export async function getScopedAppsFromIndex (store, scope, theClass: NamedNode 
      reg => store.each(reg as NamedNode, ns.solid('instanceContainer'), null, index)).flat()
 
   //  instanceContainers may be deprocatable if no one has used them
-
   const containers = uniqueNodes(instanceContainers)
   if (containers.length > 0) { console.log('@@ getScopedAppsFromIndex containers ', containers)}
   for (let i = 0; i < containers.length; i++) {
@@ -222,7 +211,6 @@ export async function getScopedAppsFromIndex (store, scope, theClass: NamedNode 
   return instances.map(instance => { return {instance, scope}})
 }
 
-
 export async function getScopedAppInstances (store:LiveStore, klass: NamedNode, user: NamedNode):Promise<ScopedApp[]> {
   const scopes = await loadAllTypeIndexes(store, user)
   let scopedApps = []
@@ -232,6 +220,7 @@ export async function getScopedAppInstances (store:LiveStore, klass: NamedNode, 
   }
   return scopedApps
 }
+
 // This is the function signature which used to be in solid-ui/logic
 // Recommended to use getScopedAppInstances instead as it provides more information.
 //
@@ -241,7 +230,8 @@ export async function getAppInstances (store:LiveStore, klass: NamedNode): Promi
   const scopedAppInstances = await getScopedAppInstances(store, klass, user)
   return scopedAppInstances.map(scoped => scoped.instance)
 }
-/**
+
+/*
  * Register a new app in a type index
  * used in chat in bookmark.js (solid-ui)
  * Returns the registration object if successful else null
@@ -276,5 +266,4 @@ export async function deleteTypeIndexRegistration (store: LiveStore, item) {
   const statements = store.statementsMatching(reg, null, null, item.scope.index)
   await store.updater.update(statements, [])
 }
-
 // ENDS

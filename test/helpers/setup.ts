@@ -1,8 +1,5 @@
 import { error, log, trace, warn } from '../../src/util/debug'
 import fetchMock from "jest-fetch-mock";
-import { TextEncoder, TextDecoder } from 'util'
-global.TextEncoder = TextEncoder
-global.TextDecoder = TextDecoder
 
 fetchMock.enableMocks();
 // We don't want to output debug messages to console as part of the tests
