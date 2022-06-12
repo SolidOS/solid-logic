@@ -363,29 +363,29 @@ const ClubScopes =
       },
       "label": "public",
     },
-      {
-      "agent":  {
+    {
+      "agent": {
         "classOrder": 5,
         "termType": "NamedNode",
         "value": "https://club.example.com/profile/card.ttl#it",
       },
-      "index":  {
+      "index": {
         "classOrder": 5,
         "termType": "NamedNode",
         "value": "https://club.example.com/settings/private-type-index.ttl",
       },
       "label": "private",
-    },
-  ];
-describe('loadCommunityTypeIndexes', () => {
-  it('exists', () => {
-      expect(loadCommunityTypeIndexes).toBeInstanceOf(Function)
-  })
-  it('loads data', async () => {
-      const result = await loadCommunityTypeIndexes(store, user) // @@ tbd
-      expect(result).toEqual(ClubScopes)
-  })
-})
+    }
+    ]
+    describe('loadCommunityTypeIndexes', () => {
+        it('exists', () => {
+            expect(loadCommunityTypeIndexes).toBeInstanceOf(Function)
+        })
+        it('loads data', async () => {
+            const result = await loadCommunityTypeIndexes(store, user)
+            expect(result).toEqual(ClubScopes)
+        })
+    })
 
 const AliceAndClubScopes =
 [
