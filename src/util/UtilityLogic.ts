@@ -65,7 +65,8 @@ export class UtilityLogic {
         ''
       ].join('\n')
     }
-    const aclDocUrl = await this.findAclDocUrl(options.target);
+    const toNode: NamedNode = sym(options.target);
+    const aclDocUrl = await this.findAclDocUrl(toNode);
     return this.underlyingFetch.fetch(aclDocUrl, {
       method: 'PUT',
       body: str,
