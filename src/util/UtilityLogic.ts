@@ -132,8 +132,7 @@ export class UtilityLogic {
   async recursiveDelete(containerNode: NamedNode) {
     try {
       if (this.isContainer(containerNode)) {
-        const cnodeToString = containerNode.value;
-        const aclDocUrl = await this.findAclDocUrl(cnodeToString);
+        const aclDocUrl = await this.findAclDocUrl(containerNode);
         await this.underlyingFetch.fetch(aclDocUrl, { method: "DELETE" });
         const containerMembers = await this.getContainerMembers(containerNode);
         await Promise.all(
