@@ -19,7 +19,7 @@ export class UtilityLogic {
     this.underlyingFetch = underlyingFetch;
   }
 
-  async findAclDocUrl(url: string) {
+  async findAclDocUrl(url: NamedNode) {
     const doc = this.store.sym(url);
     await this.store.fetcher?.load(doc);
     const docNode = this.store.any(doc, ACL_LINK);
