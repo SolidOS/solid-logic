@@ -59,7 +59,7 @@ export class SolidLogic {
         this.util = new UtilityLogic(this.store, ns, this.underlyingFetch);
     }
 
-    findAclDocUrl(url: string) {
+    findAclDocUrl(url: NamedNode) {
         return this.util.findAclDocUrl(url);
     }
 
