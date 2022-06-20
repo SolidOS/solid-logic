@@ -42,7 +42,7 @@ describe("Utility logic", () => {
       let result;
       beforeEach(async () => {
         containerIsEmpty();
-        result = await util.getContainerMembers('https://container.com/');
+        result = await util.getContainerMembers(rdf.sym('https://container.com/'));
       });
       it("Resolves to an empty array", () => {
         expect(result).toEqual([]);
@@ -52,7 +52,8 @@ describe("Utility logic", () => {
       let result;
       beforeEach(async () => {
         containerHasSomeContainmentTriples();
-        result = await util.getContainerMembers('https://container.com/');
+        const containerMembers = await util.getContainerMembers(rdf.sym('https://container.com/'));
+        result = containerMembers.map(oneResult => oneResult.value)
       });
       it("Resolves to an array with some URLs", () => {
         expect(result.sort()).toEqual([
