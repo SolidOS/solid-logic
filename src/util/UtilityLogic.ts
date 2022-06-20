@@ -20,7 +20,8 @@ export class UtilityLogic {
   }
 
   async findAclDocUrl(url: NamedNode) {
-    const doc = this.store.sym(url);
+    const nodeToStr = url.value;
+    const doc = this.store.sym(nodeToStr);
     await this.store.fetcher?.load(doc);
     const docNode = this.store.any(doc, ACL_LINK);
     if (!docNode) {
