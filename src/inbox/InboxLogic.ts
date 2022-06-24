@@ -44,7 +44,7 @@ export class InboxLogic {
     return ourInbox;
   }
   async markAsRead(url: string, date: Date) {
-    const downloaded = await this.util.underlyingFetch.fetch(url);
+    const downloaded = await this.store.fetcher._fetch(url);
     if (downloaded.status !== 200) {
       throw new Error(`Not OK! ${url}`);
     }
@@ -56,7 +56,7 @@ export class InboxLogic {
         [ 'Content-Type', downloaded.headers.get('Content-Type') || 'application/octet-stream' ]
       ]
     };
-    const uploaded = await this.util.underlyingFetch.fetch(archiveUrl, options);
+    const uploaded = await this.store.fetcher._fetch(archiveUrl, options);
     if (uploaded.status.toString()[0] === '2') {
       await this.store.fetcher?._fetch(url, {
         method: 'DELETE'
