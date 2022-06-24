@@ -90,7 +90,7 @@ export class UtilityLogic {
   }
 
   isContainer(url: string) {
-    return url.substr(-1) === "/";
+    return url.charAt(url.length-1) === "/";
   }
 
   async createContainer(url: string) {
