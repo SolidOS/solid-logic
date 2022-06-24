@@ -1,5 +1,5 @@
-import { sym } from 'rdflib'
-import { setACLUserPublic } from '../src/acl/aclLogic' 
+import { sym } from 'rdflib';
+import { setACLUserPublic } from '../src/acl/aclLogic';
 
 describe('setACLUserPublic', () => {
     it('exists', () => {

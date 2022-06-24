@@ -1,19 +1,21 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { ChatLogic } from "../src/chat/ChatLogic";
+import { Chat } from "../src/chat/Chat";
 import solidNamespace from "solid-namespace";
 import * as rdf from "rdflib";
-import { ProfileLogic } from "../src/profile/ProfileLogic";
+import { Profile } from "../src/profile/Profile";
 import { UpdateManager } from "rdflib";
 import { SolidNamespace } from "../src/types";
+import fetchMock from "jest-fetch-mock";
+import { solidLogicSingleton } from "../src/logic/solidLogicSingleton";
 
 const ns: SolidNamespace = solidNamespace(rdf);
 
 const alice = rdf.sym("https://alice.example/profile/card#me");
 const bob = rdf.sym("https://bob.example/profile/card#me");
 
-describe("Chat logic", () => {
+describe("Chat", () => {
   let chat;
   let store;
+  let profile;
   beforeEach(() => {
     fetchMock.resetMocks();
     fetchMock.mockResponse("Not Found", {
@@ -27,8 +29,11 @@ describe("Chat logic", () => {
         return alice;
       },
     };
-    const profile = new ProfileLogic(store, ns, authn);
-    chat = new ChatLogic(store, ns, profile);
+    profile = new Profile(store, ns, authn);
+    chat = new Chat(store, ns, profile);
+    solidLogicSingleton.store = store
+    solidLogicSingleton.profile = profile
+    solidLogicSingleton.chat = chat
   });
 
   describe("get chat, without creating", () => {

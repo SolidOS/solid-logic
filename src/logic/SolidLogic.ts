@@ -1,14 +1,15 @@
 import { Session } from "@inrupt/solid-client-authn-browser";
 import * as rdf from "rdflib";
-import { NamedNode, Statement, LiveStore } from "rdflib";
+import { LiveStore, NamedNode, Statement } from "rdflib";
 import solidNamespace from "solid-namespace";
 import { SolidAuthnLogic } from "../authn/SolidAuthnLogic";
-import { ChatLogic } from "../chat/ChatLogic";
-import { ProfileLogic } from "../profile/ProfileLogic";
+import { Chat } from "../chat/Chat";
+import { Inbox } from "../inbox/Inbox";
+import { Profile } from "../profile/Profile";
+import { TypeIndex } from "../typeIndex/TypeIndex";
 import { AuthnLogic, SolidNamespace } from "../types";
+import { Container } from "../util/Container";
 import * as debug from "../util/debug";
-import { UtilityLogic } from "../util/UtilityLogic";
-import { CrossOriginForbiddenError, FetchError, NotFoundError, SameOriginForbiddenError, UnauthorizedError } from "./CustomError";
 /*
 ** It is important to distinquish `fetch`, a function provided by the browser
 ** and `Fetcher`, a helper object for the rdflib Store which turns it
@@ -19,21 +20,16 @@ import { CrossOriginForbiddenError, FetchError, NotFoundError, SameOriginForbidd
 const ns: SolidNamespace = solidNamespace(rdf);
 
 export class SolidLogic {
-    cache: {
-        profileDocument: {
-        [WebID: string]: NamedNode;
-        };
-        preferencesFile: {
-        [WebID: string]: NamedNode;
-        };
-    };
 
     store: LiveStore;
     me: string | undefined;
-    chat: ChatLogic;
-    profile: ProfileLogic;
+
+    chat: Chat;
+    typeIndex: TypeIndex;
+    profile: Profile;
     authn: AuthnLogic;
-    util: UtilityLogic;
+    inbox: Inbox;
+    container: Container;
 
     constructor(specialFetch: { fetch: (url: any, requestInit: any) => any }, session: Session) {
   // would xpect to be able to do it this way: but get TypeError:  Failed to execute 'fetch' on 'Window': Illegal invocation status: 999
@@ -43,178 +39,19 @@ export class SolidLogic {
         this.store = rdf.graph() as LiveStore; // Make a Quad store
         rdf.fetcher(this.store, { fetch: specialFetch.fetch}); // Attach a web I/O module, store.fetcher
         this.store.updater = new rdf.UpdateManager(this.store); // Add real-time live updates store.updater
-
         this.store.features = [] // disable automatic node merging on store load
-        this.cache = {
-        profileDocument: {},
-        preferencesFile: {},
-        };
-        this.authn = new SolidAuthnLogic(session);
+        
+        this.authn = new SolidAuthnLogic(session)
+        this.container = new Container(this.store)
+        this.profile = new Profile(this.store, ns, this.authn)
+        this.typeIndex = new TypeIndex(this.store, ns, this.authn, this.profile)
+        this.chat = new Chat(this.store, ns, this.profile)
+        this.inbox = new Inbox(this.store, ns, this.profile, this.container)
         debug.log('SolidAuthnLogic initialized')
-        this.profile = new ProfileLogic(this.store, ns, this.authn);
-        this.chat = new ChatLogic(this.store, ns, this.profile);
-        this.util = new UtilityLogic(this.store, ns);
-    }
-
-    findAclDocUrl(url: string) {
-        return this.util.findAclDocUrl(url);
-    }
-
-    async loadProfile(me: NamedNode): Promise<NamedNode> {
-        /*
-      // console.log('loadProfile cache ', this.cache)
-        if (this.cache.profileDocument[me.value]) {
-        return this.cache.profileDocument[me.value];
-      }    @@ just use the cache in the store
-        */
-        console.log('loadProfile  me ', me)
-        const profileDocument = me.doc()
-        try {
-          await this.store.fetcher.load(profileDocument);
-          return profileDocument;
-        } catch (err) {
-        const message = `Cannot load profile ${profileDocument} : ${err}`;
-        throw new Error(message);
-        }
-    }
-
-    async loadPreferences(me: NamedNode): Promise<NamedNode> {
-        console.log('loadPreferences cache ', this.cache)
-        if (this.cache.preferencesFile[me.value]) {
-        return this.cache.preferencesFile[me.value];
-        }
-        await this.loadProfile(me) // Load pointer to pref file
-        const preferencesFile = this.store.any(me, ns.space('preferencesFile'), null, me.doc());
-
-        // console.log('this.store.any()', this.store.any())
-        /**
-         * Are we working cross-origin?
-         * Returns True if we are in a webapp at an origin, and the file origin is different
-         */
-        function differentOrigin(): boolean {
-        if (!preferencesFile) {
-            return true;
-        }
-        return (
-            `${window.location.origin}/` !== new URL(preferencesFile.value).origin
-        );
-        }
-
-        if (!preferencesFile) {
-        throw new Error(
-            `Can't find a preference file pointer in profile ${me.doc()}`
-        );
-        }
-
-        // //// Load preference file
-        try {
-        await this.store.fetcher.load(preferencesFile as NamedNode, {
-            withCredentials: true,
-        });
-        } catch (err) {
-        // Really important to look at why
-        const status = err.status;
-        debug.log(`HTTP status ${status} for preference file ${preferencesFile}`);
-        if (status === 401) {
-            throw new UnauthorizedError();
-        }
-        if (status === 403) {
-            if (differentOrigin()) {
-            throw new CrossOriginForbiddenError();
-            }
-            throw new SameOriginForbiddenError();
-        }
-        if (status === 404) {
-            throw new NotFoundError(preferencesFile.value);
-        }
-        throw new FetchError(err.status, err.message);
-        }
-        return preferencesFile as NamedNode;
-    }
-
-    getTypeIndex(
-        me: NamedNode | string,
-        preferencesFile: NamedNode | string,
-        isPublic: boolean
-    ): NamedNode[] {
-        // console.log('getTypeIndex', this.store.each(me, undefined, undefined, preferencesFile), isPublic, preferencesFile)
-        return this.store.each(
-        me as NamedNode,
-        isPublic ? ns.solid("publicTypeIndex") : ns.solid("privateTypeIndex"),
-        undefined,
-        preferencesFile as NamedNode
-        ) as NamedNode[];
-    }
-
-    getRegistrations(instance, theClass) {
-        return this.store
-        .each(undefined, ns.solid("instance"), instance)
-        .filter((r) => {
-            return this.store.holds(r, ns.solid("forClass"), theClass);
-        });
     }
 
     load(doc: NamedNode | NamedNode[] | string) {
         return this.store.fetcher.load(doc);
-    }
-
-    async loadIndexes(
-        me: NamedNode | string,
-        publicProfile: NamedNode | string | null,
-        preferencesFile: NamedNode | string | null,
-        onWarning = async (_err: Error) => {
-            return undefined;
-        }
-    ): Promise<{
-        private: any;
-        public: any;
-    }> {
-        let privateIndexes: any[] = [];
-        let publicIndexes: any[] = [];
-        if (publicProfile) {
-        publicIndexes = this.getTypeIndex(me, publicProfile, true);
-        try {
-            await this.load(publicIndexes as NamedNode[]);
-        } catch (err) {
-            onWarning(new Error(`loadIndex: loading public type index(es) ${err}`));
-        }
-        }
-        if (preferencesFile) {
-        privateIndexes = this.getTypeIndex(me, preferencesFile, false);
-        // console.log({ privateIndexes })
-        if (privateIndexes.length === 0) {
-            await onWarning(
-            new Error(
-                `Your preference file ${preferencesFile} does not point to a private type index.`
-            )
-            );
-        } else {
-            try {
-            await this.load(privateIndexes);
-            } catch (err) {
-            onWarning(
-                new Error(`loadIndex: loading private type index(es) ${err}`)
-            );
-            }
-        }
-        // } else {
-        //   debug.log(
-        //     'We know your preference file is not available, so we are not bothering with private type indexes.'
-        //   )
-        }
-
-        return {
-        private: privateIndexes,
-        public: publicIndexes,
-        };
-    }
-
-    async createEmptyRdfDoc(doc: NamedNode, comment: string) {
-        await this.store.fetcher.webOperation("PUT", doc.uri, {
-        data: `# ${new Date()} ${comment}
-    `,
-        contentType: "text/turtle",
-        });
     }
 
     // @@@@ use the one in rdflib.js when it is available and delete this
@@ -233,27 +70,7 @@ export class SolidLogic {
         }); // promise
     }
 
-    isContainer(url: string) {
-        return this.util.isContainer(url);
-    }
-
-    getContainerElements(containerNode: NamedNode): NamedNode[] {
-        return this.util.getContainerElements(containerNode);
-    }
-
-    getContainerMembers(containerUrl: string): Promise<string[]> {
-        return this.util.getContainerMembers(containerUrl);
-    }
-
-    async recursiveDelete(url: string) {
-        return this.util.recursiveDelete(url);
-    }
-
     clearStore() {
-        return this.util.clearStore();
-    }
-
-    async fetch(url: string, options?: any) {
-        return this.store.fetcher._fetch(url, options);
+        this.store.statements.slice().forEach(this.store.remove.bind(this.store));
     }
 }

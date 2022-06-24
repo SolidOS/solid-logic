@@ -1,64 +1,81 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-import solidNamespace from "solid-namespace";
+import fetchMock from "jest-fetch-mock";
 import * as rdf from "rdflib";
-import { UpdateManager } from "rdflib";
-import { ProfileLogic } from "../src/profile/ProfileLogic";
-import { UtilityLogic } from "../src/util/UtilityLogic";
-import { InboxLogic } from "../src/inbox/InboxLogic";
+import { Fetcher, Store, UpdateManager } from "rdflib";
+import { createInboxFor } from '../src/inbox/inboxLogic';
+import { solidLogicSingleton } from "../src/logic/solidLogicSingleton";
+import { Profile } from "../src/profile/Profile";
 import { SolidNamespace } from "../src/types";
+import solidNamespace from "solid-namespace";
+import { Container } from "../src/util/Container";
+import { AliceProfile, BobProfile } from "./helpers/dataSetup";
 
 const ns: SolidNamespace = solidNamespace(rdf);
+const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
+
 
 const alice = rdf.sym("https://alice.example/profile/card#me");
 const bob = rdf.sym("https://bob.example/profile/card#me");
 
-describe("Inbox logic", () => {
-  let inbox;
+describe("Inbox", () => {
   let store;
+  let container;
+  let profile;
+  let web = {}
+  let requests = []
+  let statustoBeReturned = 200
   beforeEach(() => {
     fetchMock.resetMocks();
-    fetchMock.mockResponse("Not Found", {
-      status: 404,
-    });
-    const fetcher = { fetch: fetchMock };
-    store = rdf.graph();
-    store.fetcher = rdf.fetcher(store, fetcher);
-    store.updater = new UpdateManager(store);
-    const authn = {
-      currentUser: () => {
-        return alice;
-      },
-    };
-    const profile = new ProfileLogic(store, ns, authn);
-    const util = new UtilityLogic(store, ns, fetcher);
-    inbox = new InboxLogic(store, ns, profile, util);
-  });
+    requests = []
+    statustoBeReturned = 200
+    const init = {headers: { "Content-Type": "text/turtle" }} // Fetch options tend to be called this
 
-  describe("getNewMessages", () => {
-    describe("When inbox is empty", () => {
-      let result;
-      beforeEach(async () => {
-        bobHasAnInbox();
-        inboxIsEmpty();
-        result = await inbox.getNewMessages(bob);
-      });
-      it("Resolves to an empty array", () => {
-        expect(result).toEqual([]);
-      });
-    });
-    describe("When container has some containment triples", () => {
-      let result;
-      beforeEach(async () => {
-        bobHasAnInbox();
-        inboxHasSomeContainmentTriples();
-        result = await inbox.getNewMessages(bob);
-      });
-      it("Resolves to an array with URLs of non-container resources in inbox", () => {
-        expect(result.sort()).toEqual([
-          'https://container.com/foo.txt'
-        ].sort());
-      });
-    });
+    web = {}
+    web[alice.doc().uri] = AliceProfile
+    web[bob.doc().uri] = BobProfile
+
+    fetchMock.mockIf(/^https?.*$/, async req => {
+
+      if (req.method !== 'GET') {
+          requests.push(req)
+          if (req.method === 'PUT') {
+          const contents = await req.text()
+          web[req.url] = contents // Update our dummy web
+          console.log(`Tetst: Updated ${req.url} on PUT to <<<${web[req.url]}>>>`)
+          }
+          return { status: statustoBeReturned }
+      }
+      const contents = web[req.url]
+      if (contents !== undefined) { //
+          return {
+          body: prefixes + contents, // Add namespaces to anything
+          status: 200,
+          headers: {
+              "Content-Type": "text/turtle",
+              "WAC-Allow":    'user="write", public="read"',
+              "Accept-Patch": "application/sparql-update"
+          }
+          }
+      } // if contents
+      return {
+          status: 404,
+          body: 'Not Found'
+          }
+      })
+    const authn = {
+          currentUser: () => {
+            return alice;
+          },
+    };
+    const options = { fetch: fetch };
+    store = new Store()
+    store.fetcher = new Fetcher(store, options);
+    store.updater = new UpdateManager(store);
+    container = new Container(store)
+    profile = new Profile(store, ns, authn)
+    solidLogicSingleton.store = store
+    solidLogicSingleton.container = container
+    solidLogicSingleton.profile = profile
+
   });
   describe('createInboxFor', () => {
     beforeEach(async () => {
@@ -82,7 +99,7 @@ describe("Inbox logic", () => {
       )
       fetchMock.mockIf("https://some/acl", "Created", { status: 201 });
 
-      await inbox.createInboxFor('https://peer.com/#me', 'Peer Person');
+      await createInboxFor('https://peer.com/#me', 'Peer Person');
     });
     it("creates the inbox", () => {
       expect(fetchMock.mock.calls).toEqual([
@@ -118,45 +135,6 @@ describe("Inbox logic", () => {
     });
 
   });
-  describe('markAsRead', () => {
-    beforeEach(async () => {
-      fetchMock.mockOnceIf(
-        "https://container.com/item.ttl",
-        "<#some> <#inbox> <#item> .",
-        {
-          headers: { "Content-Type": "text/turtle" },
-        }
-      );
-      fetchMock.mockOnceIf(
-        "https://container.com/archive/2111/03/31/item.ttl",
-        "Created",
-        {
-          status: 201,
-          headers: { "Content-Type": "text/turtle" },
-        }
-      );
-      await inbox.markAsRead("https://container.com/item.ttl", new Date('31 March 2111 UTC'));
-    });
-    it('moves the item to archive', async () => {
-      expect(fetchMock.mock.calls).toEqual([
-        [ "https://container.com/item.ttl" ],
-        [
-          "https://container.com/archive/2111/03/31/item.ttl",
-          {
-            "body": "<#some> <#inbox> <#item> .",
-            "headers": [
-              [
-                "Content-Type",
-                "text/turtle",
-              ],
-            ],
-            "method": "PUT",
-          },
-        ],
-        [ "https://container.com/item.ttl", { method: 'DELETE' } ],
-      ]);
-    });
-  });
 
   function aliceHasValidProfile() {
     fetchMock.mockOnceIf(
@@ -174,43 +152,4 @@ describe("Inbox logic", () => {
     );
   }
 
-  function bobHasAnInbox() {
-    fetchMock.mockOnceIf(
-      "https://bob.example/profile/card",
-      "<https://bob.example/profile/card#me><http://www.w3.org/ns/ldp#inbox><https://container.com/>.",
-      {
-        headers: { "Content-Type": "text/turtle" },
-      }
-    );
-  }
-
-  function inboxIsEmpty() {
-    fetchMock.mockOnceIf(
-      "https://container.com/",
-      " ", // FIXME: https://github.com/jefflau/jest-fetch-mock/issues/189
-      {
-        headers: { "Content-Type": "text/turtle" },
-      }
-    );
-  }
-
-  function inboxHasSomeContainmentTriples() {
-    fetchMock.mockOnceIf(
-      "https://container.com/",
-      "<.> <http://www.w3.org/ns/ldp#contains> <./foo.txt>, <./bar/> .",
-      {
-        headers: { "Content-Type": "text/turtle" },
-      }
-    );
-  }
-
-  function inboxItemExists() {
-    fetchMock.mockOnceIf(
-      "https://container.com/item.ttl",
-      "<#some> <#inbox> <#item> .",
-      {
-        headers: { "Content-Type": "text/turtle" },
-      }
-    );
-  }
 });

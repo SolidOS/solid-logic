@@ -1,7 +1,7 @@
 import { NamedNode, Node, st, term, LiveStore } from "rdflib";
-import { ProfileLogic } from "../profile/ProfileLogic";
+import { Profile } from "../profile/Profile";
 import { SolidNamespace } from "../types";
-import { newThing } from "../util/uri";
+import { newThing } from "../util/utils";
 import { determineChatContainer } from "./determineChatContainer";
 
 const CHAT_LOCATION_IN_CONTAINER = "index.ttl#this";
@@ -19,12 +19,12 @@ interface CreatedPaneOptions {
 /**
  * Chat-related logic
  */
-export class ChatLogic {
+export class Chat {
   store: LiveStore;
   ns: SolidNamespace;
-  profile: ProfileLogic;
+  profile: Profile;
 
-  constructor(store: LiveStore, ns: SolidNamespace, profile: ProfileLogic) {
+  constructor(store: LiveStore, ns: SolidNamespace, profile: Profile) {
     this.store = store;
     this.ns = ns;
     this.profile = profile;
@@ -66,7 +66,7 @@ export class ChatLogic {
     acl:mode
         acl:Read, acl:Append.
 `;
-    await this.store.fetcher?.webOperation("PUT", chatAclDoc.value, {
+    await this.store.fetcher.webOperation("PUT", chatAclDoc.value, {
       data: aclBody,
       contentType: "text/turtle",
     });
@@ -81,7 +81,7 @@ export class ChatLogic {
     if (!privateTypeIndex) {
       throw new Error("Private type index not found!");
     }
-    await this.store.fetcher?.load(privateTypeIndex);
+    await this.store.fetcher.load(privateTypeIndex);
     const reg = newThing(privateTypeIndex);
     const ins = [
       st(
@@ -99,7 +99,7 @@ export class ChatLogic {
       st(reg, this.ns.solid("instance"), chatThing, privateTypeIndex.doc()),
     ];
     await new Promise((resolve, reject) => {
-      this.store.updater?.update([], ins, function (_uri, ok, errm) {
+      this.store.updater.update([], ins, function (_uri, ok, errm) {
         if (!ok) {
           reject(new Error(errm));
         } else {
@@ -115,7 +115,7 @@ export class ChatLogic {
     const chatContainer = determineChatContainer(invitee, podRoot);
     let exists = true;
     try {
-      await this.store.fetcher?.load(
+      await this.store.fetcher.load(
         new NamedNode(chatContainer.value + "index.ttl#this")
       );
     } catch (e) {
@@ -213,7 +213,7 @@ export class ChatLogic {
   }
 
   private async sendInvite(invitee: NamedNode, chatThing: NamedNode) {
-    await this.store.fetcher?.load(invitee.doc());
+    await this.store.fetcher.load(invitee.doc());
     const inviteeInbox = this.store.any(
       invitee,
       this.ns.ldp("inbox"),

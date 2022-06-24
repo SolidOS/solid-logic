@@ -12,13 +12,26 @@
  * @returns Resolves with aclDoc uri on successful write
  */
 
-import { graph, NamedNode, Namespace, serialize } from "rdflib"
+import { graph, NamedNode, Namespace, serialize, sym } from "rdflib"
 import solidNamespace from 'solid-namespace'
 import * as $rdf from 'rdflib'
 import { solidLogicSingleton } from "../logic/solidLogicSingleton"
-import { ACL_LINK } from "../util/UtilityLogic"
 
 export const ns = solidNamespace($rdf)
+
+export const ACL_LINK = sym(
+    "http://www.iana.org/assignments/link-relations/acl"
+);
+
+export async function findAclDocUrl(url: string) {
+    const doc = solidLogicSingleton.store.sym(url);
+    await solidLogicSingleton.store.fetcher.load(doc);
+    const docNode = solidLogicSingleton.store.any(doc, ACL_LINK);
+    if (!docNode) {
+        throw new Error(`No ACL link discovered for ${url}`);
+    }
+    return docNode.value;
+}
 
 export function setACLUserPublic ( 
 docURI: string,
@@ -108,30 +121,30 @@ options: {
     public?: []
 } = {}
 ): string | undefined {
-const optPublic = options.public || []
-const g = graph()
-const auth = Namespace('http://www.w3.org/ns/auth/acl#')
-let a = g.sym(`${aclURI}#a1`)
-const acl = g.sym(aclURI)
-const doc = g.sym(docURI)
-g.add(a, ns.rdf('type'), auth('Authorization'), acl)
-g.add(a, auth('accessTo'), doc, acl)
-if (options.defaultForNew) {
-    g.add(a, auth('default'), doc, acl)
-}
-g.add(a, auth('agent'), me, acl)
-g.add(a, auth('mode'), auth('Read'), acl)
-g.add(a, auth('mode'), auth('Write'), acl)
-g.add(a, auth('mode'), auth('Control'), acl)
-
-if (optPublic.length) {
-    a = g.sym(`${aclURI}#a2`)
+    const optPublic = options.public || []
+    const g = graph()
+    const auth = Namespace('http://www.w3.org/ns/auth/acl#')
+    let a = g.sym(`${aclURI}#a1`)
+    const acl = g.sym(aclURI)
+    const doc = g.sym(docURI)
     g.add(a, ns.rdf('type'), auth('Authorization'), acl)
     g.add(a, auth('accessTo'), doc, acl)
-    g.add(a, auth('agentClass'), ns.foaf('Agent'), acl)
-    for (let p = 0; p < optPublic.length; p++) {
-    g.add(a, auth('mode'), auth(optPublic[p]), acl) // Like 'Read' etc
+    if (options.defaultForNew) {
+        g.add(a, auth('default'), doc, acl)
     }
-}
-return serialize(acl, g, aclURI)
+    g.add(a, auth('agent'), me, acl)
+    g.add(a, auth('mode'), auth('Read'), acl)
+    g.add(a, auth('mode'), auth('Write'), acl)
+    g.add(a, auth('mode'), auth('Control'), acl)
+
+    if (optPublic.length) {
+        a = g.sym(`${aclURI}#a2`)
+        g.add(a, ns.rdf('type'), auth('Authorization'), acl)
+        g.add(a, auth('accessTo'), doc, acl)
+        g.add(a, auth('agentClass'), ns.foaf('Agent'), acl)
+        for (let p = 0; p < optPublic.length; p++) {
+        g.add(a, auth('mode'), auth(optPublic[p]), acl) // Like 'Read' etc
+        }
+    }
+    return serialize(acl, g, aclURI)
 }

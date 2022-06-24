@@ -7,46 +7,51 @@ const store = solidLogicSingleton.store
 
 const chat = solidLogicSingleton.chat
 const profile = solidLogicSingleton.profile
+const typeIndex = solidLogicSingleton.typeIndex
+const inbox = solidLogicSingleton.inbox
+const container = solidLogicSingleton.container
 
 export {
+  findAclDocUrl,
   setACLUserPublic,
-  genACLText
+  genACLText,
+  ACL_LINK
 } from './acl/aclLogic'
 
 export {
   ensureTypeIndexes,
   loadTypeIndexes,
+  getRegistrations,
   registerInTypeIndex,
-  loadIndex
+  loadIndex,
+  loadTypeIndexesFor,
+  loadCommunityTypeIndexes,
+  loadAllTypeIndexes,
+  getScopedAppInstances,
+  getAppInstances
 } from './typeIndex/typeIndexLogic'
 
-// Generate by
-//  grep export src/discovery/discoveryLogic.ts | sed -e 's/export //g'  | sed -e 's/async //g'| sed -e 's/function //g' | sed -e 's/ .*/,/g' | sort
+export { offlineTestID, appContext } from './authn/authUtil'
+export { createInboxFor } from './inbox/inboxLogic'
 export {
-  deleteTypeIndexRegistration,
   followOrCreateLink,
-  getAppInstances,
-  getScopedAppInstances,
-  getScopedAppsFromIndex,
-  loadAllTypeIndexes,
-  loadCommunityTypeIndexes,
   loadOrCreateIfNotExists,
+  recursiveDelete,
+  setSinglePeerAccess
+} from './util/utilityLogic'
+
+export {
+  ensureLoadedPreferences,
   loadPreferences,
+  loadPreferencesNEW,
   loadProfile,
-  loadTypeIndexesFor,
-  registerInstanceInTypeIndex,
-  suggestPreferencesFile,
-  suggestPrivateTypeIndex,
-  suggestPublicTypeIndex,
-  uniqueNodes
-} from './discovery/discoveryLogic'
+  loadProfileNEW
+} from './profile/profileLogic'
 
 export { SolidLogic } from './logic/SolidLogic'
-export { offlineTestID, appContext } from './authn/authUtil'
-export { ACL_LINK } from './util/UtilityLogic'
 export { getSuggestedIssuers } from './issuer/issuerLogic'
 export { AppDetails, SolidNamespace, AuthenticationContext } from './types'
 // solidLogicSingleton is exported entirely because it is used in solid-panes
 export { solidLogicSingleton } from './logic/solidLogicSingleton'
 export { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError } from './logic/CustomError'
-export { authn, authSession, store, chat, profile }
+export { authn, authSession, store, chat, profile, typeIndex, inbox, container }

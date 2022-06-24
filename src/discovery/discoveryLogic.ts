@@ -1,7 +1,7 @@
 import { NamedNode, LiveStore, sym, st } from 'rdflib'
 import * as $rdf from 'rdflib'
 import { solidLogicSingleton } from "../logic/solidLogicSingleton"
-import { newThing } from "../util/uri"
+import { newThing } from "../util/utils"
 import solidNamespace from 'solid-namespace'
 
 const { authn } = solidLogicSingleton

@@ -1,34 +1,66 @@
-import { NamedNode, Statement, sym, LiveStore } from "rdflib";
-import { SolidNamespace } from "../types";
-
-export const ACL_LINK = sym(
-  "http://www.iana.org/assignments/link-relations/acl"
-);
-
+import { NamedNode, st, sym } from "rdflib";
+import { findAclDocUrl } from "../acl/aclLogic";
+import { solidLogicSingleton } from "../logic/solidLogicSingleton";
 /**
- * Utility-related logic
+ * Create a resource if it really does not exist
+ * Be absolutely sure something does not exist before creating a new empty file
+ * as otherwise existing could  be deleted.
+ * @param doc {NamedNode} - The resource
  */
-export class UtilityLogic {
-  store: LiveStore;
-  ns: SolidNamespace;
-
-  constructor(store: LiveStore, ns: SolidNamespace) {
-    this.store = store;
-    this.ns = ns;
-  }
-
-  async findAclDocUrl(url: string) {
-    const doc = this.store.sym(url);
-    await this.store.fetcher?.load(doc);
-    const docNode = this.store.any(doc, ACL_LINK);
-    if (!docNode) {
-      throw new Error(`No ACL link discovered for ${url}`);
+export async function loadOrCreateIfNotExists (doc: NamedNode) {
+    let response
+    try {
+    response = await solidLogicSingleton.store.fetcher.load(doc)
+    } catch (err) {
+        if (err.response.status === 404) {
+        try {
+            await solidLogicSingleton.store.fetcher.webOperation('PUT', doc, {data: '', contentType: 'text/turtle'})
+        } catch (err) {
+            const msg = 'createIfNotExists: PUT FAILED: ' + doc + ': ' + err
+            throw new Error(msg)
+        }
+        await solidLogicSingleton.store.fetcher.load(doc)
+        //delete store.fetcher.requested[doc.uri] // delete cached 404 error
+        } else {
+        const msg = 'createIfNotExists doc load error NOT 404:  ' + doc + ': ' + err
+        throw new Error(msg) // @@ add nested errors
+        }
     }
-    return docNode.value;
-  }
+    return response
+}
 
-  // Copied from https://github.com/solidos/web-access-control-tests/blob/v3.0.0/test/surface/delete.test.ts#L5
-  async setSinglePeerAccess(options: {
+/* Follow link from this doc to another thing, or else make a new link
+**
+** return: null no ld one and failed to make a new one
+*/
+export async function followOrCreateLink (subject: NamedNode, predicate: NamedNode,
+  object: NamedNode, doc: NamedNode
+): Promise<NamedNode | null> {
+    await solidLogicSingleton.store.fetcher.load(doc)
+    const result = solidLogicSingleton.store.any(subject, predicate, null, doc)
+
+    if (result) return result as NamedNode
+    if (!solidLogicSingleton.store.updater.editable(doc)) {
+        return null
+    }
+    try {
+        await solidLogicSingleton.store.updater.update([], [ st(subject, predicate, object, doc)])
+    } catch (err) {
+        console.warn(`followOrCreateLink: Error making link in ${doc} to ${object}: ${err}`)
+        return null
+    }
+
+    try {
+        await loadOrCreateIfNotExists(object)
+        // store.fetcher.webOperation('PUT', object, { data: '', contentType: 'text/turtle'})
+    } catch (err) {
+        console.warn(`followOrCreateLink: Error loading or saving new linked document: ${object}: ${err}`)
+    }
+    return object
+}
+
+// Copied from https://github.com/solidos/web-access-control-tests/blob/v3.0.0/test/surface/delete.test.ts#L5
+export async function setSinglePeerAccess(options: {
     ownerWebId: string,
     peerWebId: string,
     accessToModes?: string,
@@ -62,83 +94,29 @@ export class UtilityLogic {
         ''
       ].join('\n')
     }
-    const aclDocUrl = await this.findAclDocUrl(options.target);
-    return this.store.fetcher._fetch(aclDocUrl, {
+    const aclDocUrl = await findAclDocUrl(options.target);
+    return solidLogicSingleton.store.fetcher._fetch(aclDocUrl, {
       method: 'PUT',
       body: str,
       headers: [
         [ 'Content-Type', 'text/turtle' ]
       ]
     });
-  }
+}
 
-  isContainer(url: string) {
-    return url.charAt(url.length-1) === "/";
-  }
-
-  async createContainer(url: string) {
-    if (!this.isContainer(url)) {
-      throw new Error(`Not a container URL ${url}`);
-    }
-    // Copied from https://github.com/solidos/solid-crud-tests/blob/v3.1.0/test/surface/create-container.test.ts#L56-L64
-    const result = await this.store.fetcher._fetch(url, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "text/turtle",
-        "If-None-Match": "*",
-        Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"', // See https://github.com/solidos/node-solid-server/issues/1465
-      },
-      body: " ", // work around https://github.com/michielbdejong/community-server/issues/4#issuecomment-776222863
-    });
-    if (result.status.toString()[0] !== '2') {
-      throw new Error(`Not OK: got ${result.status} response while creating container at ${url}`);
-    }
-  }
-
-  getContainerElements(containerNode: NamedNode): NamedNode[] {
-    return this.store
-      .statementsMatching(
-        containerNode,
-        this.store.sym("http://www.w3.org/ns/ldp#contains"),
-        undefined,
-        containerNode.doc()
-      )
-      .map((st: Statement) => st.object as NamedNode);
-  }
-
-  async getContainerMembers(containerUrl: string): Promise<string[]> {
-    const containerNode = this.store.sym(containerUrl);
-    await this.store.fetcher?.load(containerNode);
-    const nodes = this.getContainerElements(containerNode);
-    return nodes.map(node => node.value);
-  }
-
-  async recursiveDelete(url: string) {
+export async function recursiveDelete(url: string) {
     try {
-      if (this.isContainer(url)) {
-        const aclDocUrl = await this.findAclDocUrl(url);
-        await this.store.fetcher._fetch(aclDocUrl, { method: "DELETE" });
-        const containerMembers = await this.getContainerMembers(url);
+      if (solidLogicSingleton.container.isContainer(url)) {
+        const aclDocUrl = await findAclDocUrl(url);
+        await solidLogicSingleton.store.fetcher._fetch(aclDocUrl, { method: "DELETE" });
+        const containerMembers = await solidLogicSingleton.container.getContainerMembers(url);
         await Promise.all(
-          containerMembers.map((url) => this.recursiveDelete(url))
+          containerMembers.map((url) => recursiveDelete(url))
         );
       }
-      return this.store.fetcher._fetch(url, { method: "DELETE" });
+      return solidLogicSingleton.store.fetcher._fetch(url, { method: "DELETE" });
     } catch (e) {
       // console.log(`Please manually remove ${url} from your system under test.`, e);
     }
-  }
-
-  clearStore() {
-    this.store.statements.slice().forEach(this.store.remove.bind(this.store));
-  }
-
-  getArchiveUrl(baseUrl: string, date: Date) {
-    const year = date.getUTCFullYear();
-    const month = ('0' + (date.getUTCMonth()+1)).slice(-2);
-    const day = ('0' + (date.getUTCDate())).slice(-2);
-    const parts = baseUrl.split('/');
-    const filename = parts[parts.length -1 ];
-    return new URL(`./archive/${year}/${month}/${day}/${filename}`, baseUrl).toString();
-  }
 }
+  

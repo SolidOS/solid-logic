@@ -1,67 +1,125 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { UtilityLogic } from "../src/util/UtilityLogic";
-import solidNamespace from "solid-namespace";
-import * as rdf from "rdflib";
 import fetchMock from "jest-fetch-mock";
+import * as rdf from "rdflib";
 import { UpdateManager } from "rdflib";
+import solidNamespace from "solid-namespace";
+import { loadOrCreateIfNotExists, followOrCreateLink, setSinglePeerAccess, getArchiveUrl, uniqueNodes } from '../src/util/utilityLogic'
 import { SolidNamespace } from "../src/types";
+import { alice, AlicePhotoFolder, AlicePhotos, AlicePreferences, AlicePreferencesFile, AlicePrivateTypeIndex, AlicePrivateTypes, AliceProfile, AlicePublicTypeIndex, AlicePublicTypes, bob, BobProfile, club, ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes } from "./helpers/dataSetup";
+import { solidLogicSingleton } from "../src/logic/solidLogicSingleton";
 
 const ns: SolidNamespace = solidNamespace(rdf);
+const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
 
-const alice = rdf.sym("https://alice.example/profile/card#me");
-const bob = rdf.sym("https://bob.example/profile/card#me");
+describe("utilityLogic", () => {
+    let store;
+    let options;
+    let web = {}
+    let requests = []
+    let statustoBeReturned = 200
+    beforeEach(() => {
+        fetchMock.resetMocks();
+        fetchMock.mockResponse("Not Found", {
+            status: 404,
+        });
+        requests = []
+        statustoBeReturned = 200
+        const init = { headers: { "Content-Type": "text/turtle" } } // Fetch options tend to be called this
 
-describe("Utility logic", () => {
-  let util;
-  let store;
-  let fetcher;
-  beforeEach(() => {
-    fetchMock.resetMocks();
-    fetchMock.mockResponse("Not Found", {
-      status: 404,
-    });
-    fetcher = { fetch: fetchMock };
-    store = rdf.graph();
-    store.fetcher = rdf.fetcher(store, fetcher);
-    store.updater = new UpdateManager(store);
-    util = new UtilityLogic(store, ns, fetcher);
-  });
+        fetchMock.mockIf(/^https?.*$/, async req => {
 
-  describe("getArchiveUrl", () => {
-    it("produces the right URL in February", () => {
-      const url = util.getArchiveUrl('https://example.com/inbox/asdf-qwer-asdf-qwer', new Date('7 Feb 2062 UTC'));
-      expect(url).toEqual('https://example.com/inbox/archive/2062/02/07/asdf-qwer-asdf-qwer');
+            if (req.method !== 'GET') {
+                requests.push(req)
+                if (req.method === 'PUT') {
+                    const contents = await req.text()
+                    web[req.url] = contents // Update our dummy web
+                    console.log(`Tetst: Updated ${req.url} on PUT to <<<${web[req.url]}>>>`)
+                }
+                return { status: statustoBeReturned }
+            }
+            const contents = web[req.url]
+            if (contents !== undefined) { //
+                return {
+                    body: prefixes + contents, // Add namespaces to anything
+                    status: 200,
+                    headers: {
+                        "Content-Type": "text/turtle",
+                        "WAC-Allow": 'user="write", public="read"',
+                        "Accept-Patch": "application/sparql-update"
+                    }
+                }
+            } // if contents
+            return {
+                status: 404,
+                body: 'Not Found'
+            }
+        })
+        web = {}
+        web[alice.doc().uri] = AliceProfile
+        web[AlicePreferencesFile.uri] = AlicePreferences
+        web[AlicePrivateTypeIndex.uri] = AlicePrivateTypes
+        web[AlicePublicTypeIndex.uri] = AlicePublicTypes
+        web[AlicePhotoFolder.uri] = AlicePhotos
+        web[bob.doc().uri] = BobProfile
+
+        web[club.doc().uri] = ClubProfile
+        web[ClubPreferencesFile.uri] = ClubPreferences
+        web[ClubPrivateTypeIndex.uri] = ClubPrivateTypes
+        web[ClubPublicTypeIndex.uri] = ClubPublicTypes
+    
+        options = { fetch: fetch };
+        store = new rdf.Store()
+        store.fetcher = new rdf.Fetcher(store, options);
+        store.updater = new UpdateManager(store);
+        requests = []
+        solidLogicSingleton.store = store
     });
-    it("produces the right URL in November", () => {
-      const url = util.getArchiveUrl('https://example.com/inbox/asdf-qwer-asdf-qwer', new Date('12 Nov 2012 UTC'));
-      expect(url).toEqual('https://example.com/inbox/archive/2012/11/12/asdf-qwer-asdf-qwer');
-    });
-  });
-  describe("getContainerMembers", () => {
-    describe("When container is empty", () => {
-      let result;
-      beforeEach(async () => {
-        containerIsEmpty();
-        result = await util.getContainerMembers('https://container.com/');
-      });
-      it("Resolves to an empty array", () => {
-        expect(result).toEqual([]);
-      });
-    });
-    describe("When container has some containment triples", () => {
-      let result;
-      beforeEach(async () => {
-        containerHasSomeContainmentTriples();
-        result = await util.getContainerMembers('https://container.com/');
-      });
-      it("Resolves to an array with some URLs", () => {
-        expect(result.sort()).toEqual([
-          'https://container.com/foo.txt',
-          'https://container.com/bar/'
-        ].sort());
-      });
-    });
-  });
+  
+    describe('loadOrCreateIfNotExists', () => {
+        it('exists', () => {
+            expect(loadOrCreateIfNotExists).toBeInstanceOf(Function)
+        })
+        it('does nothing if existing file', async () => {
+            const result = await loadOrCreateIfNotExists(alice.doc())
+            expect(requests).toEqual([])
+
+        })
+        it('creates empty file if did not exist', async () => {
+            const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
+            const result = await loadOrCreateIfNotExists(rdf.sym(suggestion))
+            expect(requests[0].method).toEqual('PUT')
+            expect(requests[0].url).toEqual(suggestion)
+        })
+    })
+
+    describe('followOrCreateLink', () => {
+        it('exists', () => {
+            expect(followOrCreateLink).toBeInstanceOf(Function)
+        })
+        it('follows existing link', async () => {
+            const suggestion = 'https://alice.example.com/settings/prefsSuggestion.ttl'
+            const result = await followOrCreateLink(alice, ns.space('preferencesFile'), rdf.sym(suggestion), alice.doc())
+            expect(result).toEqual(AlicePreferencesFile)
+
+        })
+        it('creates empty file if did not exist and new link', async () => {
+            const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
+            const result = await followOrCreateLink(bob, ns.space('preferencesFile'), rdf.sym(suggestion), bob.doc())
+            expect(result).toEqual(rdf.sym(suggestion))
+            expect(requests[0].method).toEqual('PATCH')
+            expect(requests[0].url).toEqual(bob.doc().uri)
+            expect(requests[1].method).toEqual('PUT')
+            expect(requests[1].url).toEqual(suggestion)
+            expect(store.holds(bob, ns.space('preferencesFile'), rdf.sym(suggestion), bob.doc())).toEqual(true)
+        })
+        //
+        it('returns null if it cannot create the new file', async () => {
+            const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
+            statustoBeReturned = 403 // Unauthorized
+            const result = await followOrCreateLink(bob, ns.space('preferencesFile'), rdf.sym(suggestion), bob.doc())
+            expect(result).toEqual(null)
+        })
+
+    })
   describe("setSinglePeerAccess", () => {
     beforeEach(() => {
       fetchMock.mockOnceIf(
@@ -78,7 +136,7 @@ describe("Utility logic", () => {
       });
     });
     it("Creates the right ACL doc", async () => {
-      await util.setSinglePeerAccess({
+      await setSinglePeerAccess({
         ownerWebId: "https://owner.com/#me",
         peerWebId: "https://peer.com/#me",
         accessToModes: "acl:Read, acl:Control",
@@ -111,23 +169,5 @@ describe("Utility logic", () => {
       ]);
     });
   });
-  function containerIsEmpty() {
-    fetchMock.mockOnceIf(
-      "https://container.com/",
-      " ", // FIXME: https://github.com/jefflau/jest-fetch-mock/issues/189
-      {
-        headers: { "Content-Type": "text/turtle" },
-      }
-    );
-  }
 
-  function containerHasSomeContainmentTriples() {
-    fetchMock.mockOnceIf(
-      "https://container.com/",
-      "<.> <http://www.w3.org/ns/ldp#contains> <./foo.txt>, <./bar/> .",
-      {
-        headers: { "Content-Type": "text/turtle" },
-      }
-    );
-  }
-});
+})

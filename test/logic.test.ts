@@ -26,3 +26,4 @@ describe('solidLogicSingleton.store.updater', () => {
     expect(solidLogicSingleton.store.updater).toBeInstanceOf(Object)
   })
 })
+
