@@ -1,4 +1,4 @@
-import { NamedNode, LiveStore } from "rdflib";
+import { NamedNode, LiveStore, sym } from "rdflib";
 import { ProfileLogic } from "../profile/ProfileLogic";
 import { SolidNamespace } from "../types";
 import { UtilityLogic } from "../util/UtilityLogic";
@@ -33,8 +33,9 @@ export class InboxLogic {
     const myWebId: NamedNode = (await this.profile.loadMe());
     const podRoot: NamedNode = await this.profile.getPodRoot(myWebId);
     const ourInbox = `${podRoot.value}p2p-inboxes/${encodeURIComponent(nick)}/`;
-    await this.util.createContainer(ourInbox);
-    const aclDocUrl = await this.util.findAclDocUrl(ourInbox);
+    const toNode: NamedNode = sym(ourInbox);
+    await this.util.createContainer(toNode);
+    const aclDocUrl = await this.util.findAclDocUrl(toNode);
     await this.util.setSinglePeerAccess({
       ownerWebId: myWebId.value,
       peerWebId,
@@ -44,7 +45,7 @@ export class InboxLogic {
     return ourInbox;
   }
   async markAsRead(url: string, date: Date) {
-    const downloaded = await this.util.underlyingFetch.fetch(url);
+    const downloaded = await this.store.fetcher._fetch(url);
     if (downloaded.status !== 200) {
       throw new Error(`Not OK! ${url}`);
     }
@@ -56,7 +57,7 @@ export class InboxLogic {
         [ 'Content-Type', downloaded.headers.get('Content-Type') || 'application/octet-stream' ]
       ]
     };
-    const uploaded = await this.util.underlyingFetch.fetch(archiveUrl, options);
+    const uploaded = await this.store.fetcher._fetch(archiveUrl, options);
     if (uploaded.status.toString()[0] === '2') {
       await this.store.fetcher?._fetch(url, {
         method: 'DELETE'

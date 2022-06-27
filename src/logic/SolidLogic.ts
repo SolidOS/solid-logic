@@ -30,8 +30,6 @@ export class SolidLogic {
 
     store: LiveStore;
     me: string | undefined;
-    underlyingFetch: { fetch: (url: string, options?: any) => any };
-
     chat: ChatLogic;
     profile: ProfileLogic;
     authn: AuthnLogic;
@@ -51,12 +49,11 @@ export class SolidLogic {
         profileDocument: {},
         preferencesFile: {},
         };
-        this.underlyingFetch = { fetch: fetch }; // Note global one not the one passed
         this.authn = new SolidAuthnLogic(session);
         debug.log('SolidAuthnLogic initialized')
         this.profile = new ProfileLogic(this.store, ns, this.authn);
         this.chat = new ChatLogic(this.store, ns, this.profile);
-        this.util = new UtilityLogic(this.store, ns, this.underlyingFetch);
+        this.util = new UtilityLogic(this.store, ns);
     }
 
     findAclDocUrl(url: NamedNode) {
@@ -257,6 +254,6 @@ export class SolidLogic {
     }
 
     async fetch(url: string, options?: any) {
-        return this.underlyingFetch.fetch(url, options);
+        return this.store.fetcher._fetch(url, options);
     }
 }

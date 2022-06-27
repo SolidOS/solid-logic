@@ -11,12 +11,10 @@ export const ACL_LINK = sym(
 export class UtilityLogic {
   store: LiveStore;
   ns: SolidNamespace;
-  underlyingFetch: { fetch: (url: string, options?: any) => any };
 
-  constructor(store: LiveStore, ns: SolidNamespace, underlyingFetch: { fetch: (url: string, options?: any) => any }) {
+  constructor(store: LiveStore, ns: SolidNamespace) {
     this.store = store;
     this.ns = ns;
-    this.underlyingFetch = underlyingFetch;
   }
 
   async findAclDocUrl(url: NamedNode) {
@@ -67,7 +65,7 @@ export class UtilityLogic {
     }
     const toNode: NamedNode = sym(options.target);
     const aclDocUrl = await this.findAclDocUrl(toNode);
-    return this.underlyingFetch.fetch(aclDocUrl, {
+    return this.store.fetcher._fetch(aclDocUrl, {
       method: 'PUT',
       body: str,
       headers: [
@@ -96,13 +94,13 @@ export class UtilityLogic {
     return nodeToString.charAt(nodeToString.length-1) === "/";
   }
 
-  async createContainer(url: string) {
-    const stringToNode = new NamedNode (url);
-    if (!this.isContainer(stringToNode)) {
+  async createContainer(url: NamedNode) {
+      if (!this.isContainer(url)) {
       throw new Error(`Not a container URL ${url}`);
     }
     // Copied from https://github.com/solidos/solid-crud-tests/blob/v3.1.0/test/surface/create-container.test.ts#L56-L64
-    const result = await this.underlyingFetch.fetch(url, {
+    const nodeToString = url.value;
+    const result = await this.store.fetcher._fetch(nodeToString, {
       method: "PUT",
       headers: {
         "Content-Type": "text/turtle",
@@ -135,14 +133,14 @@ export class UtilityLogic {
     try {
       if (this.isContainer(containerNode)) {
         const aclDocUrl = await this.findAclDocUrl(containerNode);
-        await this.underlyingFetch.fetch(aclDocUrl, { method: "DELETE" });
+        await this.store.fetcher._fetch(aclDocUrl, { method: "DELETE" });
         const containerMembers = await this.getContainerMembers(containerNode);
         await Promise.all(
           containerMembers.map((url) => this.recursiveDelete(containerNode))
         );
       }
       const nodeToStringHere = containerNode.value;
-      return this.underlyingFetch.fetch(nodeToStringHere, { method: "DELETE" });
+      return this.store.fetcher._fetch(nodeToStringHere, { method: "DELETE" });
     } catch (e) {
       // console.log(`Please manually remove ${url} from your system under test.`, e);
     }
