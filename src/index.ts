@@ -23,6 +23,7 @@ export {
   loadIndexes,
   getTypeIndex,
   getRegistrations,
+  //NEW function for discovery
   loadTypeIndexesFor,
   loadCommunityTypeIndexes,
   loadAllTypeIndexes,
@@ -38,22 +39,25 @@ export {
 export { offlineTestID, appContext } from './authn/authUtil'
 export { createInboxFor, getNewMessages, markAsRead } from './inbox/inboxLogic'
 export {
-  followOrCreateLink,
-  loadOrCreateIfNotExists,
   recursiveDelete,
   setSinglePeerAccess,
-  createEmptyRdfDoc
+  createEmptyRdfDoc,
+  //NEW function for discovery
+  followOrCreateLink,
+  loadOrCreateIfNotExists,
 } from './util/utilityLogic'
 
 export {
   ensureLoadedPreferences,
-  loadPreferencesNoErrors as loadPreferences,
-  loadPreferences as loadPreferencesThrowErrors,
-  loadProfile,
   loadMe,
   getPodRoot,
   getMainInbox,
-  findStorage
+  findStorage,
+   //NEW content from discovery
+  loadPreferences,
+  loadProfile,
+  //NEW function for discovery
+  loadPreferencesNoErrors,
 } from './profile/profileLogic'
 
 export { getSuggestedIssuers } from './issuer/issuerLogic'
