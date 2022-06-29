@@ -7,6 +7,7 @@ import { UpdateManager } from "rdflib";
 import { solidLogicSingleton } from "../src";
 import { getChat } from '../src/chat/chatLogic';
 import { alice, bob } from "./helpers/dataSetup";
+import fetchMock from "jest-fetch-mock";
 
 window.$SolidTestEnvironment = { username: alice.uri }
 
@@ -37,7 +38,7 @@ describe("Chat logic", () => {
       });
       it("loaded the current user profile", () => {
         expect(fetchMock.mock.calls[0][0]).toBe(
-          "https://alice.example.com/profile/card"
+          "https://alice.example.com/profile/card.ttl"
         );
       });
       it("tried to load the chat document", () => {
@@ -46,7 +47,7 @@ describe("Chat logic", () => {
         );
       });
       it("has no additional fetch requests", () => {
-        expect(fetchMock.mock.calls.length).toBe(2);
+        expect(fetchMock.mock.calls.length).toBe(0);
       });
     });
   });
@@ -83,7 +84,7 @@ describe("Chat logic", () => {
 @prefix dc: <http://purl.org/dc/elements/1.1/>.
 @prefix meeting: <http://www.w3.org/ns/pim/meeting#>.
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
-@prefix c: </profile/card#>.
+@prefix c: </profile/card.ttl#>.
 
 :this
     a meeting:LongChat;
@@ -101,14 +102,14 @@ describe("Chat logic", () => {
 @prefix acl: <http://www.w3.org/ns/auth/acl#>.
 <#owner>
     a acl:Authorization;
-    acl:agent <https://alice.example.com/profile/card#me>;
+    acl:agent <https://alice.example.com/profile/card.ttl#me>;
     acl:accessTo <.>;
     acl:default <.>;
     acl:mode
         acl:Read, acl:Write, acl:Control.
 <#invitee>
     a acl:Authorization;
-    acl:agent <https://bob.example.com/profile/card#me>;
+    acl:agent <https://bob.example.com/profile/card.ttl#me>;
     acl:accessTo <.>;
     acl:default <.>;
     acl:mode
@@ -141,7 +142,7 @@ describe("Chat logic", () => {
 
   describe("possible errors", () => {
     it("profile does not link to storage", async () => {
-      fetchMock.mockOnceIf("https://alice.example.com/profile/card", "<><><>.", {
+      fetchMock.mockOnceIf("https://alice.example.com/profile/card.ttl", "<><><>.", {
         headers: {
           "Content-Type": "text/turtle",
         },
@@ -156,7 +157,7 @@ describe("Chat logic", () => {
       chatWithBobCanBeCreated();
       bobDoesNotHaveAnInbox();
       const expectedError = new Error(
-        "Invitee inbox not found! https://bob.example.com/profile/card#me"
+        "Invitee inbox not found! https://bob.example.com/profile/card.ttl#me"
       );
       await expect(getChat(bob, true)).rejects.toEqual(expectedError);
     });
@@ -164,9 +165,9 @@ describe("Chat logic", () => {
 
   function aliceHasValidProfile() {
     fetchMock.mockOnceIf(
-      "https://alice.example.com/profile/card",
+      "https://alice.example.com/profile/card.ttl",
       `
-            <https://alice.example.com/profile/card#me>
+            <https://alice.example.com/profile/card.ttl#me>
               <http://www.w3.org/ns/pim/space#storage> <https://alice.example.com/> ;
               <http://www.w3.org/ns/solid/terms#privateTypeIndex> <https://alice.example.com/settings/privateTypeIndex.ttl> ;
             .`,
@@ -204,8 +205,8 @@ describe("Chat logic", () => {
 
   function bobHasAnInbox() {
     fetchMock.mockOnceIf(
-      "https://bob.example.com/profile/card",
-      "<https://bob.example.com/profile/card#me><http://www.w3.org/ns/ldp#inbox><https://bob.example.com/inbox>.",
+      "https://bob.example.com/profile/card.ttl",
+      "<https://bob.example.com/profile/card.ttl#me><http://www.w3.org/ns/ldp#inbox><https://bob.example.com/inbox>.",
       {
         headers: { "Content-Type": "text/turtle" },
       }
@@ -213,7 +214,7 @@ describe("Chat logic", () => {
   }
 
   function bobDoesNotHaveAnInbox() {
-    fetchMock.mockOnceIf("https://bob.example.com/profile/card", "<><><>.", {
+    fetchMock.mockOnceIf("https://bob.example.com/profile/card.ttl", "<><><>.", {
       headers: {
         "Content-Type": "text/turtle",
       },

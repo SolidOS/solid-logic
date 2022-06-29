@@ -15,7 +15,7 @@ const ns = solidNamespace($rdf)
 export async function ensureLoadedPreferences (context: AuthenticationContext) {
     if (!context.me) throw new Error('@@ ensureLoadedPreferences: no user specified')
     context.publicProfile = await loadProfile(context.me)
-    context.preferencesFile = await loadPreferences(context.me)
+    context.preferencesFile = await loadPreferencesNoErrors(context.me)
     return context
 }
 
@@ -25,7 +25,7 @@ export async function ensureLoadedPreferences (context: AuthenticationContext) {
  * @param user 
  * @returns undefined if preferenceFile cannot be returned or NamedNode if it can find it or create it
  */
-export async function loadPreferences (user: NamedNode): Promise <NamedNode | undefined> {
+export async function loadPreferencesNoErrors (user: NamedNode): Promise <NamedNode | undefined> {
     await loadProfile(user)
 
     const possiblePreferencesFile = suggestPreferencesFile(user)
@@ -56,7 +56,7 @@ export async function loadPreferences (user: NamedNode): Promise <NamedNode | un
  * @param user 
  * @returns undefined if preferenceFile cannot be an Error or NamedNode if it can find it or create it
  */
-export async function loadPreferencesThrowErrors (user: NamedNode): Promise <NamedNode> {
+export async function loadPreferences (user: NamedNode): Promise <NamedNode> {
     await loadProfile(user)
 
     const possiblePreferencesFile = suggestPreferencesFile(user)

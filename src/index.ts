@@ -47,8 +47,8 @@ export {
 
 export {
   ensureLoadedPreferences,
-  loadPreferences,
-  loadPreferencesThrowErrors,
+  loadPreferencesNoErrors as loadPreferences,
+  loadPreferences as loadPreferencesThrowErrors,
   loadProfile,
   loadMe,
   getPodRoot,
@@ -62,5 +62,5 @@ export { SolidLogic } from './logic/SolidLogic'
 export { AppDetails, SolidNamespace, AuthenticationContext } from './types'
 // solidLogicSingleton is exported entirely because it is used in solid-panes
 export { solidLogicSingleton } from './logic/solidLogicSingleton'
-export { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError } from './logic/CustomError'
+export { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError, NotEditableError, WebOperationError } from './logic/CustomError'
 export { authn, authSession, store }

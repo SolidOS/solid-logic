@@ -3,7 +3,7 @@ import * as rdf from "rdflib"
 import { NamedNode, st, sym } from 'rdflib'
 import solidNamespace from 'solid-namespace'
 import { solidLogicSingleton } from "../logic/solidLogicSingleton"
-import { ensureLoadedPreferences, loadPreferences, loadProfile } from "../profile/profileLogic"
+import { ensureLoadedPreferences, loadPreferencesNoErrors, loadProfile } from "../profile/profileLogic"
 import { AuthenticationContext, ScopedApp, TypeIndexScope } from '../types'
 import * as debug from "../util/debug"
 import { createEmptyRdfDoc, followOrCreateLink } from "../util/utilityLogic"
@@ -26,7 +26,7 @@ return context
 
 async function loadTypeIndexes (context: AuthenticationContext) {
     try {
-        await loadPreferences(context.me as NamedNode)
+        await loadPreferencesNoErrors(context.me as NamedNode)
     } catch (error) {
         debug.warn(error.message) as undefined
     }
@@ -282,7 +282,7 @@ async function loadTypeIndexesFor (user: NamedNode): Promise<Array<TypeIndexScop
 
     let preferencesFile
     try {
-        preferencesFile = await loadPreferences(user)
+        preferencesFile = await loadPreferencesNoErrors(user)
     } catch (err) {
         preferencesFile = null
     }
@@ -318,7 +318,7 @@ async function loadTypeIndexesFor (user: NamedNode): Promise<Array<TypeIndexScop
 async function loadCommunityTypeIndexes (user: NamedNode): Promise<TypeIndexScope[][]> {
     let preferencesFile
     try {
-        preferencesFile = await loadPreferences(user)
+        preferencesFile = await loadPreferencesNoErrors(user)
     } catch (err) {
         const message = `User ${user} has no pointer in profile to preferences file.`
         debug.warn(message)

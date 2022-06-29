@@ -2,7 +2,7 @@ import * as rdf from "rdflib";
 import { UpdateManager } from 'rdflib';
 import solidNamespace from "solid-namespace";
 import { solidLogicSingleton } from "../src/logic/solidLogicSingleton";
-import { loadPreferences, loadPreferencesThrowErrors, loadProfile } from '../src/profile/profileLogic';
+import { loadPreferencesNoErrors, loadPreferences, loadProfile } from '../src/profile/profileLogic';
 import { SolidNamespace } from '../src/types';
 import {
     alice, AlicePreferencesFile, AlicePrivateTypeIndex, AliceProfileFile, bob, loadWebObject
@@ -71,6 +71,37 @@ describe("Profile", () => {
             expect(store.statementsMatching(null, null, null, profile).length).toEqual(4)
         })
     })
+    describe('loadPreferencesNoErrors', () => {
+        it('exists', () => {
+            expect(loadPreferencesNoErrors).toBeInstanceOf(Function)
+        })
+        it('loads data', async () => {
+            const result = await loadPreferencesNoErrors(alice)
+            expect(result).toBeInstanceOf(Object)
+            expect(result.uri).toEqual(AlicePreferencesFile.uri)
+            expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
+            expect(store.statementsMatching(null, null, null, profile).length).toEqual(4)
+
+            expect(store.statementsMatching(null, null, null, AlicePreferencesFile).length).toEqual(2)
+            expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
+        })
+        it('creates new file', async () => {
+            const result = await loadPreferencesNoErrors(bob)
+
+            const patchRequest = requests[0]
+            expect(patchRequest.method).toEqual('PATCH')
+            expect(patchRequest.url).toEqual(bob.doc().uri)
+            const text = await patchRequest.text()
+            expect(text).toContain('INSERT DATA { <https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://bob.example.com/Settings/Preferences.ttl> .')
+
+            const putRequest = requests[1]
+            expect(putRequest.method).toEqual('PUT')
+            expect(putRequest.url).toEqual('https://bob.example.com/Settings/Preferences.ttl')
+            expect(web[putRequest.url]).toEqual('')
+
+        })
+    })
+
     describe('loadPreferences', () => {
         it('exists', () => {
             expect(loadPreferences).toBeInstanceOf(Function)
@@ -87,37 +118,6 @@ describe("Profile", () => {
         })
         it('creates new file', async () => {
             const result = await loadPreferences(bob)
-
-            const patchRequest = requests[0]
-            expect(patchRequest.method).toEqual('PATCH')
-            expect(patchRequest.url).toEqual(bob.doc().uri)
-            const text = await patchRequest.text()
-            expect(text).toContain('INSERT DATA { <https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://bob.example.com/Settings/Preferences.ttl> .')
-
-            const putRequest = requests[1]
-            expect(putRequest.method).toEqual('PUT')
-            expect(putRequest.url).toEqual('https://bob.example.com/Settings/Preferences.ttl')
-            expect(web[putRequest.url]).toEqual('')
-
-        })
-    })
-
-    describe('loadPreferencesThrowErrors', () => {
-        it('exists', () => {
-            expect(loadPreferencesThrowErrors).toBeInstanceOf(Function)
-        })
-        it('loads data', async () => {
-            const result = await loadPreferencesThrowErrors(alice)
-            expect(result).toBeInstanceOf(Object)
-            expect(result.uri).toEqual(AlicePreferencesFile.uri)
-            expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
-            expect(store.statementsMatching(null, null, null, profile).length).toEqual(4)
-
-            expect(store.statementsMatching(null, null, null, AlicePreferencesFile).length).toEqual(2)
-            expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
-        })
-        it('creates new file', async () => {
-            const result = await loadPreferencesThrowErrors(bob)
 
             const patchRequest = requests[0]
             expect(patchRequest.method).toEqual('PATCH')
