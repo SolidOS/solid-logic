@@ -5,7 +5,7 @@ import { SolidLogic } from "./SolidLogic"
 const _fetch = async (url, requestInit) => {
     const omitCreds = requestInit && requestInit.credentials && requestInit.credentials == 'omit'
     if (authSession.info.webId && !omitCreds) { // see https://github.com/solidos/solidos/issues/114
-        // In fact ftech should respect crentials omit itself
+        // In fact fetch should respect credentials omit itself
         return authSession.fetch(url, requestInit)
     } else {
         return window.fetch(url, requestInit)

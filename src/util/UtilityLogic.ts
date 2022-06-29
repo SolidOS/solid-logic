@@ -1,6 +1,9 @@
-import { NamedNode, st, sym } from "rdflib";
+import { NamedNode, st } from "rdflib";
 import { findAclDocUrl } from "../acl/aclLogic";
+import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from "../logic/CustomError";
 import { solidLogicSingleton } from "../logic/solidLogicSingleton";
+import { isContainer, getContainerMembers } from "./containerLogic";
+import { differentOrigin } from "./utils";
 /**
  * Create a resource if it really does not exist
  * Be absolutely sure something does not exist before creating a new empty file
@@ -13,17 +16,25 @@ export async function loadOrCreateIfNotExists (doc: NamedNode) {
     response = await solidLogicSingleton.store.fetcher.load(doc)
     } catch (err) {
         if (err.response.status === 404) {
-        try {
-            await solidLogicSingleton.store.fetcher.webOperation('PUT', doc, {data: '', contentType: 'text/turtle'})
-        } catch (err) {
-            const msg = 'createIfNotExists: PUT FAILED: ' + doc + ': ' + err
-            throw new Error(msg)
-        }
-        await solidLogicSingleton.store.fetcher.load(doc)
-        //delete store.fetcher.requested[doc.uri] // delete cached 404 error
+          try {
+              await solidLogicSingleton.store.fetcher.webOperation('PUT', doc, {data: '', contentType: 'text/turtle'})
+          } catch (err) {
+              const msg = 'createIfNotExists: PUT FAILED: ' + doc + ': ' + err
+              throw new WebOperationError(msg)
+          }
+          await solidLogicSingleton.store.fetcher.load(doc)
         } else {
-        const msg = 'createIfNotExists doc load error NOT 404:  ' + doc + ': ' + err
-        throw new Error(msg) // @@ add nested errors
+          if (err.response.status === 401) {
+            throw new UnauthorizedError();
+          }
+          if (err.response.status === 403) {
+              if (differentOrigin(doc)) {
+              throw new CrossOriginForbiddenError();
+              }
+              throw new SameOriginForbiddenError();
+          }
+          const msg = 'createIfNotExists doc load error NOT 404:  ' + doc + ': ' + err
+          throw new FetchError(err.status, err.message + msg)
         }
     }
     return response
@@ -41,20 +52,28 @@ export async function followOrCreateLink (subject: NamedNode, predicate: NamedNo
 
     if (result) return result as NamedNode
     if (!solidLogicSingleton.store.updater.editable(doc)) {
-        return null
+        //return null
+        const msg = `followOrCreateLink: cannot edit ${doc.value}`
+        console.warn(msg)
+        throw new NotEditableError(msg)
     }
     try {
         await solidLogicSingleton.store.updater.update([], [ st(subject, predicate, object, doc)])
     } catch (err) {
-        console.warn(`followOrCreateLink: Error making link in ${doc} to ${object}: ${err}`)
-        return null
+        const msg = `followOrCreateLink: Error making link in ${doc} to ${object}: ${err}`
+        console.warn(msg)
+        throw new WebOperationError(err)
+      //throw err
+        //console.warn(`followOrCreateLink: Error making link in ${doc} to ${object}: ${err}`)
+        //return null
     }
 
     try {
         await loadOrCreateIfNotExists(object)
         // store.fetcher.webOperation('PUT', object, { data: '', contentType: 'text/turtle'})
     } catch (err) {
-        console.warn(`followOrCreateLink: Error loading or saving new linked document: ${object}: ${err}`)
+      console.warn(`followOrCreateLink: Error loading or saving new linked document: ${object}: ${err}`)
+      throw err;
     }
     return object
 }
@@ -106,10 +125,10 @@ export async function setSinglePeerAccess(options: {
 
 export async function recursiveDelete(url: string) {
     try {
-      if (solidLogicSingleton.container.isContainer(url)) {
+      if (isContainer(url)) {
         const aclDocUrl = await findAclDocUrl(url);
         await solidLogicSingleton.store.fetcher._fetch(aclDocUrl, { method: "DELETE" });
-        const containerMembers = await solidLogicSingleton.container.getContainerMembers(url);
+        const containerMembers = await getContainerMembers(url);
         await Promise.all(
           containerMembers.map((url) => recursiveDelete(url))
         );
@@ -118,5 +137,13 @@ export async function recursiveDelete(url: string) {
     } catch (e) {
       // console.log(`Please manually remove ${url} from your system under test.`, e);
     }
+}
+
+export async function createEmptyRdfDoc(doc: NamedNode, comment: string) {
+    await solidLogicSingleton.store.fetcher.webOperation("PUT", doc.uri, {
+    data: `# ${new Date()} ${comment}
+`,
+    contentType: "text/turtle",
+    });
 }
   

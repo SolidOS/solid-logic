@@ -3,12 +3,7 @@ import * as rdf from "rdflib";
 import { LiveStore, NamedNode, Statement } from "rdflib";
 import solidNamespace from "solid-namespace";
 import { SolidAuthnLogic } from "../authn/SolidAuthnLogic";
-import { Chat } from "../chat/Chat";
-import { Inbox } from "../inbox/Inbox";
-import { Profile } from "../profile/Profile";
-import { TypeIndex } from "../typeIndex/TypeIndex";
 import { AuthnLogic, SolidNamespace } from "../types";
-import { Container } from "../util/Container";
 import * as debug from "../util/debug";
 /*
 ** It is important to distinquish `fetch`, a function provided by the browser
@@ -24,12 +19,7 @@ export class SolidLogic {
     store: LiveStore;
     me: string | undefined;
 
-    chat: Chat;
-    typeIndex: TypeIndex;
-    profile: Profile;
     authn: AuthnLogic;
-    inbox: Inbox;
-    container: Container;
 
     constructor(specialFetch: { fetch: (url: any, requestInit: any) => any }, session: Session) {
   // would xpect to be able to do it this way: but get TypeError:  Failed to execute 'fetch' on 'Window': Illegal invocation status: 999
@@ -42,11 +32,6 @@ export class SolidLogic {
         this.store.features = [] // disable automatic node merging on store load
         
         this.authn = new SolidAuthnLogic(session)
-        this.container = new Container(this.store)
-        this.profile = new Profile(this.store, ns, this.authn)
-        this.typeIndex = new TypeIndex(this.store, ns, this.authn, this.profile)
-        this.chat = new Chat(this.store, ns, this.profile)
-        this.inbox = new Inbox(this.store, ns, this.profile, this.container)
         debug.log('SolidAuthnLogic initialized')
     }
 

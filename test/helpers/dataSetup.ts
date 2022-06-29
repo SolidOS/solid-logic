@@ -1,4 +1,8 @@
 import { sym } from 'rdflib'
+import * as rdf from "rdflib";
+import solidNamespace from "solid-namespace";
+import { SolidNamespace } from '../../src/types';
+const ns: SolidNamespace = solidNamespace(rdf);
 
 //------ Club -------------------------------------------------------
 const club = sym('https://club.example.com/profile/card.ttl#it')
@@ -62,10 +66,6 @@ const AlicePublicTypes = `
 :issues solid:forClass wf:Tracker; solid:instance  <../project4/issues.ttl#this>.
 
 :photos solid:forClass schema:Image; solid:instanceContainer  ${AlicePhotoFolder} .
-# :bookmarks
-#    a solid:TypeRegistration;
-#    solid:forClass bookm:Bookmark;
-#    solid:instance </public/poddit.ttl>.
 `;
 
 const AlicePrivateTypes = `
@@ -96,6 +96,21 @@ const BobProfile = `
 <#me> a vcard:Individual;
 vcard:fn "Bob" .
 `
+export function loadWebObject() {
+    const web = {}
+    web[alice.doc().uri] = AliceProfile
+    web[AlicePreferencesFile.uri] = AlicePreferences
+    web[AlicePrivateTypeIndex.uri] = AlicePrivateTypes
+    web[AlicePublicTypeIndex.uri] = AlicePublicTypes
+    web[AlicePhotoFolder.uri] = AlicePhotos
+    web[bob.doc().uri] = BobProfile
+
+    web[club.doc().uri] = ClubProfile
+    web[ClubPreferencesFile.uri] = ClubPreferences
+    web[ClubPrivateTypeIndex.uri] = ClubPrivateTypes
+    web[ClubPublicTypeIndex.uri] = ClubPublicTypes
+    return web
+}
 
 export {
     alice, bob, club,

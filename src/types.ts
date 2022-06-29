@@ -35,12 +35,13 @@ export interface SolidNamespace {
 export type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode }
 export type ScopedApp = { instance: NamedNode, scope: TypeIndexScope }
 
-interface NewPaneOptions {
+export interface NewPaneOptions {
     me?: NamedNode;
     newInstance?: NamedNode;
     newBase: string;
 }
 
-interface CreatedPaneOptions {
+export interface CreatedPaneOptions {
 newInstance: NamedNode;
 }
+

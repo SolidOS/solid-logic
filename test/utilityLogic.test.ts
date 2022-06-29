@@ -1,76 +1,61 @@
 import fetchMock from "jest-fetch-mock";
 import * as rdf from "rdflib";
-import { UpdateManager } from "rdflib";
+import { sym, UpdateManager } from "rdflib";
 import solidNamespace from "solid-namespace";
-import { loadOrCreateIfNotExists, followOrCreateLink, setSinglePeerAccess, getArchiveUrl, uniqueNodes } from '../src/util/utilityLogic'
-import { SolidNamespace } from "../src/types";
-import { alice, AlicePhotoFolder, AlicePhotos, AlicePreferences, AlicePreferencesFile, AlicePrivateTypeIndex, AlicePrivateTypes, AliceProfile, AlicePublicTypeIndex, AlicePublicTypes, bob, BobProfile, club, ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes } from "./helpers/dataSetup";
+import { WebOperationError } from "../src/logic/CustomError";
 import { solidLogicSingleton } from "../src/logic/solidLogicSingleton";
+import { SolidNamespace } from "../src/types";
+import { followOrCreateLink, loadOrCreateIfNotExists, setSinglePeerAccess } from '../src/util/utilityLogic';
+import { alice, AlicePreferencesFile, bob, loadWebObject } from "./helpers/dataSetup";
 
 const ns: SolidNamespace = solidNamespace(rdf);
-const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
+let statustoBeReturned
+let web = {}
 
 describe("utilityLogic", () => {
     let store;
     let options;
-    let web = {}
     let requests = []
-    let statustoBeReturned = 200
     beforeEach(() => {
         fetchMock.resetMocks();
-        fetchMock.mockResponse("Not Found", {
-            status: 404,
-        });
-        requests = []
+        web = loadWebObject()
         statustoBeReturned = 200
-        const init = { headers: { "Content-Type": "text/turtle" } } // Fetch options tend to be called this
+        const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
+        requests = []
 
         fetchMock.mockIf(/^https?.*$/, async req => {
 
             if (req.method !== 'GET') {
                 requests.push(req)
                 if (req.method === 'PUT') {
-                    const contents = await req.text()
-                    web[req.url] = contents // Update our dummy web
-                    console.log(`Tetst: Updated ${req.url} on PUT to <<<${web[req.url]}>>>`)
+                const contents = await req.text()
+                web[req.url] = contents // Update our dummy web
+                console.log(`Tetst: Updated ${req.url} on PUT to <<<${web[req.url]}>>>`)
                 }
                 return { status: statustoBeReturned }
             }
             const contents = web[req.url]
             if (contents !== undefined) { //
                 return {
-                    body: prefixes + contents, // Add namespaces to anything
-                    status: 200,
-                    headers: {
-                        "Content-Type": "text/turtle",
-                        "WAC-Allow": 'user="write", public="read"',
-                        "Accept-Patch": "application/sparql-update"
-                    }
+                body: prefixes + contents, // Add namespaces to anything
+                status: 200,
+                headers: {
+                    "Content-Type": "text/turtle",
+                    "WAC-Allow":    'user="write", public="read"',
+                    "Accept-Patch": "application/sparql-update"
+                }
                 }
             } // if contents
             return {
                 status: 404,
                 body: 'Not Found'
-            }
+                }
         })
-        web = {}
-        web[alice.doc().uri] = AliceProfile
-        web[AlicePreferencesFile.uri] = AlicePreferences
-        web[AlicePrivateTypeIndex.uri] = AlicePrivateTypes
-        web[AlicePublicTypeIndex.uri] = AlicePublicTypes
-        web[AlicePhotoFolder.uri] = AlicePhotos
-        web[bob.doc().uri] = BobProfile
-
-        web[club.doc().uri] = ClubProfile
-        web[ClubPreferencesFile.uri] = ClubPreferences
-        web[ClubPrivateTypeIndex.uri] = ClubPrivateTypes
-        web[ClubPublicTypeIndex.uri] = ClubPublicTypes
-    
-        options = { fetch: fetch };
+        
+        options = { fetch: fetchMock };
         store = new rdf.Store()
         store.fetcher = new rdf.Fetcher(store, options);
         store.updater = new UpdateManager(store);
-        requests = []
         solidLogicSingleton.store = store
     });
   
@@ -92,7 +77,8 @@ describe("utilityLogic", () => {
     })
 
     describe('followOrCreateLink', () => {
-        it('exists', () => {
+    
+      it('exists', () => {
             expect(followOrCreateLink).toBeInstanceOf(Function)
         })
         it('follows existing link', async () => {
@@ -112,14 +98,16 @@ describe("utilityLogic", () => {
             expect(store.holds(bob, ns.space('preferencesFile'), rdf.sym(suggestion), bob.doc())).toEqual(true)
         })
         //
-        it('returns null if it cannot create the new file', async () => {
-            const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
-            statustoBeReturned = 403 // Unauthorized
-            const result = await followOrCreateLink(bob, ns.space('preferencesFile'), rdf.sym(suggestion), bob.doc())
-            expect(result).toEqual(null)
+      it('returns null if it cannot create the new file', () => {
+        const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
+        statustoBeReturned = 403 // Unauthorized
+        expect(async () => {
+          await followOrCreateLink(bob, ns.space('preferencesFile'), sym(suggestion), bob.doc())
+        }).rejects.toThrow(WebOperationError)
+        
         })
-
-    })
+  })
+  
   describe("setSinglePeerAccess", () => {
     beforeEach(() => {
       fetchMock.mockOnceIf(

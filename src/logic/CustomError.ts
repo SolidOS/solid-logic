@@ -15,6 +15,12 @@ export class SameOriginForbiddenError extends CustomError {}
 
 export class NotFoundError extends CustomError {}
 
+export class NotEditableError extends CustomError { }
+
+export class CannotCreatePredicateError extends CustomError { }
+
+export class WebOperationError extends CustomError {}
+
 export class FetchError extends CustomError {
     status: number;
 
