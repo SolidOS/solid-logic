@@ -6,11 +6,14 @@ const authSession = solidLogicSingleton.authn.authSession
 const store = solidLogicSingleton.store
 
 export {
+  ACL_LINK
+} from './acl/aclLogic'
+
+export {
   findAclDocUrl,
   setACLUserPublic,
   genACLText,
-  ACL_LINK
-} from './acl/aclLogic'
+} from './logic/solidLogicSingletonNew'
 
 export {
   ensureTypeIndexes,
@@ -34,10 +37,20 @@ export {
   registerInstanceInTypeIndex,
   deleteTypeIndexRegistration,
   getScopedAppsFromIndex
-} from './typeIndex/typeIndexLogic'
+} from './logic/solidLogicSingletonNew'
+
+export {
+  setAcl,
+  addToPrivateTypeIndex,
+  findChat,
+  createChatThing,
+  getChat,
+  sendInvite,
+  mintNew
+} from './logic/solidLogicSingletonNew'
 
 export { offlineTestID, appContext } from './authn/authUtil'
-export { createInboxFor, getNewMessages, markAsRead } from './inbox/inboxLogic'
+export { createInboxFor, getNewMessages, markAsRead } from './logic/solidLogicSingletonNew'
 export {
   recursiveDelete,
   setSinglePeerAccess,
@@ -45,7 +58,7 @@ export {
   //NEW function for discovery
   followOrCreateLink,
   loadOrCreateIfNotExists,
-} from './util/utilityLogic'
+} from './logic/solidLogicSingletonNew'
 
 export {
   ensureLoadedPreferences,
@@ -57,10 +70,17 @@ export {
   loadPreferences,
   loadProfile,
   //NEW function for discovery
-  loadPreferencesNoErrors,
-} from './profile/profileLogic'
+  silencedLoadPreferences
+} from './logic/solidLogicSingletonNew'
 
 export { getSuggestedIssuers } from './issuer/issuerLogic'
+
+export {
+    isContainer,
+    createContainer,
+    getContainerElements,
+    getContainerMembers
+} from './logic/solidLogicSingletonNew'
 
 export { SolidLogic } from './logic/SolidLogic'
 export { AppDetails, SolidNamespace, AuthenticationContext } from './types'

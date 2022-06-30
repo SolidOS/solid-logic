@@ -4,16 +4,17 @@
 */
 import * as rdf from "rdflib";
 import { UpdateManager } from "rdflib";
-import solidNamespace from "solid-namespace";
-import { createInboxFor, getNewMessages, markAsRead } from '../src/inbox/inboxLogic';
-import { solidLogicSingleton } from "../src/logic/solidLogicSingleton";
-import { AuthnLogic, SolidNamespace } from "../src/types";
+import { createInboxLogic } from '../src/inbox/inboxLogic';
 
-const ns: SolidNamespace = solidNamespace(rdf);
 
 const alice = rdf.sym("https://alice.example.com//profile/card.ttl#me");
 const bob = rdf.sym("https://bob.example.com/profile/card.ttl#me");
-
+const authn = {
+      currentUser: () => {
+        return alice;
+      },
+};
+    
 describe("Inbox", () => {
   let store;
   /*let web = {}
@@ -28,13 +29,8 @@ describe("Inbox", () => {
     store = rdf.graph();
     store.fetcher = rdf.fetcher(store, fetcher);
     store.updater = new UpdateManager(store);
-    const authn = {
-      currentUser: () => {
-        return alice;
-      },
-    };
-    solidLogicSingleton.store = store
-    solidLogicSingleton.authn = authn as AuthnLogic
+    
+    createInboxLogic(store)
     /*
     statustoBeReturned = 200
     
@@ -101,7 +97,7 @@ describe("Inbox", () => {
       )
       fetchMock.mockIf("https://some/acl", "Created", { status: 201 });
 
-      await createInboxFor('https://peer.com/#me', 'Peer Person');
+      await createInboxLogic(store).createInboxFor('https://peer.com/#me', 'Peer Person');
     });
     it("creates the inbox", () => {
       expect(fetchMock.mock.calls).toEqual([
@@ -159,7 +155,7 @@ describe("Inbox", () => {
         beforeEach(async () => {
           bobHasAnInbox();
           inboxIsEmpty();
-          result = await getNewMessages(bob);
+          result = await createInboxLogic(store).getNewMessages(bob);
         });
         it("Resolves to an empty array", () => {
           expect(result).toEqual([]);
@@ -170,7 +166,7 @@ describe("Inbox", () => {
         beforeEach(async () => {
           bobHasAnInbox();
           inboxHasSomeContainmentTriples();
-          result = await getNewMessages(bob);
+          result = await createInboxLogic(store).getNewMessages(bob);
         });
         it("Resolves to an array with URLs of non-container resources in inbox", () => {
           expect(result.sort()).toEqual([
@@ -197,13 +193,11 @@ describe("Inbox", () => {
           headers: { "Content-Type": "text/turtle" },
         }
       );
-      await markAsRead("https://container.com/item.ttl", new Date('31 March 2111 UTC'));
+      await createInboxLogic(store).markAsRead("https://container.com/item.ttl", new Date('31 March 2111 UTC'));
     });
     it('moves the item to archive', async () => {
-      expect(solidLogicSingleton.store.fetcher._fetch).toEqual(fetchMock)
-      expect(solidLogicSingleton.store.fetcher._fetch).toHaveBeenCalled()
       expect(fetchMock.mock.calls).toEqual([
-        [ "https://container.com/item.ttl", undefined ],
+        [ "https://container.com/item.ttl" ],
         [
           "https://container.com/archive/2111/03/31/item.ttl",
           {

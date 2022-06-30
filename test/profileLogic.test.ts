@@ -1,21 +1,30 @@
+/**
+* @jest-environment jsdom
+* 
+*/
 import * as rdf from "rdflib";
 import { UpdateManager } from 'rdflib';
-import solidNamespace from "solid-namespace";
-import { solidLogicSingleton } from "../src/logic/solidLogicSingleton";
-import { loadPreferencesNoErrors, loadPreferences, loadProfile } from '../src/profile/profileLogic';
-import { SolidNamespace } from '../src/types';
+import { createProfileLogic } from "../src/profile/profileLogic";
+import { ns } from "../src/util/ns";
 import {
     alice, AlicePreferencesFile, AlicePrivateTypeIndex, AliceProfileFile, bob, loadWebObject
 } from './helpers/dataSetup';
 
-const ns: SolidNamespace = solidNamespace(rdf);
+window.$SolidTestEnvironment = { username: alice.uri }
+
 const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
 const user = alice
 const profile = user.doc()
+const authn = {
+    currentUser: () => {
+        return alice;
+    },
+};
+let requests = []
 
 describe("Profile", () => {
     let store
-    let requests = []
+    requests = []
     const statustoBeReturned = 200
     let web = {}
     beforeEach(() => {
@@ -55,15 +64,15 @@ describe("Profile", () => {
         store.fetcher = rdf.fetcher(store, { fetch: fetch });
         store.updater = new UpdateManager(store);
         
-        solidLogicSingleton.store = store
+        createProfileLogic(store, authn, ns)
     })
 
     describe('loadProfile', () => {
         it('exists', () => {
-            expect(loadProfile).toBeInstanceOf(Function)
+            expect(createProfileLogic(store, authn, ns).loadProfile).toBeInstanceOf(Function)
         })
         it('loads data', async () => {
-            const result = await loadProfile(user)
+            const result = await createProfileLogic(store, authn, ns).loadProfile(user)
             expect(result).toBeInstanceOf(Object)
             expect(result.uri).toEqual(AliceProfileFile.uri)
             expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
@@ -71,12 +80,12 @@ describe("Profile", () => {
             expect(store.statementsMatching(null, null, null, profile).length).toEqual(4)
         })
     })
-    describe('loadPreferencesNoErrors', () => {
+    describe('silencedLoadPreferences', () => {
         it('exists', () => {
-            expect(loadPreferencesNoErrors).toBeInstanceOf(Function)
+            expect(createProfileLogic(store, authn, ns).silencedLoadPreferences).toBeInstanceOf(Function)
         })
         it('loads data', async () => {
-            const result = await loadPreferencesNoErrors(alice)
+            const result = await createProfileLogic(store, authn, ns).silencedLoadPreferences(alice)
             expect(result).toBeInstanceOf(Object)
             expect(result.uri).toEqual(AlicePreferencesFile.uri)
             expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
@@ -86,7 +95,7 @@ describe("Profile", () => {
             expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
         })
         it('creates new file', async () => {
-            const result = await loadPreferencesNoErrors(bob)
+            const result = await createProfileLogic(store, authn, ns).silencedLoadPreferences(bob)
 
             const patchRequest = requests[0]
             expect(patchRequest.method).toEqual('PATCH')
@@ -104,10 +113,10 @@ describe("Profile", () => {
 
     describe('loadPreferences', () => {
         it('exists', () => {
-            expect(loadPreferences).toBeInstanceOf(Function)
+            expect(createProfileLogic(store, authn, ns).loadPreferences).toBeInstanceOf(Function)
         })
         it('loads data', async () => {
-            const result = await loadPreferences(alice)
+            const result = await createProfileLogic(store, authn, ns).loadPreferences(alice)
             expect(result).toBeInstanceOf(Object)
             expect(result.uri).toEqual(AlicePreferencesFile.uri)
             expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
@@ -117,7 +126,7 @@ describe("Profile", () => {
             expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
         })
         it('creates new file', async () => {
-            const result = await loadPreferences(bob)
+            const result = await createProfileLogic(store, authn, ns).loadPreferences(bob)
 
             const patchRequest = requests[0]
             expect(patchRequest.method).toEqual('PATCH')

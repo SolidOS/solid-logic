@@ -1,16 +1,30 @@
-import { sym } from "rdflib";
-import { AuthenticationContext } from "../src/index";
-import { loadIndex, loadTypeIndexes, registerInTypeIndex } from "../src/typeIndex/typeIndexLogic";
+import { Fetcher, Store, sym, UpdateManager } from "rdflib";
+import { createTypeIndexLogic } from "../src/typeIndex/typeIndexLogic";
+import { AuthenticationContext } from "../src/types";
+import { alice } from "./helpers/dataSetup";
 
-
+let store;
+let options;
+const authn = {
+    currentUser: () => {
+        return alice;
+    },
+};
 describe('typeIndexLogic', () => { 
+  beforeEach(() => {
+      options = { fetch: fetch };
+      store = new Store()
+      store.fetcher = new Fetcher(store, options);
+      store.updater = new UpdateManager(store);
+      createTypeIndexLogic(store, authn)
+  })
   describe('loadIndex', () => {
     it('loadIndex', async () => {
       const context = {
         index: {}
       }
 
-      const result = await loadIndex(context, true)
+      const result = await createTypeIndexLogic(store, authn).loadIndex(context, true)
       expect(result).toEqual({
         index: {
           private: [],
@@ -22,20 +36,20 @@ describe('typeIndexLogic', () => {
 
   describe('loadTypeIndexes', () => {
     it('exists', () => {
-      expect(loadTypeIndexes).toBeInstanceOf(Function)
+      expect(createTypeIndexLogic(store, authn).loadTypeIndexes).toBeInstanceOf(Function)
     })
     it('runs', async () => {
-      const result = await loadTypeIndexes({})
+      const result = await createTypeIndexLogic(store, authn).loadTypeIndexes({})
       expect(result).toBeInstanceOf(Object)
     })
   })
 
   describe('registerInTypeIndex', () => {
     it('exists', () => {
-      expect(registerInTypeIndex).toBeInstanceOf(Function)
+      expect(createTypeIndexLogic(store, authn).registerInTypeIndex).toBeInstanceOf(Function)
     })
     it('throws error', async () => {
-      expect(registerInTypeIndex(
+      expect(createTypeIndexLogic(store, authn).registerInTypeIndex(
         {} as AuthenticationContext,
         sym('https://test.test#'),
         sym('https://test.test#'),

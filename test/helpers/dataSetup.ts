@@ -112,9 +112,14 @@ export function loadWebObject() {
     return web
 }
 
+function clearLocalStore(store) {
+    store.statements.slice().forEach(store.remove.bind(store))
+}
+
 export {
     alice, bob, club,
     AlicePhotoFolder, AlicePreferences, AlicePhotos, AlicePreferencesFile, AlicePrivateTypeIndex, AlicePrivateTypes, AliceProfile, AliceProfileFile, AlicePublicTypeIndex, AlicePublicTypes,
     BobProfile,
-    ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes
+    ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes,
+    clearLocalStore
 }

@@ -1,14 +1,15 @@
-import * as rdf from "rdflib";
+/**
+* @jest-environment jsdom
+* 
+*/
 import { Fetcher, Store, UpdateManager } from "rdflib";
-import solidNamespace from "solid-namespace";
-import { SolidAuthnLogic } from "../src/authn/SolidAuthnLogic";
 import { uniqueNodes } from "../src/discovery/discoveryLogic";
-import { solidLogicSingleton, SolidNamespace } from "../src/index";
-import { getAppInstances, getScopedAppInstances, loadAllTypeIndexes, loadCommunityTypeIndexes, loadTypeIndexesFor } from "../src/typeIndex/typeIndexLogic";
-import { alice, AlicePhotoFolder, AlicePhotos, AlicePreferences, AlicePreferencesFile, AlicePrivateTypeIndex, AlicePrivateTypes, AliceProfile, AlicePublicTypeIndex, AlicePublicTypes, bob, BobProfile, club, ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes, loadWebObject } from "./helpers/dataSetup";
+import { createTypeIndexLogic} from "../src/typeIndex/typeIndexLogic";
+import { ns } from "../src/util/ns";
+import { alice, AlicePhotoFolder, AlicePhotos, AlicePreferences, AlicePreferencesFile, AlicePrivateTypeIndex, AlicePrivateTypes, AliceProfile, AlicePublicTypeIndex, AlicePublicTypes, bob, BobProfile, club, ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes } from "./helpers/dataSetup";
 
-const ns: SolidNamespace = solidNamespace(rdf);
 const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
+window.$SolidTestEnvironment = { username: alice.uri }
 
 const Tracker = ns.wf('Tracker')
 const Image = ns.schema('Image')
@@ -36,6 +37,11 @@ fetchMock.resetMocks();
 describe("TypeIndex logic NEW", () => {
     let store;
     let options;
+    const authn = {
+        currentUser: () => {
+            return alice;
+        },
+    };
     
     beforeEach(() => {
         requests = []
@@ -71,22 +77,16 @@ describe("TypeIndex logic NEW", () => {
         }
         })
         
-        const authn = {
-            currentUser: () => {
-                return alice;
-            },
-        };
-        
         options = { fetch: fetch };
         store = new Store()
         store.fetcher = new Fetcher(store, options);
         store.updater = new UpdateManager(store);
-        solidLogicSingleton.authn = authn as SolidAuthnLogic
-        solidLogicSingleton.store = store
+        //solidLogicSingleton.store = store
+        createTypeIndexLogic(store, authn)
     });
     describe('loadAllTypeIndexes', () => {
         it('exists', () => {
-        expect(loadAllTypeIndexes).toBeInstanceOf(Function)
+        expect(createTypeIndexLogic(store, authn).loadAllTypeIndexes).toBeInstanceOf(Function)
         })
     })
 
@@ -120,10 +120,10 @@ describe("TypeIndex logic NEW", () => {
 
     describe('loadTypeIndexesFor', () => {
         it('exists', () => {
-        expect(loadTypeIndexesFor).toBeInstanceOf(Function)
+        expect(createTypeIndexLogic(store, authn).loadTypeIndexesFor).toBeInstanceOf(Function)
         })
         it('loads data', async () => {
-        const result = await loadTypeIndexesFor(alice)
+        const result = await createTypeIndexLogic(store, authn).loadTypeIndexesFor(alice)
         expect(result).toEqual(AliceScopes)
         expect(store.statementsMatching(null, null, null, AlicePrivateTypeIndex).length).toEqual(8)
         expect(store.statementsMatching(null, null, null, AlicePublicTypeIndex).length).toEqual(8)
@@ -161,10 +161,10 @@ describe("TypeIndex logic NEW", () => {
         ]
     describe('loadCommunityTypeIndexes', () => {
         it('exists', () => {
-        expect(loadCommunityTypeIndexes).toBeInstanceOf(Function)
+        expect(createTypeIndexLogic(store, authn).loadCommunityTypeIndexes).toBeInstanceOf(Function)
         })
         it('loads data', async () => {
-        const result = await loadCommunityTypeIndexes(alice)
+        const result = await createTypeIndexLogic(store, authn).loadCommunityTypeIndexes(alice)
         expect(result).toEqual(ClubScopes)
         })
     })
@@ -375,14 +375,14 @@ describe("TypeIndex logic NEW", () => {
 
     describe('getScopedAppInstances', () => {
         it('exists', () => {
-        expect(getScopedAppInstances).toBeInstanceOf(Function)
+        expect(createTypeIndexLogic(store, authn).getScopedAppInstances).toBeInstanceOf(Function)
         })
         it('pulls in users scopes and also community ones', async () => {
-        const result = await getScopedAppInstances(Tracker, alice)
+        const result = await createTypeIndexLogic(store, authn).getScopedAppInstances(Tracker, alice)
         expect(result).toEqual(AliceAndClubScopes)
         })
         it('creates new preferenceFile and typeIndex files where they dont exist', async () => {
-        const result = await getScopedAppInstances(Tracker, bob)
+        const result = await createTypeIndexLogic(store, authn).getScopedAppInstances(Tracker, bob)
 
         expect(requests[0].method).toEqual('PATCH') // Add preferrencesFile link to profile
         expect(requests[0].url).toEqual('https://bob.example.com/profile/card.ttl')
@@ -463,15 +463,15 @@ describe("TypeIndex logic NEW", () => {
 
     describe('getAppInstances', () => {
         it('exists', () => {
-        expect(getAppInstances).toBeInstanceOf(Function)
+        expect(createTypeIndexLogic(store, authn).getAppInstances).toBeInstanceOf(Function)
         })
         it('finds trackers', async () => {
-        const result = await getAppInstances(Tracker)
+        const result = await createTypeIndexLogic(store, authn).getAppInstances(Tracker)
         expect(result).toEqual(TRACKERS)
         expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
         })
         it('finds images in containers', async () => {
-        const result = await getAppInstances(Image)
+        const result = await createTypeIndexLogic(store, authn).getAppInstances(Image)
         expect(result.length).toEqual(3)
         expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
         expect(result.map(x => x.uri).join()).toEqual("https://alice.example.com/profile/Photos/photo1.png,https://alice.example.com/profile/Photos/photo2.png,https://alice.example.com/profile/Photos/photo3.png")

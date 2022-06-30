@@ -1,5 +1,5 @@
 import { sym } from 'rdflib';
-import { setACLUserPublic } from '../src/acl/aclLogic';
+import { setACLUserPublic } from '../src/logic/solidLogicSingletonNew';
 
 describe('setACLUserPublic', () => {
     it('exists', () => {
