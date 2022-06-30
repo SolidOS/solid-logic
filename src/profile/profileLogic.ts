@@ -69,9 +69,9 @@ export function createProfileLogic(store, authn, ns) {
                 }
                 throw new SameOriginForbiddenError();
             }
-            if (err.response.status === 404) {
+            /*if (err.response.status === 404) {
                 throw new NotFoundError();
-            }
+            }*/
             throw new Error(msg)
         }
         return preferencesFile as NamedNode

@@ -96,6 +96,14 @@ const BobProfile = `
 <#me> a vcard:Individual;
 vcard:fn "Bob" .
 `
+
+//------ Boby -------------------------------------------------------
+const boby = sym('https://boby.example.com/profile/card.ttl#me')
+
+const BobyProfile = `
+<#me> a vcard:Individual;
+vcard:fn "Boby" .
+`
 export function loadWebObject() {
     const web = {}
     web[alice.doc().uri] = AliceProfile
@@ -104,6 +112,7 @@ export function loadWebObject() {
     web[AlicePublicTypeIndex.uri] = AlicePublicTypes
     web[AlicePhotoFolder.uri] = AlicePhotos
     web[bob.doc().uri] = BobProfile
+    web[boby.doc().uri] = BobyProfile
 
     web[club.doc().uri] = ClubProfile
     web[ClubPreferencesFile.uri] = ClubPreferences
@@ -117,7 +126,7 @@ function clearLocalStore(store) {
 }
 
 export {
-    alice, bob, club,
+    alice, bob, boby, club,
     AlicePhotoFolder, AlicePreferences, AlicePhotos, AlicePreferencesFile, AlicePrivateTypeIndex, AlicePrivateTypes, AliceProfile, AliceProfileFile, AlicePublicTypeIndex, AlicePublicTypes,
     BobProfile,
     ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes,

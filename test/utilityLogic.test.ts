@@ -75,7 +75,7 @@ describe("utilityLogic", () => {
         requests = []
 		createUtilityLogic(store)
     });
-  
+
     describe('loadOrCreateIfNotExists', () => {
         it('exists', () => {
             expect(createUtilityLogic(store).loadOrCreateIfNotExists).toBeInstanceOf(Function)
