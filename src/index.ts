@@ -1,9 +1,9 @@
 // Make these variables directly accessible as it is what you need most of the time
 // This also makes these variable globaly accesible in mashlib
-import { solidLogicSingleton } from './logic/solidLogicSingleton'
-const authn = solidLogicSingleton.authn
-const authSession = solidLogicSingleton.authn.authSession
-const store = solidLogicSingleton.store
+//import { solidLogicSingleton } from './logic/solidLogicSingleton'
+//const authn = solidLogicSingleton.authn
+//const authSession = solidLogicSingleton.authn.authSession
+//const store = solidLogicSingleton.store
 
 export {
   ACL_LINK
@@ -13,7 +13,7 @@ export {
   findAclDocUrl,
   setACLUserPublic,
   genACLText,
-} from './logic/solidLogicSingletonNew'
+} from './logic/solidLogicSingleton'
 
 export {
   ensureTypeIndexes,
@@ -37,7 +37,7 @@ export {
   registerInstanceInTypeIndex,
   deleteTypeIndexRegistration,
   getScopedAppsFromIndex
-} from './logic/solidLogicSingletonNew'
+} from './logic/solidLogicSingleton'
 
 export {
   setAcl,
@@ -47,10 +47,10 @@ export {
   getChat,
   sendInvite,
   mintNew
-} from './logic/solidLogicSingletonNew'
+} from './logic/solidLogicSingleton'
 
 export { offlineTestID, appContext } from './authn/authUtil'
-export { createInboxFor, getNewMessages, markAsRead } from './logic/solidLogicSingletonNew'
+export { createInboxFor, getNewMessages, markAsRead } from './logic/solidLogicSingleton'
 export {
   recursiveDelete,
   setSinglePeerAccess,
@@ -58,7 +58,7 @@ export {
   //NEW function for discovery
   followOrCreateLink,
   loadOrCreateIfNotExists,
-} from './logic/solidLogicSingletonNew'
+} from './logic/solidLogicSingleton'
 
 export {
   ensureLoadedPreferences,
@@ -71,7 +71,7 @@ export {
   loadProfile,
   //NEW function for discovery
   silencedLoadPreferences
-} from './logic/solidLogicSingletonNew'
+} from './logic/solidLogicSingleton'
 
 export { getSuggestedIssuers } from './issuer/issuerLogic'
 
@@ -80,11 +80,13 @@ export {
     createContainer,
     getContainerElements,
     getContainerMembers
-} from './logic/solidLogicSingletonNew'
+} from './logic/solidLogicSingleton'
 
-export { SolidLogic } from './logic/SolidLogic'
+export { authn, authSession, store } from './logic/solidLogicSingleton'
+
+//export { SolidLogic } from './logic/SolidLogic'
 export { AppDetails, SolidNamespace, AuthenticationContext } from './types'
 // solidLogicSingleton is exported entirely because it is used in solid-panes
-export { solidLogicSingleton } from './logic/solidLogicSingleton'
+//export { solidLogicSingleton } from './logic/solidLogicSingleton'
 export { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError, NotEditableError, WebOperationError } from './logic/CustomError'
-export { authn, authSession, store }
+

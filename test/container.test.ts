@@ -2,8 +2,7 @@
 * @jest-environment jsdom
 * 
 */
-import * as rdf from "rdflib";
-import { UpdateManager } from "rdflib";
+import { UpdateManager, Store, Fetcher } from "rdflib";
 import { createContainerLogic } from "../src/util/containerLogic";
 import { alice } from "./helpers/dataSetup";
 
@@ -11,19 +10,18 @@ window.$SolidTestEnvironment = { username: alice.uri }
 
 describe("Container", () => {
     let store
-    let options
+    let containerLogic
     beforeEach(() => {
         fetchMock.resetMocks()
-        options = { fetch: fetchMock };
-        store = new rdf.Store()
-        store.fetcher = new rdf.Fetcher(store, options);
+        store = new Store()
+        store.fetcher = new Fetcher(store, { fetch: fetch });
         store.updater = new UpdateManager(store);
-        createContainerLogic(store)
+        containerLogic = createContainerLogic(store)
     })
 
     it("getContainerMembers - When container has some containment triples", async () => {
             containerHasSomeContainmentTriples()
-            const result = await createContainerLogic(store).getContainerMembers('https://com/');
+            const result = await containerLogic.getContainerMembers('https://com/');
             expect(result.sort()).toEqual([
                 'https://com/foo.txt',
                 'https://com/bar/'
@@ -31,7 +29,7 @@ describe("Container", () => {
     });
     it("getContainerMembers- When container is empty - Resolves to an empty array", async () => {
         containerIsEmpty();
-        const result = await createContainerLogic(store).getContainerMembers('https://container.com/');
+        const result = await containerLogic.getContainerMembers('https://container.com/');
         expect(result).toEqual([]);
     });
 

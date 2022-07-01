@@ -1,15 +1,15 @@
 import { NamedNode } from "rdflib";
-import { createContainer, findAclDocUrl, getContainerMembers, getMainInbox, getPodRoot, isContainer, loadMe, setSinglePeerAccess } from "../logic/solidLogicSingletonNew";
 import { getArchiveUrl } from "../util/utils";
 
-export function createInboxLogic(store) {
+export function createInboxLogic(store, profileLogic, utilityLogic, containerLogic, aclLogic) {
+  
     async function createInboxFor(peerWebId: string, nick: string) {
-      const myWebId: NamedNode = (await loadMe());
-      const podRoot: NamedNode = await getPodRoot(myWebId);
+      const myWebId: NamedNode = await profileLogic.loadMe();
+      const podRoot: NamedNode = await profileLogic.getPodRoot(myWebId);
       const ourInbox = `${podRoot.value}p2p-inboxes/${encodeURIComponent(nick)}/`;
-      await createContainer(ourInbox);
-      const aclDocUrl = await findAclDocUrl(ourInbox);
-      await setSinglePeerAccess({
+      await containerLogic.createContainer(ourInbox);
+      const aclDocUrl = await aclLogic.findAclDocUrl(ourInbox);
+      await utilityLogic.setSinglePeerAccess({
         ownerWebId: myWebId.value,
         peerWebId,
         accessToModes: 'acl:Append',
@@ -22,11 +22,11 @@ export function createInboxLogic(store) {
       user?: NamedNode
     ): Promise<string[]> {
       if (!user) {
-        user = await loadMe();
+        user = await profileLogic.loadMe();
       }
-      const inbox = await getMainInbox(user);
-      const urls = await getContainerMembers(inbox.value);
-      return urls.filter(url => !isContainer(url));
+      const inbox = await profileLogic.getMainInbox(user);
+      const urls = await containerLogic.getContainerMembers(inbox.value);
+      return urls.filter(url => !containerLogic.isContainer(url));
   }
 
   async function markAsRead(url: string, date: Date) {

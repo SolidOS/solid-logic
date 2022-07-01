@@ -2,20 +2,21 @@
 * @jest-environment jsdom
 * 
 */
-import * as rdf from "rdflib";
-import { UpdateManager } from 'rdflib';
+import { UpdateManager, Store, Fetcher } from 'rdflib';
 import { createProfileLogic } from "../src/profile/profileLogic";
+import { createUtilityLogic } from "../src/util/utilityLogic"
 import { ns } from "../src/util/ns";
 import {
     alice, AlicePreferencesFile, AlicePrivateTypeIndex, AliceProfileFile, bob, boby, loadWebObject
 } from './helpers/dataSetup';
-
-
+import { createAclLogic } from "../src/acl/aclLogic";
+import { createContainerLogic } from "../src/util/containerLogic";
 
 const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
 const user = alice
 const profile = user.doc()
 let requests = []
+let profileLogic
 
 describe("Profile", () => {
 
@@ -63,17 +64,17 @@ describe("Profile", () => {
                     }
             })
 
-            store = rdf.graph();
-            store.fetcher = rdf.fetcher(store, { fetch: fetch });
+            store = new Store()
+            store.fetcher = new Fetcher(store, { fetch: fetch });
             store.updater = new UpdateManager(store);
-            
-            createProfileLogic(store, authn, ns)
+            const util = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
+            profileLogic = createProfileLogic(store, authn, util)
         })
         it('exists', () => {
-            expect(createProfileLogic(store, authn, ns).loadProfile).toBeInstanceOf(Function)
+            expect(profileLogic.loadProfile).toBeInstanceOf(Function)
         })
         it('loads data', async () => {
-            const result = await createProfileLogic(store, authn, ns).loadProfile(user)
+            const result = await profileLogic.loadProfile(user)
             expect(result).toBeInstanceOf(Object)
             expect(result.uri).toEqual(AliceProfileFile.uri)
             expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
@@ -126,17 +127,17 @@ describe("Profile", () => {
                     }
             })
 
-            store = rdf.graph();
-            store.fetcher = rdf.fetcher(store, { fetch: fetch });
+            store = new Store()
+            store.fetcher = new Fetcher(store, { fetch: fetch });
             store.updater = new UpdateManager(store);
-            
-            createProfileLogic(store, authn, ns)
+                const util = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
+            profileLogic = createProfileLogic(store, authn, util)
         })
         it('exists', () => {
-            expect(createProfileLogic(store, authn, ns).silencedLoadPreferences).toBeInstanceOf(Function)
+            expect(profileLogic.silencedLoadPreferences).toBeInstanceOf(Function)
         })
         it('loads data', async () => {
-            const result = await createProfileLogic(store, authn, ns).silencedLoadPreferences(alice)
+            const result = await profileLogic.silencedLoadPreferences(alice)
             expect(result).toBeInstanceOf(Object)
             expect(result.uri).toEqual(AlicePreferencesFile.uri)
             expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
@@ -146,7 +147,7 @@ describe("Profile", () => {
             expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
         })
         it('creates new file', async () => {
-            const result = await createProfileLogic(store, authn, ns).silencedLoadPreferences(bob)
+            const result = await profileLogic.silencedLoadPreferences(bob)
 
             const patchRequest = requests[0]
             expect(patchRequest.method).toEqual('PATCH')
@@ -207,17 +208,17 @@ describe("Profile", () => {
                     }
             })
 
-            store = rdf.graph();
-            store.fetcher = rdf.fetcher(store, { fetch: fetch });
+            store = new Store()
+            store.fetcher = new Fetcher(store, { fetch: fetch });
             store.updater = new UpdateManager(store);
-            
-            createProfileLogic(store, authn, ns)
+            const util = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
+            profileLogic = createProfileLogic(store, authn, util)
         })
         it('exists', () => {
-            expect(createProfileLogic(store, authn, ns).loadPreferences).toBeInstanceOf(Function)
+            expect(profileLogic.loadPreferences).toBeInstanceOf(Function)
         })
         it('loads data', async () => {
-            const result = await createProfileLogic(store, authn, ns).loadPreferences(alice)
+            const result = await profileLogic.loadPreferences(alice)
             expect(result).toBeInstanceOf(Object)
             expect(result.uri).toEqual(AlicePreferencesFile.uri)
             expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
@@ -227,7 +228,7 @@ describe("Profile", () => {
             expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
         })
         it('creates new file', async () => {
-            const result = await createProfileLogic(store, authn, ns).loadPreferences(boby)
+            const result = await profileLogic.loadPreferences(boby)
 
             const patchRequest = requests[0]
             expect(patchRequest.method).toEqual('PATCH')

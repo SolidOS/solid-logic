@@ -1,12 +1,12 @@
 import * as rdf from "rdflib"
 import { NamedNode, st, Statement, sym } from 'rdflib'
-import { createEmptyRdfDoc, ensureLoadedPreferences, followOrCreateLink, loadProfile, silencedLoadPreferences } from "../logic/solidLogicSingletonNew"
 import { AuthenticationContext, ScopedApp, TypeIndexScope } from '../types'
 import * as debug from "../util/debug"
-import ns from '../util/ns'
+import {ns as namespace } from '../util/ns'
 import { newThing, uniqueNodes } from "../util/utils"
 
-export function createTypeIndexLogic(store, authn) {
+export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic) {
+    const ns = namespace
     
     function updatePromise(
         del: Array<Statement>,
@@ -37,7 +37,7 @@ export function createTypeIndexLogic(store, authn) {
 
     async function loadTypeIndexes(context: AuthenticationContext) {
         try {
-            await silencedLoadPreferences(context.me as NamedNode)
+            await profileLogic.silencedLoadPreferences(context.me as NamedNode)
         } catch (error) {
             debug.warn(error.message) as undefined
         }
@@ -127,7 +127,7 @@ export function createTypeIndexLogic(store, authn) {
      */
     async function ensureOneTypeIndex(context: AuthenticationContext, isPublic: boolean, agent?: NamedNode): Promise<AuthenticationContext | void> {
 
-        const context2 = await ensureLoadedPreferences(context)
+        const context2 = await profileLogic.ensureLoadedPreferences(context)
         if (!context2.publicProfile) throw new Error(`@@ type index: no publicProfile`)
         if (!context2.preferencesFile) throw new Error(`@@ type index: no preferencesFile for profile  ${context2.publicProfile}`)
         const relevant = isPublic ? context2.publicProfile : context2.preferencesFile
@@ -148,7 +148,7 @@ export function createTypeIndexLogic(store, authn) {
 
     async function putIndex(newIndex, context) {
         try {
-            await createEmptyRdfDoc(newIndex, 'Blank initial Type index')
+            await utilityLogic.createEmptyRdfDoc(newIndex, 'Blank initial Type index')
             return context
         } catch (e) {
             const msg = `Error creating new index ${e}`
@@ -279,12 +279,12 @@ export function createTypeIndexLogic(store, authn) {
 
     async function loadTypeIndexesFor(user: NamedNode): Promise<Array<TypeIndexScope>> {
         if (!user) throw new Error(`loadTypeIndexesFor: No user given`)
-        const profile = await loadProfile(user)
+        const profile = await profileLogic.loadProfile(user)
 
         const suggestion = suggestPublicTypeIndex(user)
         let publicTypeIndex
         try {
-            publicTypeIndex = await followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, suggestion, profile)
+            publicTypeIndex = await utilityLogic.followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, suggestion, profile)
         } catch (err) {
             const message = `User ${user} has no pointer in profile to publicTypeIndex file.`
             debug.warn(message)
@@ -293,7 +293,7 @@ export function createTypeIndexLogic(store, authn) {
 
         let preferencesFile
         try {
-            preferencesFile = await silencedLoadPreferences(user)
+            preferencesFile = await profileLogic.silencedLoadPreferences(user)
         } catch (err) {
             preferencesFile = null
         }
@@ -306,7 +306,7 @@ export function createTypeIndexLogic(store, authn) {
             let privateTypeIndex
             try {
                 privateTypeIndex = store.any(user, ns.solid('privateTypeIndex'), undefined, profile) ||
-                    await followOrCreateLink(user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile);
+                    await utilityLogic.followOrCreateLink(user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile);
             } catch (err) {
                 const message = `User ${user} has no pointer in preference file to privateTypeIndex file.`
                 debug.warn(message)
@@ -329,7 +329,7 @@ export function createTypeIndexLogic(store, authn) {
     async function loadCommunityTypeIndexes(user: NamedNode): Promise<TypeIndexScope[][]> {
         let preferencesFile
         try {
-            preferencesFile = await silencedLoadPreferences(user)
+            preferencesFile = await profileLogic.silencedLoadPreferences(user)
         } catch (err) {
             const message = `User ${user} has no pointer in profile to preferences file.`
             debug.warn(message)

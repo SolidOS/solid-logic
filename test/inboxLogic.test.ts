@@ -2,81 +2,67 @@
 * @jest-environment jsdom
 *
 */
-import * as rdf from "rdflib";
-import { UpdateManager } from "rdflib";
+import { UpdateManager, Store, Fetcher, sym } from "rdflib";
+import { createAclLogic } from "../src/acl/aclLogic";
 import { createInboxLogic } from '../src/inbox/inboxLogic';
+import { createProfileLogic } from "../src/profile/profileLogic";
+import { createContainerLogic } from "../src/util/containerLogic";
+import { createUtilityLogic } from "../src/util/utilityLogic";
 
+const alice = sym("https://alice.example.com/profile/card#me");
+const bob = sym("https://bob.example.com/profile/card#me");
 
-const alice = rdf.sym("https://alice.example.com//profile/card.ttl#me");
-const bob = rdf.sym("https://bob.example.com/profile/card.ttl#me");
-const authn = {
-      currentUser: () => {
-        return alice;
-      },
-};
-    
-describe("Inbox", () => {
+describe("Inbox logic", () => {
   let store;
-  /*let web = {}
-  let requests = []
-  let statustoBeReturned = 200*/
+  let inboxLogic
   beforeEach(() => {
     fetchMock.resetMocks();
     fetchMock.mockResponse("Not Found", {
       status: 404,
     });
-    const fetcher = { fetch: fetch };
-    store = rdf.graph();
-    store.fetcher = rdf.fetcher(store, fetcher);
-    store.updater = new UpdateManager(store);
-    
-    createInboxLogic(store)
-    /*
-    statustoBeReturned = 200
-    
-    web = loadWebObject()
-    
-    requests = []
-    fetchMock.mockIf(/^https?.*$/, async req => {
-
-        if (req.method !== 'GET') {
-            requests.push(req)
-            if (req.method === 'PUT') {
-            const contents = await req.text()
-            web[req.url] = contents // Update our dummy web
-            console.log(`Tetst: Updated ${req.url} on PUT to <<<${web[req.url]}>>>`)
-            }
-            return { status: statustoBeReturned }
-        }
-        const contents = web[req.url]
-        if (contents !== undefined) { //
-            return {
-            body: prefixes + contents, // Add namespaces to anything
-            status: 200,
-            headers: {
-                "Content-Type": "text/turtle",
-                "WAC-Allow":    'user="write", public="read"',
-                "Accept-Patch": "application/sparql-update"
-            }
-            }
-        } // if contents
-        return {
-            status: 404,
-            body: 'Not Found'
-            }
-    })
-
-    const options = { fetch: fetchMock };
     store = new Store()
-    store.fetcher = new Fetcher(store, options);
+    store.fetcher = new Fetcher(store, { fetch: fetch });
     store.updater = new UpdateManager(store);
-    solidLogicSingleton.store = store
-*/
+    const authn = {
+      currentUser: () => {
+        return alice;
+      },
+    };
+    const containerLogic = createContainerLogic(store)
+    const aclLogic = createAclLogic(store)
+    const util = createUtilityLogic(store, aclLogic, containerLogic);
+    const profile = createProfileLogic(store, authn, util);
+    inboxLogic = createInboxLogic(store, profile, util, containerLogic, aclLogic);
   });
 
+  describe("getNewMessages", () => {
+    describe("When inbox is empty", () => {
+      let result;
+      beforeEach(async () => {
+        bobHasAnInbox();
+        inboxIsEmpty();
+        result = await inboxLogic.getNewMessages(bob);
+      });
+      it("Resolves to an empty array", () => {
+        expect(result).toEqual([]);
+      });
+    });
+    describe("When container has some containment triples", () => {
+      let result;
+      beforeEach(async () => {
+        bobHasAnInbox();
+        inboxHasSomeContainmentTriples();
+        result = await inboxLogic.getNewMessages(bob);
+      });
+      it("Resolves to an array with URLs of non-container resources in inbox", () => {
+        expect(result.sort()).toEqual([
+          'https://container.com/foo.txt'
+        ].sort());
+      });
+    });
+  });
   describe('createInboxFor', () => {
     beforeEach(async () => {
-      fetchMock.resetMocks();
       aliceHasValidProfile();
       // First for the PUT:
       fetchMock.mockOnceIf(
@@ -97,11 +83,11 @@ describe("Inbox", () => {
       )
       fetchMock.mockIf("https://some/acl", "Created", { status: 201 });
 
-      await createInboxLogic(store).createInboxFor('https://peer.com/#me', 'Peer Person');
+      await inboxLogic.createInboxFor('https://peer.com/#me', 'Peer Person');
     });
     it("creates the inbox", () => {
       expect(fetchMock.mock.calls).toEqual([
-        [ "https://alice.example.com/profile/card.ttl", fetchMock.mock.calls[0][1] ],
+        [ "https://alice.example.com/profile/card", fetchMock.mock.calls[0][1] ],
         [ "https://alice.example.com/p2p-inboxes/Peer%20Person/", {
           body: " ",
           headers: {
@@ -116,7 +102,7 @@ describe("Inbox", () => {
           body: '@prefix acl: <http://www.w3.org/ns/auth/acl#>.\n' +
           '\n' +
           '<#alice> a acl:Authorization;\n' +
-          '  acl:agent <https://alice.example.com/profile/card.ttl#me>;\n' +
+          '  acl:agent <https://alice.example.com/profile/card#me>;\n' +
           '  acl:accessTo <https://alice.example.com/p2p-inboxes/Peer%20Person/>;\n' +
           '  acl:default <https://alice.example.com/p2p-inboxes/Peer%20Person/>;\n' +
           '  acl:mode acl:Read, acl:Write, acl:Control.\n' +
@@ -133,49 +119,6 @@ describe("Inbox", () => {
     });
 
   });
-
-  function aliceHasValidProfile() {
-    fetchMock.mockOnceIf(
-      "https://alice.example.com/profile/card.ttl",
-      `
-            <https://alice.example.com/profile/card.ttl#me>
-              <http://www.w3.org/ns/pim/space#storage> <https://alice.example.com/> ;
-              <http://www.w3.org/ns/solid/terms#privateTypeIndex> <https://alice.example.com/settings/privateTypeIndex.ttl> ;
-            .`,
-      {
-        headers: {
-          "Content-Type": "text/turtle",
-        },
-      }
-    );
-  }
-  //describe("getNewMessages", () => {
-      describe("When inbox is empty", () => {
-        let result;
-        beforeEach(async () => {
-          bobHasAnInbox();
-          inboxIsEmpty();
-          result = await createInboxLogic(store).getNewMessages(bob);
-        });
-        it("Resolves to an empty array", () => {
-          expect(result).toEqual([]);
-        });
-      });
-      describe("When container has some containment triples", () => {
-        let result;
-        beforeEach(async () => {
-          bobHasAnInbox();
-          inboxHasSomeContainmentTriples();
-          result = await createInboxLogic(store).getNewMessages(bob);
-        });
-        it("Resolves to an array with URLs of non-container resources in inbox", () => {
-          expect(result.sort()).toEqual([
-            'https://container.com/foo.txt'
-          ].sort());
-        });
-      });
- // });
-
   describe('markAsRead', () => {
     beforeEach(async () => {
       fetchMock.mockOnceIf(
@@ -193,7 +136,7 @@ describe("Inbox", () => {
           headers: { "Content-Type": "text/turtle" },
         }
       );
-      await createInboxLogic(store).markAsRead("https://container.com/item.ttl", new Date('31 March 2111 UTC'));
+      await inboxLogic.markAsRead("https://container.com/item.ttl", new Date('31 March 2111 UTC'));
     });
     it('moves the item to archive', async () => {
       expect(fetchMock.mock.calls).toEqual([
@@ -216,10 +159,26 @@ describe("Inbox", () => {
     });
   });
 
+  function aliceHasValidProfile() {
+    fetchMock.mockOnceIf(
+      "https://alice.example.com/profile/card",
+      `
+            <https://alice.example.com/profile/card#me>
+              <http://www.w3.org/ns/pim/space#storage> <https://alice.example.com/> ;
+              <http://www.w3.org/ns/solid/terms#privateTypeIndex> <https://alice.example.com/settings/privateTypeIndex.ttl> ;
+            .`,
+      {
+        headers: {
+          "Content-Type": "text/turtle",
+        },
+      }
+    );
+  }
+
   function bobHasAnInbox() {
     fetchMock.mockOnceIf(
-      "https://bob.example.com/profile/card.ttl",
-      "<https://bob.example.com/profile/card.ttl#me><http://www.w3.org/ns/ldp#inbox><https://container.com/>.",
+      "https://bob.example.com/profile/card",
+      "<https://bob.example.com/profile/card#me><http://www.w3.org/ns/ldp#inbox><https://container.com/>.",
       {
         headers: { "Content-Type": "text/turtle" },
       }

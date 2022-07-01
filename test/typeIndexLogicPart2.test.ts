@@ -3,9 +3,13 @@
 * 
 */
 import { Fetcher, Store, UpdateManager } from "rdflib";
+import { createAclLogic } from "../src/acl/aclLogic";
 import { uniqueNodes } from "../src/discovery/discoveryLogic";
+import { createProfileLogic } from "../src/profile/profileLogic";
 import { createTypeIndexLogic} from "../src/typeIndex/typeIndexLogic";
+import { createContainerLogic } from "../src/util/containerLogic";
 import { ns } from "../src/util/ns";
+import { createUtilityLogic } from "../src/util/utilityLogic";
 import { alice, AlicePhotoFolder, AlicePhotos, AlicePreferences, AlicePreferencesFile, AlicePrivateTypeIndex, AlicePrivateTypes, AliceProfile, AlicePublicTypeIndex, AlicePublicTypes, bob, BobProfile, club, ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes } from "./helpers/dataSetup";
 
 const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
@@ -31,8 +35,8 @@ web[ClubPreferencesFile.uri] = ClubPreferences
 web[ClubPrivateTypeIndex.uri] = ClubPrivateTypes
 web[ClubPublicTypeIndex.uri] = ClubPublicTypes
 let requests = []
-let statustoBeReturned  = 200
-fetchMock.resetMocks();
+let statustoBeReturned = 200
+let typeIndexLogic
 
 describe("TypeIndex logic NEW", () => {
     let store;
@@ -44,6 +48,7 @@ describe("TypeIndex logic NEW", () => {
     };
     
     beforeEach(() => {
+        fetchMock.resetMocks();
         requests = []
         statustoBeReturned = 200
         const init = { headers: { "Content-Type": "text/turtle" } } // Fetch options tend to be called this
@@ -77,16 +82,16 @@ describe("TypeIndex logic NEW", () => {
         }
         })
         
-        options = { fetch: fetch };
         store = new Store()
-        store.fetcher = new Fetcher(store, options);
+        store.fetcher = new Fetcher(store, { fetch: fetch });
         store.updater = new UpdateManager(store);
-        //solidLogicSingleton.store = store
-        createTypeIndexLogic(store, authn)
+        const util = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
+        typeIndexLogic = createTypeIndexLogic(store, authn, createProfileLogic(store, authn, util), util)
     });
+
     describe('loadAllTypeIndexes', () => {
         it('exists', () => {
-        expect(createTypeIndexLogic(store, authn).loadAllTypeIndexes).toBeInstanceOf(Function)
+        expect(typeIndexLogic.loadAllTypeIndexes).toBeInstanceOf(Function)
         })
     })
 
@@ -120,13 +125,13 @@ describe("TypeIndex logic NEW", () => {
 
     describe('loadTypeIndexesFor', () => {
         it('exists', () => {
-        expect(createTypeIndexLogic(store, authn).loadTypeIndexesFor).toBeInstanceOf(Function)
+            expect(typeIndexLogic.loadTypeIndexesFor).toBeInstanceOf(Function)
         })
         it('loads data', async () => {
-        const result = await createTypeIndexLogic(store, authn).loadTypeIndexesFor(alice)
-        expect(result).toEqual(AliceScopes)
-        expect(store.statementsMatching(null, null, null, AlicePrivateTypeIndex).length).toEqual(8)
-        expect(store.statementsMatching(null, null, null, AlicePublicTypeIndex).length).toEqual(8)
+            const result = await typeIndexLogic.loadTypeIndexesFor(alice)
+            expect(result).toEqual(AliceScopes)
+            expect(store.statementsMatching(null, null, null, AlicePrivateTypeIndex).length).toEqual(8)
+            expect(store.statementsMatching(null, null, null, AlicePublicTypeIndex).length).toEqual(8)
         })
     })
 
@@ -161,10 +166,10 @@ describe("TypeIndex logic NEW", () => {
         ]
     describe('loadCommunityTypeIndexes', () => {
         it('exists', () => {
-        expect(createTypeIndexLogic(store, authn).loadCommunityTypeIndexes).toBeInstanceOf(Function)
+        expect(typeIndexLogic.loadCommunityTypeIndexes).toBeInstanceOf(Function)
         })
         it('loads data', async () => {
-        const result = await createTypeIndexLogic(store, authn).loadCommunityTypeIndexes(alice)
+        const result = await typeIndexLogic.loadCommunityTypeIndexes(alice)
         expect(result).toEqual(ClubScopes)
         })
     })
@@ -186,7 +191,7 @@ describe("TypeIndex logic NEW", () => {
         "index":  {
             "classOrder": 5,
             "termType": "NamedNode",
-            "value": "https://alice.example.com/profle/public-type-index.ttl",
+            "value": "https://alice.example.com/profile/public-type-index.ttl",
         },
         "label": "public",
         },
@@ -206,7 +211,7 @@ describe("TypeIndex logic NEW", () => {
         "index": {
             "classOrder": 5,
             "termType": "NamedNode",
-            "value": "https://alice.example.com/profle/public-type-index.ttl",
+            "value": "https://alice.example.com/profile/public-type-index.ttl",
         },
         "label": "public",
         },
@@ -286,7 +291,7 @@ describe("TypeIndex logic NEW", () => {
         "index":  {
             "classOrder": 5,
             "termType": "NamedNode",
-            "value": "https://club.example.com/profle/public-type-index.ttl",
+            "value": "https://club.example.com/profile/public-type-index.ttl",
         },
         "label": "public",
         },
@@ -306,7 +311,7 @@ describe("TypeIndex logic NEW", () => {
         "index":  {
             "classOrder": 5,
             "termType": "NamedNode",
-            "value": "https://club.example.com/profle/public-type-index.ttl",
+            "value": "https://club.example.com/profile/public-type-index.ttl",
         },
         "label": "public",
         },
@@ -375,14 +380,14 @@ describe("TypeIndex logic NEW", () => {
 
     describe('getScopedAppInstances', () => {
         it('exists', () => {
-        expect(createTypeIndexLogic(store, authn).getScopedAppInstances).toBeInstanceOf(Function)
+        expect(typeIndexLogic.getScopedAppInstances).toBeInstanceOf(Function)
         })
         it('pulls in users scopes and also community ones', async () => {
-        const result = await createTypeIndexLogic(store, authn).getScopedAppInstances(Tracker, alice)
+        const result = await typeIndexLogic.getScopedAppInstances(Tracker, alice)
         expect(result).toEqual(AliceAndClubScopes)
         })
         it('creates new preferenceFile and typeIndex files where they dont exist', async () => {
-        const result = await createTypeIndexLogic(store, authn).getScopedAppInstances(Tracker, bob)
+        const result = await typeIndexLogic.getScopedAppInstances(Tracker, bob)
 
         expect(requests[0].method).toEqual('PATCH') // Add preferrencesFile link to profile
         expect(requests[0].url).toEqual('https://bob.example.com/profile/card.ttl')
@@ -463,15 +468,15 @@ describe("TypeIndex logic NEW", () => {
 
     describe('getAppInstances', () => {
         it('exists', () => {
-        expect(createTypeIndexLogic(store, authn).getAppInstances).toBeInstanceOf(Function)
+        expect(typeIndexLogic.getAppInstances).toBeInstanceOf(Function)
         })
         it('finds trackers', async () => {
-        const result = await createTypeIndexLogic(store, authn).getAppInstances(Tracker)
+        const result = await typeIndexLogic.getAppInstances(Tracker)
         expect(result).toEqual(TRACKERS)
         expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
         })
         it('finds images in containers', async () => {
-        const result = await createTypeIndexLogic(store, authn).getAppInstances(Image)
+        const result = await typeIndexLogic.getAppInstances(Image)
         expect(result.length).toEqual(3)
         expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
         expect(result.map(x => x.uri).join()).toEqual("https://alice.example.com/profile/Photos/photo1.png,https://alice.example.com/profile/Photos/photo2.png,https://alice.example.com/profile/Photos/photo3.png")

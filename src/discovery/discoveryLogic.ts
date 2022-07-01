@@ -1,11 +1,9 @@
 import { NamedNode, LiveStore, sym, st } from 'rdflib'
 import * as $rdf from 'rdflib'
-import { solidLogicSingleton } from "../logic/solidLogicSingleton"
 import { newThing } from "../util/utils"
 import solidNamespace from 'solid-namespace'
+import { authn } from '../logic/solidLogicSingleton'
 
-const { authn } = solidLogicSingleton
-const { currentUser } = authn
 const ns = solidNamespace($rdf)
 
 type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode }
@@ -225,7 +223,7 @@ export async function getScopedAppInstances (store:LiveStore, klass: NamedNode, 
 // Recommended to use getScopedAppInstances instead as it provides more information.
 //
 export async function getAppInstances (store:LiveStore, klass: NamedNode): Promise<NamedNode[]> {
-  const user = currentUser()
+  const user = authn.currentUser()
   if (!user) throw new Error('getAppInstances: Must be logged in to find apps.')
   const scopedAppInstances = await getScopedAppInstances(store, klass, user)
   return scopedAppInstances.map(scoped => scoped.instance)

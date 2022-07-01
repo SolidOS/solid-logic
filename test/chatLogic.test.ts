@@ -2,34 +2,43 @@
 * @jest-environment jsdom
 *
 */
-import fetchMock from "jest-fetch-mock";
-import * as rdf from "rdflib";
-import { UpdateManager } from "rdflib";
+import { UpdateManager, Store, Fetcher } from "rdflib";
+import { createAclLogic } from "../src/acl/aclLogic";
 import { createChatLogic } from '../src/chat/chatLogic';
-import { ns } from "../src/util/ns";
+import { createProfileLogic } from "../src/profile/profileLogic";
+import { createContainerLogic } from "../src/util/containerLogic";
+import { createUtilityLogic } from "../src/util/utilityLogic";
 import { alice, bob } from "./helpers/dataSetup";
 
 window.$SolidTestEnvironment = { username: alice.uri }
-let store;
-describe("Chat logic", () => {
-  beforeEach(() => {
-      fetchMock.mockResponse("Not Found", {
-        status: 404,
-      });
-      
-      store = rdf.graph();
-      store.fetcher = rdf.fetcher(store, { fetch: fetch, timeout: 5 });
-      store.updater = new UpdateManager(store);
 
-      createChatLogic(store, ns)
+describe("Chat logic", () => {
+  let chatLogic;
+  let store;
+  beforeEach(() => {
+    fetchMock.resetMocks();
+    fetchMock.mockResponse("Not Found", {
+      status: 404,
     });
+    store = new Store()
+    store.fetcher = new Fetcher(store, { fetch: fetch });
+    store.updater = new UpdateManager(store);
+    const authn = {
+      currentUser: () => {
+        return alice;
+      },
+    };
+    const util = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
+    chatLogic = createChatLogic(store, createProfileLogic(store, authn, util))
+  });
+
   describe("get chat, without creating", () => {
     describe("when no chat exists yet", () => {
       let result;
       beforeEach(async () => {
         aliceHasValidProfile();
         noChatWithBobExists();
-        result = await createChatLogic(store, ns).getChat(bob, false);
+        result = await chatLogic.getChat(bob, false);
       });
       it("does not return a chat", async () => {
         expect(result).toBeNull();
@@ -66,8 +75,9 @@ describe("Chat logic", () => {
         chatContainerAclCanBeSet();
         editablePrivateTypeIndexIsFound();
         privateTypeIndexIsUpdated();
+        result = await chatLogic.getChat(bob, true);
       });
-      it("returns the chat URI based on the invitee's WebID", async () => {
+      it("returns the chat URI based on the invitee's WebID", () => {
         expect(result.uri).toBe(
           "https://alice.example.com/IndividualChats/bob.example.com/index.ttl#this"
         );
@@ -96,29 +106,29 @@ describe("Chat logic", () => {
           "https://alice.example.com/IndividualChats/bob.example.com/.acl"
         );
         expect(request.body).toBe(`
-    @prefix acl: <http://www.w3.org/ns/auth/acl#>.
-    <#owner>
-    a acl:Authorization;
-    acl:agent <https://alice.example.com/profile/card.ttl#me>;
-    acl:accessTo <.>;
-    acl:default <.>;
-    acl:mode
-        acl:Read, acl:Write, acl:Control.
-    <#invitee>
-    a acl:Authorization;
-    acl:agent <https://bob.example.com/profile/card.ttl#me>;
-    acl:accessTo <.>;
-    acl:default <.>;
-    acl:mode
-        acl:Read, acl:Append.
-    `);
+            @prefix acl: <http://www.w3.org/ns/auth/acl#>.
+            <#owner>
+            a acl:Authorization;
+            acl:agent <https://alice.example.com/profile/card.ttl#me>;
+            acl:accessTo <.>;
+            acl:default <.>;
+            acl:mode
+                acl:Read, acl:Write, acl:Control.
+            <#invitee>
+            a acl:Authorization;
+            acl:agent <https://bob.example.com/profile/card.ttl#me>;
+            acl:accessTo <.>;
+            acl:default <.>;
+            acl:mode
+                acl:Read, acl:Append.
+            `);
       });
       it("sent an invitation to invitee inbox", () => {
         const request = getRequestTo("POST", "https://bob.example.com/inbox");
         expect(request.body).toContain(`
-    <> a <http://www.w3.org/ns/pim/meeting#LongChatInvite> ;
-    <http://www.w3.org/1999/02/22-rdf-syntax-ns#seeAlso> <https://alice.example.com/IndividualChats/bob.example.com/index.ttl#this> .
-    `);
+        <> a <http://www.w3.org/ns/pim/meeting#LongChatInvite> ;
+        <http://www.w3.org/1999/02/22-rdf-syntax-ns#seeAlso> <https://alice.example.com/IndividualChats/bob.example.com/index.ttl#this> .
+        `);
       });
       it("added the new chat to private type index", () => {
         const request = getRequestTo(
@@ -146,7 +156,7 @@ describe("Chat logic", () => {
         },
       });
       const expectedError = new Error("User pod root not found!");
-      await expect(createChatLogic(store, ns).getChat(bob, false)).rejects.toEqual(expectedError);
+      await expect(chatLogic.getChat(bob, false)).rejects.toEqual(expectedError);
     });
 
     it("invitee inbox not found", async () => {
@@ -157,7 +167,7 @@ describe("Chat logic", () => {
       const expectedError = new Error(
         "Invitee inbox not found! https://bob.example.com/profile/card.ttl#me"
       );
-      await expect(createChatLogic(store, ns).getChat(bob, true)).rejects.toEqual(expectedError);
+      await expect(chatLogic.getChat(bob, true)).rejects.toEqual(expectedError);
     });
   });
 

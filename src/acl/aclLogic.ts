@@ -7,6 +7,7 @@ export const ACL_LINK = sym(
 );
 
 export function createAclLogic(store) {
+    
     async function findAclDocUrl(url: string) {
         const doc = store.sym(url);
         await store.fetcher.load(doc);

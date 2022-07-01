@@ -1,29 +1,30 @@
-import { solidLogicSingleton } from "../src/index"
+import { authn, store } from "../src/logic/solidLogicSingleton"
 import { silenceDebugMessages } from "./helpers/setup"
 
 silenceDebugMessages()
 
-describe('solidLogicSingleton (main global SolidLogic instance)', () => {
+describe('store', () => {
   it('exists', () => {
-    expect(solidLogicSingleton).toBeInstanceOf(Object)
+    expect(store).toBeInstanceOf(Object)
   })
 })
 
-describe('solidLogicSingleton.store', () => {
+describe('store.fetcher', () => {
   it('exists', () => {
-    expect(solidLogicSingleton.store).toBeInstanceOf(Object)
+    expect(store.fetcher).toBeInstanceOf(Object)
   })
 })
 
-describe('solidLogicSingleton.store.fetcher', () => {
+describe('store.updater', () => {
   it('exists', () => {
-    expect(solidLogicSingleton.store.fetcher).toBeInstanceOf(Object)
+    expect(store.updater).toBeInstanceOf(Object)
   })
 })
 
-describe('solidLogicSingleton.store.updater', () => {
+describe('authn', () => {
   it('exists', () => {
-    expect(solidLogicSingleton.store.updater).toBeInstanceOf(Object)
+    expect(authn).toBeInstanceOf(Object)
   })
 })
+
 

@@ -1,11 +1,12 @@
 import { NamedNode } from "rdflib";
-import { CrossOriginForbiddenError, FetchError, NotEditableError, NotFoundError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from "../logic/CustomError";
-import { followOrCreateLink } from "../logic/solidLogicSingletonNew";
+import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from "../logic/CustomError";
 import { AuthenticationContext } from "../types";
 import * as debug from "../util/debug";
 import { differentOrigin, suggestPreferencesFile } from "../util/utils";
+import { ns as namespace } from '../util/ns'
 
-export function createProfileLogic(store, authn, ns) {
+export function createProfileLogic(store, authn, utilityLogic) {
+    const ns = namespace
 
     async function ensureLoadedPreferences (context: AuthenticationContext) {
         if (!context.me) throw new Error('@@ ensureLoadedPreferences: no user specified')
@@ -40,7 +41,7 @@ export function createProfileLogic(store, authn, ns) {
         const possiblePreferencesFile = suggestPreferencesFile(user)
         let preferencesFile
         try {
-            preferencesFile = await followOrCreateLink(user, ns.space('preferencesFile') as NamedNode, possiblePreferencesFile, user.doc())
+            preferencesFile = await utilityLogic.followOrCreateLink(user, ns.space('preferencesFile') as NamedNode, possiblePreferencesFile, user.doc())
         } catch (err) {
             const message = `User ${user} has no pointer in profile to preferences file.`
             debug.warn(message)

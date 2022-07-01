@@ -19,10 +19,8 @@ export function createContainerLogic(store) {
     function isContainer(url: string) {
             return url.charAt(url.length - 1) === "/";
     }
-    return {
-        isContainer,
 
-        async createContainer(url: string) {
+    async function createContainer(url: string) {
             if (!isContainer(url)) {
                 throw new Error(`Not a container URL ${url}`);
             }
@@ -39,15 +37,18 @@ export function createContainerLogic(store) {
             if (result.status.toString()[0] !== '2') {
                 throw new Error(`Not OK: got ${result.status} response while creating container at ${url}`);
             }
-        },
+    }
 
-        getContainerElements,
-        
-        async getContainerMembers(containerUrl: string): Promise<string[]> {
+    async function getContainerMembers(containerUrl: string): Promise<string[]> {
             const containerNode = store.sym(containerUrl);
             await store.fetcher.load(containerNode);
             const nodes = getContainerElements(containerNode);
             return nodes.map(node => node.value);
-        }
+    }
+    return {
+        isContainer,
+        createContainer,
+        getContainerElements,
+        getContainerMembers
     }
 }

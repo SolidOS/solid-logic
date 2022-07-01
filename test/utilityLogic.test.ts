@@ -4,7 +4,9 @@
 */
 import fetchMock from "jest-fetch-mock";
 import { UpdateManager, sym, Fetcher, Store } from "rdflib";
+import { createAclLogic } from "../src/acl/aclLogic";
 import { WebOperationError } from "../src/logic/CustomError";
+import { createContainerLogic } from "../src/util/containerLogic";
 import { ns } from "../src/util/ns";
 import { createUtilityLogic } from "../src/util/utilityLogic";
 import { alice, AlicePhotoFolder, AlicePhotos, AlicePreferences, AlicePreferencesFile, AlicePrivateTypeIndex, AlicePrivateTypes, AliceProfile, AlicePublicTypeIndex, AlicePublicTypes, bob, BobProfile, club, ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes } from "./helpers/dataSetup";
@@ -18,6 +20,7 @@ describe("utilityLogic", () => {
     let web = {}
     let requests = []
     let statustoBeReturned = 200
+    let utilityLogic
     beforeEach(() => {
         fetchMock.resetMocks();
         fetchMock.mockResponse("Not Found", {
@@ -73,21 +76,21 @@ describe("utilityLogic", () => {
         store.fetcher = new Fetcher(store, options);
         store.updater = new UpdateManager(store);
         requests = []
-		createUtilityLogic(store)
+		utilityLogic = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
     });
 
     describe('loadOrCreateIfNotExists', () => {
         it('exists', () => {
-            expect(createUtilityLogic(store).loadOrCreateIfNotExists).toBeInstanceOf(Function)
+            expect(utilityLogic.loadOrCreateIfNotExists).toBeInstanceOf(Function)
         })
         it('does nothing if existing file', async () => {
-            const result = await createUtilityLogic(store).loadOrCreateIfNotExists(alice.doc())
+            const result = await utilityLogic.loadOrCreateIfNotExists(alice.doc())
             expect(requests).toEqual([])
 
         })
         it('creates empty file if did not exist', async () => {
             const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
-            const result = await createUtilityLogic(store).loadOrCreateIfNotExists(sym(suggestion))
+            const result = await utilityLogic.loadOrCreateIfNotExists(sym(suggestion))
             expect(requests[0].method).toEqual('PUT')
             expect(requests[0].url).toEqual(suggestion)
         })
@@ -95,17 +98,17 @@ describe("utilityLogic", () => {
 
     describe('followOrCreateLink', () => {
         it('exists', () => {
-            expect(createUtilityLogic(store).followOrCreateLink).toBeInstanceOf(Function)
+            expect(utilityLogic.followOrCreateLink).toBeInstanceOf(Function)
         })
         it('follows existing link', async () => {
             const suggestion = 'https://alice.example.com/settings/prefsSuggestion.ttl'
-            const result = await createUtilityLogic(store).followOrCreateLink(alice, ns.space('preferencesFile'), sym(suggestion), alice.doc())
+            const result = await utilityLogic.followOrCreateLink(alice, ns.space('preferencesFile'), sym(suggestion), alice.doc())
             expect(result).toEqual(AlicePreferencesFile)
 
         })
         it('creates empty file if did not exist and new link', async () => {
             const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
-            const result = await createUtilityLogic(store).followOrCreateLink(bob, ns.space('preferencesFile'), sym(suggestion), bob.doc())
+            const result = await utilityLogic.followOrCreateLink(bob, ns.space('preferencesFile'), sym(suggestion), bob.doc())
             expect(result).toEqual(sym(suggestion))
             expect(requests[0].method).toEqual('PATCH')
             expect(requests[0].url).toEqual(bob.doc().uri)
@@ -118,7 +121,7 @@ describe("utilityLogic", () => {
             const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
             statustoBeReturned = 403 // Unauthorized
             expect(async () => {
-				await createUtilityLogic(store).followOrCreateLink(bob, ns.space('preferencesFile'), sym(suggestion), bob.doc())
+				await utilityLogic.followOrCreateLink(bob, ns.space('preferencesFile'), sym(suggestion), bob.doc())
 			}).rejects.toThrow(WebOperationError)
         })
 
@@ -139,7 +142,7 @@ describe("setSinglePeerAccess", () => {
 		});
 	});
 	it("Creates the right ACL doc", async () => {
-		await createUtilityLogic(store).setSinglePeerAccess({
+		await utilityLogic.setSinglePeerAccess({
 		ownerWebId: "https://owner.com/#me",
 		peerWebId: "https://peer.com/#me",
 		accessToModes: "acl:Read, acl:Control",
