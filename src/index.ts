@@ -1,21 +1,26 @@
 // Make these variables directly accessible as it is what you need most of the time
 // This also makes these variable globaly accesible in mashlib
-//import { solidLogicSingleton } from './logic/solidLogicSingleton'
-//const authn = solidLogicSingleton.authn
-//const authSession = solidLogicSingleton.authn.authSession
-//const store = solidLogicSingleton.store
+import { solidLogicSingleton } from './logic/solidLogicSingleton'
 
-export {
-  ACL_LINK
-} from './acl/aclLogic'
+const authn = solidLogicSingleton.authn
+const authSession = solidLogicSingleton.authn.authSession
+const store = solidLogicSingleton.store
 
-export {
+const aclLogic = solidLogicSingleton.aclLogic
+const utilityLogic = solidLogicSingleton.utilityLogic
+const containerLogic = solidLogicSingleton.containerLogic
+const profileLogic = solidLogicSingleton.profileLogic
+const inboxLogic = solidLogicSingleton.inboxLogic
+const typeIndexLogic = solidLogicSingleton.typeIndexLogic
+const chatLogic = solidLogicSingleton.chatLogic
+
+const {
   findAclDocUrl,
   setACLUserPublic,
   genACLText,
-} from './logic/solidLogicSingleton'
+} = aclLogic
 
-export {
+const {
   ensureTypeIndexes,
   loadTypeIndexes,
   registerInTypeIndex,
@@ -37,9 +42,9 @@ export {
   registerInstanceInTypeIndex,
   deleteTypeIndexRegistration,
   getScopedAppsFromIndex
-} from './logic/solidLogicSingleton'
+} = typeIndexLogic
 
-export {
+const {
   setAcl,
   addToPrivateTypeIndex,
   findChat,
@@ -47,20 +52,19 @@ export {
   getChat,
   sendInvite,
   mintNew
-} from './logic/solidLogicSingleton'
+} = chatLogic
 
-export { offlineTestID, appContext } from './authn/authUtil'
-export { createInboxFor, getNewMessages, markAsRead } from './logic/solidLogicSingleton'
-export {
+const  { createInboxFor, getNewMessages, markAsRead } = inboxLogic
+const {
   recursiveDelete,
   setSinglePeerAccess,
   createEmptyRdfDoc,
   //NEW function for discovery
   followOrCreateLink,
   loadOrCreateIfNotExists,
-} from './logic/solidLogicSingleton'
+} = utilityLogic
 
-export {
+const  {
   ensureLoadedPreferences,
   loadMe,
   getPodRoot,
@@ -71,22 +75,89 @@ export {
   loadProfile,
   //NEW function for discovery
   silencedLoadPreferences
-} from './logic/solidLogicSingleton'
+} = profileLogic
 
+const {
+  isContainer,
+  createContainer,
+  getContainerElements,
+  getContainerMembers
+} = containerLogic
+
+export { ACL_LINK } from './acl/aclLogic'
+export { offlineTestID, appContext } from './authn/authUtil'
 export { getSuggestedIssuers } from './issuer/issuerLogic'
-
-export {
-    isContainer,
-    createContainer,
-    getContainerElements,
-    getContainerMembers
-} from './logic/solidLogicSingleton'
-
-export { authn, authSession, store } from './logic/solidLogicSingleton'
-
-//export { SolidLogic } from './logic/SolidLogic'
+export { SolidLogic } from './logic/SolidLogic'
 export { AppDetails, SolidNamespace, AuthenticationContext } from './types'
 // solidLogicSingleton is exported entirely because it is used in solid-panes
-//export { solidLogicSingleton } from './logic/solidLogicSingleton'
+export { solidLogicSingleton } from './logic/solidLogicSingleton'
 export { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError, NotEditableError, WebOperationError } from './logic/CustomError'
 
+export {
+  store,
+  authn,
+  authSession,
+  aclLogic,
+  utilityLogic,
+  containerLogic,
+  profileLogic,
+  inboxLogic,
+  typeIndexLogic,
+  chatLogic,
+  //aclLogic
+  findAclDocUrl,
+  setACLUserPublic,
+  genACLText,
+  //typeIndexLogic
+  ensureTypeIndexes,
+  loadTypeIndexes,
+  registerInTypeIndex,
+  loadIndex,
+  ensureOneTypeIndex,
+  putIndex,
+  makeIndexIfNecessary,
+  loadIndexes,
+  getTypeIndex,
+  getRegistrations,
+  loadTypeIndexesFor,
+  loadCommunityTypeIndexes,
+  loadAllTypeIndexes,
+  getScopedAppInstances,
+  getAppInstances,
+  suggestPublicTypeIndex,
+  suggestPrivateTypeIndex,
+  registerInstanceInTypeIndex,
+  deleteTypeIndexRegistration,
+  getScopedAppsFromIndex,
+  setAcl,
+  addToPrivateTypeIndex,
+  findChat,
+  createChatThing,
+  getChat,
+  sendInvite,
+  //inboxLogic
+  mintNew,
+  createInboxFor,
+  getNewMessages,
+  markAsRead,
+  //utilityLogic
+  recursiveDelete,
+  setSinglePeerAccess,
+  createEmptyRdfDoc,
+  followOrCreateLink,
+  loadOrCreateIfNotExists,
+  //profileLogic
+  ensureLoadedPreferences,
+  loadMe,
+  getPodRoot,
+  getMainInbox,
+  findStorage,
+  loadPreferences,
+  loadProfile,
+  silencedLoadPreferences,
+  //containerLogic
+  isContainer,
+  createContainer,
+  getContainerElements,
+  getContainerMembers
+}

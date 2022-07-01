@@ -4,12 +4,12 @@
 */
 import { Fetcher, Store, UpdateManager } from "rdflib";
 import { createAclLogic } from "../src/acl/aclLogic";
-import { uniqueNodes } from "../src/discovery/discoveryLogic";
 import { createProfileLogic } from "../src/profile/profileLogic";
 import { createTypeIndexLogic} from "../src/typeIndex/typeIndexLogic";
 import { createContainerLogic } from "../src/util/containerLogic";
 import { ns } from "../src/util/ns";
 import { createUtilityLogic } from "../src/util/utilityLogic";
+import { uniqueNodes } from "../src/util/utils";
 import { alice, AlicePhotoFolder, AlicePhotos, AlicePreferences, AlicePreferencesFile, AlicePrivateTypeIndex, AlicePrivateTypes, AliceProfile, AlicePublicTypeIndex, AlicePublicTypes, bob, BobProfile, club, ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes } from "./helpers/dataSetup";
 
 const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
