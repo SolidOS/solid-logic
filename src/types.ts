@@ -94,7 +94,7 @@ export interface InboxLogic {
 }
 
 export interface TypeIndexLogic {
-    getRegistrations: (instance, theClass) => Promise<NamedNode>,
+    getRegistrations: (instance, theClass) => Node[],
     loadTypeIndexesFor: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
     loadCommunityTypeIndexes: (user: NamedNode) => Promise<TypeIndexScope[][]>,
     loadAllTypeIndexes: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
