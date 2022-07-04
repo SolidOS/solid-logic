@@ -1,6 +1,6 @@
 import * as debug from "../util/debug"
 import { authSession } from "../authSession/authSession"
-import { createSolidLogic } from "./SolidLogic"
+import { createSolidLogic } from "./solidLogic"
 
 const _fetch = async (url, requestInit) => {
     const omitCreds = requestInit && requestInit.credentials && requestInit.credentials == 'omit'
