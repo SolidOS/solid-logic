@@ -1,19 +1,11 @@
 import { NamedNode } from "rdflib";
 import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from "../logic/CustomError";
-import { AuthenticationContext } from "../types";
 import * as debug from "../util/debug";
+import { ns as namespace } from '../util/ns';
 import { differentOrigin, suggestPreferencesFile } from "../util/utils";
-import { ns as namespace } from '../util/ns'
 
 export function createProfileLogic(store, authn, utilityLogic) {
     const ns = namespace
-
-    async function ensureLoadedPreferences (context: AuthenticationContext) {
-        if (!context.me) throw new Error('@@ ensureLoadedPreferences: no user specified')
-        context.publicProfile = await loadProfile(context.me)
-        context.preferencesFile = await silencedLoadPreferences(context.me)
-        return context
-    }
 
     /**
      * loads the preference without throwing errors - if it can create it it does so.
@@ -121,7 +113,6 @@ export function createProfileLogic(store, authn, utilityLogic) {
     }
 
     return {
-        ensureLoadedPreferences,
         loadMe,
         getPodRoot,
         getMainInbox,

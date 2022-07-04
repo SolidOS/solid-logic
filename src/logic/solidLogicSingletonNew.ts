@@ -58,7 +58,6 @@ export function solidLogicSingleton() {
 
     const profileLogic = createProfileLogic(store, authn, utilityLogic)
     const {
-        ensureLoadedPreferences,
         loadMe,
         getPodRoot,
         getMainInbox,
@@ -129,7 +128,6 @@ export function solidLogicSingleton() {
         deleteTypeIndexRegistration,
         getScopedAppsFromIndex,
         //profileLogic
-        ensureLoadedPreferences,
         loadMe,
         getPodRoot,
         getMainInbox,
@@ -185,7 +183,6 @@ export function solidLogicSingleton() {
     deleteTypeIndexRegistration,
     getScopedAppsFromIndex,
     //profileLogic
-    ensureLoadedPreferences,
     loadMe,
     getPodRoot,
     getMainInbox,

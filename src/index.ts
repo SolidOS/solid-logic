@@ -56,7 +56,6 @@ const {
 } = utilityLogic
 
 const  {
-  ensureLoadedPreferences,
   loadMe,
   getPodRoot,
   getMainInbox,
@@ -129,7 +128,6 @@ export {
   followOrCreateLink,
   loadOrCreateIfNotExists,
   //profileLogic
-  ensureLoadedPreferences,
   loadMe,
   getPodRoot,
   getMainInbox,
