@@ -1,6 +1,6 @@
 import * as debug from "../util/debug"
 import { authSession } from "../authSession/authSession"
-import { SolidLogic } from "./SolidLogic"
+import { createSolidLogic } from "./SolidLogic"
 
 const _fetch = async (url, requestInit) => {
     const omitCreds = requestInit && requestInit.credentials && requestInit.credentials == 'omit'
@@ -13,7 +13,7 @@ const _fetch = async (url, requestInit) => {
 }
 
 //this const makes solidLogicSingleton global accessible in mashlib
-const solidLogicSingleton = new SolidLogic({ fetch: _fetch }, authSession)
+const solidLogicSingleton = createSolidLogic({ fetch: _fetch }, authSession)
 
 debug.log('Unique quadstore initialized.')
 

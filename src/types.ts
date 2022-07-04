@@ -1,5 +1,5 @@
 import { Session } from "@inrupt/solid-client-authn-browser"
-import { NamedNode } from "rdflib"
+import { LiveStore, NamedNode, Statement } from "rdflib"
 
 export type AppDetails = {
     noun: string
@@ -105,6 +105,18 @@ export interface TypeIndexLogic {
     registerInTypeIndex: (instance: NamedNode, index: NamedNode, theClass: NamedNode) => Promise<NamedNode | null>,
     deleteTypeIndexRegistration: (item: any) => Promise<void>
     getScopedAppsFromIndex: (scope: TypeIndexScope, theClass: NamedNode | null) => Promise<ScopedApp[]>
+}
 
+export interface SolidLogic {
+    store: LiveStore,
+    authn: AuthnLogic,
+    acl: AclLogic,
+    profile: ProfileLogic,
+    inbox: InboxLogic,
+    typeIndex: TypeIndexLogic,
+    chat: ChatLogic,
+    load: (doc: NamedNode | NamedNode[] | string) => void,
+    updatePromise: (del: Array<Statement>, ins: Array<Statement>) => Promise<void>,
+    clearStore: () => void
 }
 

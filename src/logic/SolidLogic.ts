@@ -9,7 +9,7 @@ import { createProfileLogic } from "../profile/profileLogic";
 import { createTypeIndexLogic } from "../typeIndex/typeIndexLogic";
 import { createContainerLogic } from "../util/containerLogic";
 import { createUtilityLogic } from "../util/utilityLogic";
-import { AuthnLogic } from "../types";
+import { AuthnLogic, SolidLogic } from "../types";
 import * as debug from "../util/debug";
 /*
 ** It is important to distinquish `fetch`, a function provided by the browser
@@ -17,55 +17,36 @@ import * as debug from "../util/debug";
 ** into a `ConnectedStore` or a `LiveStore`.  A Fetcher object is
 ** available at store.fetcher, and `fetch` function at `store.fetcher._fetch`,
 */
-export class SolidLogic {
+export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: any) => any }, session: Session): SolidLogic {
 
-    store: LiveStore;
-    me: string | undefined;
-    authn: AuthnLogic;
+    debug.log("SolidLogic: Unique instance created.  There should only be one of these.")
+    const store: LiveStore = rdf.graph() as LiveStore
+    rdf.fetcher(store, {fetch: specialFetch.fetch}); // Attach a web I/O module, store.fetcher
+    store.updater = new rdf.UpdateManager(store); // Add real-time live updates store.updater
+    store.features = [] // disable automatic node merging on store load
 
-    readonly acl
-    readonly profile
-    readonly inbox
-    readonly typeIndex
-    readonly chat
-    private readonly containerLogic
-    private readonly utilityLogic
+    const authn: AuthnLogic = new SolidAuthnLogic(session)
+    
+    const acl = createAclLogic(store)
+    const containerLogic = createContainerLogic(store)
+    const utilityLogic = createUtilityLogic(store, acl, containerLogic)
+    const profile = createProfileLogic(store, authn, utilityLogic)
+    const chat = createChatLogic(store, profile)
+    const inbox = createInboxLogic(store, profile, utilityLogic, containerLogic, acl)
+    const typeIndex = createTypeIndexLogic(store, authn, profile, utilityLogic)
+    debug.log('SolidAuthnLogic initialized')
 
-
-    constructor(specialFetch: { fetch: (url: any, requestInit: any) => any }, session: Session) {
-  // would xpect to be able to do it this way: but get TypeError:  Failed to execute 'fetch' on 'Window': Illegal invocation status: 999
-        // this.store = new rdf.LiveStore({})
-        // this.store.fetcher._fetch = fetch
-        debug.log("SolidLogic: Unique instance created.  There should only be one of these.")
-        this.store = rdf.graph() as LiveStore; // Make a Quad store
-        rdf.fetcher(this.store, { fetch: specialFetch.fetch}); // Attach a web I/O module, store.fetcher
-        this.store.updater = new rdf.UpdateManager(this.store); // Add real-time live updates store.updater
-        this.store.features = [] // disable automatic node merging on store load
-        
-        this.authn = new SolidAuthnLogic(session)
-
-        debug.log('SolidAuthnLogic initialized')
-
-        this.acl = createAclLogic(this.store)
-        this.containerLogic = createContainerLogic(this.store)
-        this.utilityLogic = createUtilityLogic(this.store, this.acl, this.containerLogic)
-        this.profile = createProfileLogic(this.store, this.authn, this.utilityLogic)
-        this.chat = createChatLogic(this.store, this.profile)
-        this.inbox = createInboxLogic(this.store, this.profile, this.utilityLogic, this.containerLogic, this.acl)
-        this.typeIndex = createTypeIndexLogic(this.store, this.authn, this.profile, this.utilityLogic)
-    }
-
-    load(doc: NamedNode | NamedNode[] | string) {
-        return this.store.fetcher.load(doc);
+    function load(doc: NamedNode | NamedNode[] | string) {
+        return store.fetcher.load(doc);
     }
 
     // @@@@ use the one in rdflib.js when it is available and delete this
-    updatePromise(
+    function updatePromise(
         del: Array<Statement>,
         ins: Array<Statement> = []
     ): Promise<void> {
         return new Promise((resolve, reject) => {
-        this.store.updater.update(del, ins, function (_uri, ok, errorBody) {
+        store.updater.update(del, ins, function (_uri, ok, errorBody) {
             if (!ok) {
             reject(new Error(errorBody));
             } else {
@@ -75,7 +56,20 @@ export class SolidLogic {
         }); // promise
     }
 
-    clearStore() {
-        this.store.statements.slice().forEach(this.store.remove.bind(this.store));
+    function clearStore() {
+        store.statements.slice().forEach(store.remove.bind(store));
+    }
+
+    return {
+        store,
+        authn,
+        acl,
+        inbox,
+        chat,
+        profile,
+        typeIndex,
+        load,
+        updatePromise,
+        clearStore
     }
 }

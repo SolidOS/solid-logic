@@ -9,8 +9,7 @@ const store = solidLogicSingleton.store
 export { ACL_LINK } from './acl/aclLogic'
 export { offlineTestID, appContext } from './authn/authUtil'
 export { getSuggestedIssuers } from './issuer/issuerLogic'
-export { SolidLogic } from './logic/SolidLogic'
-export { AppDetails, SolidNamespace, AuthenticationContext } from './types'
+export { AppDetails, SolidNamespace, AuthenticationContext, SolidLogic } from './types'
 export { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError, NotEditableError, WebOperationError } from './logic/CustomError'
 
 export {
