@@ -1,5 +1,5 @@
 import { graph, NamedNode, Namespace, serialize, sym } from "rdflib"
-import ns from '../util/ns'
+import { ns as namespace } from '../util/ns'
 
 
 export const ACL_LINK = sym(
@@ -7,6 +7,8 @@ export const ACL_LINK = sym(
 );
 
 export function createAclLogic(store) {
+
+    const ns = namespace
     
     async function findAclDocUrl(url: string) {
         const doc = store.sym(url);
