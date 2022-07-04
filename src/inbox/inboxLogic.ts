@@ -1,4 +1,4 @@
-import { NamedNode } from "rdflib";
+import { NamedNode, sym } from "rdflib";
 import { InboxLogic } from "../types";
 import { getArchiveUrl } from "../util/utils";
 
@@ -9,7 +9,7 @@ export function createInboxLogic(store, profileLogic, utilityLogic, containerLog
       const podRoot: NamedNode = await profileLogic.getPodRoot(myWebId);
       const ourInbox = `${podRoot.value}p2p-inboxes/${encodeURIComponent(nick)}/`;
       await containerLogic.createContainer(ourInbox);
-      const aclDocUrl = await aclLogic.findAclDocUrl(ourInbox);
+      const aclDocUrl = await aclLogic.findAclDocUrl(sym(ourInbox));
       await utilityLogic.setSinglePeerAccess({
         ownerWebId: myWebId.value,
         peerWebId,

@@ -1,4 +1,4 @@
-import { NamedNode, st } from "rdflib";
+import { NamedNode, st, sym } from "rdflib";
 import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from "../logic/CustomError";
 import * as debug from '../util/debug';
 import { differentOrigin } from "./utils";
@@ -8,7 +8,7 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
   async function recursiveDelete(url: string) {
       try {
         if (containerLogic.isContainer(url)) {
-          const aclDocUrl = await aclLogic.findAclDocUrl(url);
+          const aclDocUrl = await aclLogic.findAclDocUrl(sym(url));
           await store.fetcher._fetch(aclDocUrl, { method: "DELETE" });
           const containerMembers = await containerLogic.getContainerMembers(url);
           await Promise.all(
@@ -126,7 +126,7 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
         ''
       ].join('\n')
     }
-    const aclDocUrl = await aclLogic.findAclDocUrl(options.target);
+    const aclDocUrl = await aclLogic.findAclDocUrl(sym(options.target));
     return store.fetcher._fetch(aclDocUrl, {
       method: 'PUT',
       body: str,

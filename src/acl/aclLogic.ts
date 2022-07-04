@@ -11,10 +11,9 @@ export function createAclLogic(store): AclLogic {
 
     const ns = namespace
     
-    async function findAclDocUrl(url: string) {
-        const doc = store.sym(url);
-        await store.fetcher.load(doc);
-        const docNode = store.any(doc, ACL_LINK);
+    async function findAclDocUrl(url: NamedNode) {
+        await store.fetcher.load(url);
+        const docNode = store.any(url, ACL_LINK);
         if (!docNode) {
             throw new Error(`No ACL link discovered for ${url}`);
         }

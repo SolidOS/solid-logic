@@ -72,7 +72,7 @@ export interface ProfileLogic {
 }
 
 export interface AclLogic {
-    findAclDocUrl: (url: string) => Promise<any>,
+    findAclDocUrl: (url: NamedNode) => Promise<any>,
     setACLUserPublic: (docURI: string, me: NamedNode,
         options: {
             defaultForNew?: boolean,
