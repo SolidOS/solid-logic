@@ -18,10 +18,8 @@ export class UtilityLogic {
   }
 
   async findAclDocUrl(url: NamedNode) {
-    const nodeToStr = url.toString();
-    const doc = this.store.sym(nodeToStr);
-    await this.store.fetcher?.load(doc);
-    const docNode = this.store.any(doc, ACL_LINK);
+    await this.store.fetcher?.load(url);
+    const docNode = this.store.any(url, ACL_LINK);
     if (!docNode) {
       throw new Error(`No ACL link discovered for ${url}`);
     }

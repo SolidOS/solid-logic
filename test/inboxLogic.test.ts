@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import solidNamespace from "solid-namespace";
 import * as rdf from "rdflib";
-import { UpdateManager } from "rdflib";
+import { sym, UpdateManager } from "rdflib";
 import { ProfileLogic } from "../src/profile/ProfileLogic";
 import { UtilityLogic } from "../src/util/UtilityLogic";
 import { InboxLogic } from "../src/inbox/InboxLogic";
@@ -84,7 +84,7 @@ describe("Inbox logic", () => {
       )
       fetchMock.mockIf("https://some/acl", "Created", { status: 201 });
 
-      await inbox.createInboxFor('https://peer.com/#me', 'Peer Person');
+      await inbox.createInboxFor(sym('https://peer.com/#me'), 'Peer Person');
     });
     it("creates the inbox", () => {
       expect(fetchMock.mock.calls).toEqual([
@@ -137,7 +137,7 @@ describe("Inbox logic", () => {
           headers: { "Content-Type": "text/turtle" },
         }
       );
-      await inbox.markAsRead("https://container.com/item.ttl", new Date('31 March 2111 UTC'));
+      await inbox.markAsRead(sym("https://container.com/item.ttl"), new Date('31 March 2111 UTC'));
     });
     it('moves the item to archive', async () => {
       expect(fetchMock.mock.calls).toEqual([
