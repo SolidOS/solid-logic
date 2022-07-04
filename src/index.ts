@@ -21,15 +21,7 @@ const {
 } = aclLogic
 
 const {
-  ensureTypeIndexes,
-  loadTypeIndexes,
   registerInTypeIndex,
-  loadIndex,
-  ensureOneTypeIndex,
-  putIndex,
-  makeIndexIfNecessary,
-  loadIndexes,
-  getTypeIndex,
   getRegistrations,
   //NEW function for discovery
   loadTypeIndexesFor,
@@ -39,7 +31,6 @@ const {
   getAppInstances,
   suggestPublicTypeIndex,
   suggestPrivateTypeIndex,
-  registerInstanceInTypeIndex,
   deleteTypeIndexRegistration,
   getScopedAppsFromIndex
 } = typeIndexLogic
@@ -109,15 +100,7 @@ export {
   setACLUserPublic,
   genACLText,
   //typeIndexLogic
-  ensureTypeIndexes,
-  loadTypeIndexes,
   registerInTypeIndex,
-  loadIndex,
-  ensureOneTypeIndex,
-  putIndex,
-  makeIndexIfNecessary,
-  loadIndexes,
-  getTypeIndex,
   getRegistrations,
   loadTypeIndexesFor,
   loadCommunityTypeIndexes,
@@ -126,7 +109,6 @@ export {
   getAppInstances,
   suggestPublicTypeIndex,
   suggestPrivateTypeIndex,
-  registerInstanceInTypeIndex,
   deleteTypeIndexRegistration,
   getScopedAppsFromIndex,
   setAcl,

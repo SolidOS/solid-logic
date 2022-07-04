@@ -88,15 +88,7 @@ export function solidLogicSingleton() {
 
     const typeIndexLogic = createTypeIndexLogic(store, authn, profileLogic, utilityLogic)
     const {
-        ensureTypeIndexes,
-        loadTypeIndexes,
         registerInTypeIndex,
-        loadIndex,
-        ensureOneTypeIndex,
-        putIndex,
-        makeIndexIfNecessary,
-        loadIndexes,
-        getTypeIndex,
         getRegistrations,
         loadTypeIndexesFor,
         loadCommunityTypeIndexes,
@@ -105,7 +97,6 @@ export function solidLogicSingleton() {
         getAppInstances,
         suggestPublicTypeIndex,
         suggestPrivateTypeIndex,
-        registerInstanceInTypeIndex,
         deleteTypeIndexRegistration,
         getScopedAppsFromIndex
     } = typeIndexLogic
@@ -126,15 +117,7 @@ export function solidLogicSingleton() {
         getContainerElements,
         getContainerMembers,
         //typeIndexLogic
-        ensureTypeIndexes,
-        loadTypeIndexes,
         registerInTypeIndex,
-        loadIndex,
-        ensureOneTypeIndex,
-        putIndex,
-        makeIndexIfNecessary,
-        loadIndexes,
-        getTypeIndex,
         getRegistrations,
         loadTypeIndexesFor,
         loadCommunityTypeIndexes,
@@ -143,7 +126,6 @@ export function solidLogicSingleton() {
         getAppInstances,
         suggestPublicTypeIndex,
         suggestPrivateTypeIndex,
-        registerInstanceInTypeIndex,
         deleteTypeIndexRegistration,
         getScopedAppsFromIndex,
         //profileLogic
@@ -191,14 +173,7 @@ export function solidLogicSingleton() {
     getContainerMembers,
     //typeIndexLogic
     ensureTypeIndexes,
-    loadTypeIndexes,
     registerInTypeIndex,
-    loadIndex,
-    ensureOneTypeIndex,
-    putIndex,
-    makeIndexIfNecessary,
-    loadIndexes,
-    getTypeIndex,
     getRegistrations,
     loadTypeIndexesFor,
     loadCommunityTypeIndexes,
@@ -207,7 +182,6 @@ export function solidLogicSingleton() {
     getAppInstances,
     suggestPublicTypeIndex,
     suggestPrivateTypeIndex,
-    registerInstanceInTypeIndex,
     deleteTypeIndexRegistration,
     getScopedAppsFromIndex,
     //profileLogic

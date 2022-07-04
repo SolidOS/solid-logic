@@ -1,273 +1,11 @@
-import * as rdf from "rdflib"
-import { NamedNode, st, Statement, sym } from 'rdflib'
-import { AuthenticationContext, ScopedApp, TypeIndexScope } from '../types'
+import { NamedNode, st, sym } from 'rdflib'
+import { ScopedApp, TypeIndexScope } from '../types'
 import * as debug from "../util/debug"
-import {ns as namespace } from '../util/ns'
+import { ns as namespace } from '../util/ns'
 import { newThing, uniqueNodes } from "../util/utils"
 
 export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic) {
     const ns = namespace
-    
-    function updatePromise(
-        del: Array<Statement>,
-        ins: Array<Statement> = []
-    ): Promise<void> {
-        return new Promise((resolve, reject) => {
-        store.updater.update(del, ins, function (_uri, ok, errorBody) {
-            if (!ok) {
-            reject(new Error(errorBody));
-            } else {
-            resolve();
-            }
-        }); // callback
-        }); // promise
-    }
-    /**
-     * Resolves with the same context, outputting
-     * @see https://github.com/solidos/solid/blob/main/proposals/data-discovery.md#discoverability
-     */
-    async function ensureTypeIndexes(context: AuthenticationContext, agent?: NamedNode): Promise<AuthenticationContext> {
-        if (!context.me) {
-            throw new Error(`ensureTypeIndexes: @@ no user`)
-        }
-        await ensureOneTypeIndex(context, true, agent)
-        await ensureOneTypeIndex(context, false, agent)
-        return context
-    }
-
-    async function loadTypeIndexes(context: AuthenticationContext) {
-        try {
-            await profileLogic.silencedLoadPreferences(context.me as NamedNode)
-        } catch (error) {
-            debug.warn(error.message) as undefined
-        }
-        try {
-            const indexes = await loadIndexes(
-                context.me as NamedNode,
-                context.publicProfile || null,
-                context.preferencesFile || null,
-                // async (err: Error) => widgets.complain(context, err.message)
-                // async (err: Error) => debug.warn(err.message) as undefined
-            )
-            context.index = context.index || {}
-            context.index.private = indexes.private || context.index.private
-            context.index.public = indexes.public || context.index.public
-            return context
-        } catch (error) {
-            async (error: Error) => debug.warn(error.message) as undefined
-        }
-    }
-
-    /**
-     * Register a new app in a type index
-     * used in chat in bookmark.js (solid-ui)
-     */
-    async function registerInTypeIndex(
-        context: AuthenticationContext,
-        instance: NamedNode,
-        theClass: NamedNode,
-        isPublic: boolean,
-        agent?: NamedNode // Defaults to current user
-    ): Promise<AuthenticationContext> {
-        await ensureOneTypeIndex(context, isPublic, agent)
-        if (!context.index) {
-            throw new Error('registerInTypeIndex: No type index found')
-        }
-        const indexes = isPublic ? context.index.public : context.index.private
-        if (!indexes.length) {
-            throw new Error('registerInTypeIndex: What no type index?')
-        }
-        const index = indexes[0]
-        const registration = newThing(index)
-        const ins = [
-            // See https://github.com/solidos/solid/blob/main/proposals/data-discovery.md
-            st(registration, ns.rdf('type'), ns.solid('TypeRegistration'), index),
-            st(registration, ns.solid('forClass'), theClass, index),
-            st(registration, ns.solid('instance'), instance, index)
-        ]
-        try {
-            await updatePromise([], ins)
-        } catch (e) {
-            debug.log(e)
-            alert(e)
-        }
-        return context
-    }
-
-    /**
-     * Resolves with the same context, outputting
-     * output: index.public, index.private
-     *  @@ This is a very bizare function
-     * @see https://github.com/solidos/solid/blob/main/proposals/data-discovery.md#discoverability
-     */
-    async function loadIndex(
-        context: AuthenticationContext,
-        isPublic: boolean
-    ): Promise<AuthenticationContext> {
-        const indexes = await loadIndexes(
-            context.me as NamedNode,
-            (isPublic ? context.publicProfile || null : null),
-            (isPublic ? null : context.preferencesFile || null),
-            // async (err: Error) => widgets.complain(context, err.message)
-            async (err: Error) => debug.error(err.message) as undefined
-        )
-        context.index = context.index || {}
-        context.index.private = indexes.private.concat(context.index.private || []) // otherwise concat will wrongly add 'undefined' as a private index
-        context.index.public = indexes.public.concat(context.index.public || []) // otherwise concat will wrongly add 'undefined' as a public index
-        return context
-    }
-
-    /**
-     * Load or create ONE type index
-     * Find one or make one or fail
-     * Many reasons for failing including script not having permission etc
-     *
-     * Adds its output to the context
-     * @see https://github.com/solidos/solid/blob/main/proposals/data-discovery.md#discoverability
-     */
-    async function ensureOneTypeIndex(context: AuthenticationContext, isPublic: boolean, agent?: NamedNode): Promise<AuthenticationContext | void> {
-
-        const context2 = await profileLogic.ensureLoadedPreferences(context)
-        if (!context2.publicProfile) throw new Error(`@@ type index: no publicProfile`)
-        if (!context2.preferencesFile) throw new Error(`@@ type index: no preferencesFile for profile  ${context2.publicProfile}`)
-        const relevant = isPublic ? context2.publicProfile : context2.preferencesFile
-
-        try {
-            await loadIndex(context2, isPublic)
-            const pp = isPublic ? 'public' : 'private'
-            if (context2.index && context2.index[pp] && context2.index[pp].length > 0) {
-                debug.log(`ensureOneTypeIndex: Type index exists already ${context2.index[pp]}`)
-                return context2
-            }
-            await makeIndexIfNecessary(context2, isPublic, store, ns)
-        } catch (error) {
-            await makeIndexIfNecessary(context2, isPublic, store, ns)
-            // widgets.complain(context2, 'calling loadIndex:' + error)
-        }
-    }
-
-    async function putIndex(newIndex, context) {
-        try {
-            await utilityLogic.createEmptyRdfDoc(newIndex, 'Blank initial Type index')
-            return context
-        } catch (e) {
-            const msg = `Error creating new index ${e}`
-            // widgets.complain(context, msg)
-            debug.warn(msg)
-        }
-    } // putIndex
-        
-    async function makeIndexIfNecessary(context, isPublic, store, ns) {
-        const relevant = isPublic ? context.publicProfile : context.preferencesFile
-        if (!relevant) alert('@@@@ relevent null')
-        const visibility = isPublic ? 'public' : 'private'
-
-        context.index = context.index || {}
-        context.index[visibility] = context.index[visibility] || []
-        let newIndex
-        if (context.index[visibility].length === 0) {
-            if (!store.updater.editable(relevant)) {
-                debug.log(`Not adding new type index as ${relevant} is not editable`)
-                return
-            }
-            newIndex = rdf.sym(`${relevant.dir().uri + visibility}TypeIndex.ttl`)
-            debug.log(`Linking to new fresh type index ${newIndex}`)
-            if (!confirm(`OK to create a new empty index file at ${newIndex}, overwriting anything that is now there?`)) {
-                throw new Error('cancelled by user')
-            }
-            debug.log(`Linking to new fresh type index ${newIndex}`)
-            const addMe = [
-                st(context.me, ns.solid(`${visibility}TypeIndex`), newIndex, relevant)
-            ]
-            try {
-                await updatePromise([], addMe)
-            } catch (err) {
-                const msg = `Error saving type index link saving back ${newIndex}: ${err}`
-                //widgets.complain(context, msg)
-                debug.warn(msg)
-                return context
-            }
-
-            debug.log(`Creating new fresh type index file${newIndex}`)
-            await putIndex(newIndex, context)
-            context.index[visibility].push(newIndex) // @@ wait
-        } else {
-            // officially exists
-            const ixs = context.index[visibility]
-            try {
-                await store.fetcher.load(ixs)
-            } catch (err) {
-                const msg = `ensureOneTypeIndex: loading indexes ${err}`
-                debug.warn(msg)
-                // widgets.complain(context, `ensureOneTypeIndex: loading indexes ${err}`)
-            }
-        }
-    } // makeIndexIfNecessary
-
-    async function loadIndexes(
-        me: NamedNode | string,
-        publicProfile: NamedNode | string | null,
-        preferencesFile: NamedNode | string | null,
-        onWarning = async (_err: Error) => {
-            return undefined;
-        }
-    ): Promise<{
-        private: any;
-        public: any;
-    }> {
-        let privateIndexes: any[] = [];
-        let publicIndexes: any[] = [];
-        if (publicProfile) {
-            publicIndexes = getTypeIndex(me, publicProfile, true);
-            try {
-                await store.fetcher.load(publicIndexes as NamedNode[]);
-            } catch (err) {
-                onWarning(new Error(`loadIndex: loading public type index(es) ${err}`));
-            }
-        }
-        if (preferencesFile) {
-            privateIndexes = getTypeIndex(me, preferencesFile, false);
-            // console.log({ privateIndexes })
-            if (privateIndexes.length === 0) {
-                await onWarning(
-                    new Error(
-                        `Your preference file ${preferencesFile} does not point to a private type index.`
-                    )
-                );
-            } else {
-                try {
-                    await store.fetcher.load(privateIndexes);
-                } catch (err) {
-                    onWarning(
-                        new Error(`loadIndex: loading private type index(es) ${err}`)
-                    );
-                }
-            }
-            // } else {
-            //   debug.log(
-            //     'We know your preference file is not available, so we are not bothering with private type indexes.'
-            //   )
-        }
-
-        return {
-            private: privateIndexes,
-            public: publicIndexes,
-        };
-    }
-
-    function getTypeIndex(
-        me: NamedNode | string,
-        preferencesFile: NamedNode | string,
-        isPublic: boolean
-    ): NamedNode[] {
-        // console.log('getTypeIndex', store.each(me, undefined, undefined, preferencesFile), isPublic, preferencesFile)
-        return store.each(
-            me as NamedNode,
-            isPublic ? ns.solid("publicTypeIndex") : ns.solid("privateTypeIndex"),
-            undefined,
-            preferencesFile as NamedNode
-        ) as NamedNode[];
-    }
 
     function getRegistrations(instance, theClass) {
         return store
@@ -385,7 +123,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic) {
     * used in chat in bookmark.js (solid-ui)
     * Returns the registration object if successful else null
     */
-    async function registerInstanceInTypeIndex(
+    async function registerInTypeIndex(
         instance: NamedNode,
         index: NamedNode,
         theClass: NamedNode,
@@ -441,15 +179,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic) {
     }
     
     return {
-        ensureTypeIndexes,
-        loadTypeIndexes,
         registerInTypeIndex,
-        loadIndex,
-        ensureOneTypeIndex,
-        putIndex,
-        makeIndexIfNecessary,
-        loadIndexes,
-        getTypeIndex,
         getRegistrations,
         loadTypeIndexesFor,
         loadCommunityTypeIndexes,
@@ -458,7 +188,6 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic) {
         getAppInstances,
         suggestPublicTypeIndex,
         suggestPrivateTypeIndex,
-        registerInstanceInTypeIndex,
         deleteTypeIndexRegistration,
         getScopedAppsFromIndex
     }
