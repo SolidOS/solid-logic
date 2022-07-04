@@ -1,13 +1,13 @@
 import { NamedNode, Node, st, term } from "rdflib"
-import { CreatedPaneOptions, NewPaneOptions } from "../types"
+import { ChatLogic, CreatedPaneOptions, NewPaneOptions, Chat } from "../types"
+import { ns as namespace } from "../util/ns";
 import { determineChatContainer, newThing } from "../util/utils"
-import { ns as namespace } from '../util/ns'
 
-const CHAT_LOCATION_IN_CONTAINER = "index.ttl#this";
+const CHAT_LOCATION_IN_CONTAINER = "index.ttl#this"
 
-export function createChatLogic(store, profileLogic) {
+export function createChatLogic(store, profileLogic): ChatLogic {
     const ns = namespace
-    
+
     async function setAcl(
         chatContainer: NamedNode,
         me: NamedNode,
@@ -87,7 +87,7 @@ export function createChatLogic(store, profileLogic) {
         });
     }
 
-    async function findChat(invitee: NamedNode) {
+    async function findChat(invitee: NamedNode): Promise<Chat> {
         const me = await profileLogic.loadMe();
         const podRoot = await profileLogic.getPodRoot(me);
         const chatContainer = determineChatContainer(invitee, podRoot);
@@ -206,7 +206,7 @@ export function createChatLogic(store, profileLogic) {
         ${ns.rdf("seeAlso")} <${chatThing.value}> .
         `;
 
-        const inviteResponse = await store.fetcher.webOperation(
+        const inviteResponse = await store.fetcher?.webOperation(
             "POST",
             inviteeInbox.value,
             {

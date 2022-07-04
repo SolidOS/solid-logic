@@ -45,3 +45,66 @@ export interface CreatedPaneOptions {
 newInstance: NamedNode;
 }
 
+export interface ChatLogic {
+    setAcl: (chatContainer: NamedNode, me: NamedNode, invitee: NamedNode) => Promise<void>,
+    addToPrivateTypeIndex: (chatThing, me) => void | Promise<void>,
+    findChat: (invitee: NamedNode) => Promise<Chat>,
+    createChatThing: (chatContainer: NamedNode, me: NamedNode) => Promise<NamedNode>,
+    mintNew: (newPaneOptions: NewPaneOptions) => Promise<CreatedPaneOptions>,
+    getChat: (invitee: NamedNode, boolean) => Promise<NamedNode | null>,
+    sendInvite: (invitee: NamedNode, chatThing: NamedNode) => void
+}
+
+export interface Chat {
+    me: NamedNode,
+    chatContainer: NamedNode,
+    exists: boolean
+}
+
+export interface ProfileLogic {
+    silencedLoadPreferences: (user: NamedNode) => Promise<NamedNode | undefined>,
+    loadPreferences: (user: NamedNode) => Promise<NamedNode>,
+    loadProfile: (user: NamedNode) => Promise<NamedNode>,
+    loadMe: () => Promise<NamedNode>,
+    getPodRoot: (user: NamedNode) => NamedNode,
+    getMainInbox: (user: NamedNode) => Promise<NamedNode>,
+    findStorage: (me: NamedNode) => Node | null
+}
+
+export interface AclLogic {
+    findAclDocUrl: (url: string) => Promise<any>,
+    setACLUserPublic: (docURI: string, me: NamedNode,
+        options: {
+            defaultForNew?: boolean,
+            public?: []
+        }
+    ) => Promise<NamedNode>,
+    genACLText: (docURI: string, me: NamedNode, aclURI: string,
+        options: {
+            defaultForNew?: boolean,
+            public?: []
+        }
+    ) => string | undefined
+}
+
+export interface InboxLogic {
+    createInboxFor: (peerWebId: string, nick: string) => Promise<string>,
+    getNewMessages: (user?: NamedNode) => Promise<string[]>,
+    markAsRead: (url: string, date: Date) => void
+}
+
+export interface TypeIndexLogic {
+    getRegistrations: (instance, theClass) => Promise<NamedNode>,
+    loadTypeIndexesFor: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
+    loadCommunityTypeIndexes: (user: NamedNode) => Promise<TypeIndexScope[][]>,
+    loadAllTypeIndexes: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
+    getScopedAppInstances: (klass: NamedNode, user: NamedNode) => Promise<ScopedApp[]>,
+    getAppInstances: (klass: NamedNode) => Promise<NamedNode[]>,
+    suggestPublicTypeIndex: (me: NamedNode) => NamedNode,
+    suggestPrivateTypeIndex: (preferencesFile: NamedNode) => NamedNode,
+    registerInTypeIndex: (instance: NamedNode, index: NamedNode, theClass: NamedNode) => Promise<NamedNode | null>,
+    deleteTypeIndexRegistration: (item: any) => Promise<void>
+    getScopedAppsFromIndex: (scope: TypeIndexScope, theClass: NamedNode | null) => Promise<ScopedApp[]>
+
+}
+

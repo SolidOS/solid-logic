@@ -1,4 +1,5 @@
 import { graph, NamedNode, Namespace, serialize, sym } from "rdflib"
+import { AclLogic } from "../types";
 import { ns as namespace } from '../util/ns'
 
 
@@ -6,7 +7,7 @@ export const ACL_LINK = sym(
     "http://www.iana.org/assignments/link-relations/acl"
 );
 
-export function createAclLogic(store) {
+export function createAclLogic(store): AclLogic {
 
     const ns = namespace
     
@@ -116,9 +117,9 @@ export function createAclLogic(store) {
     me: NamedNode,
     aclURI: string,
     options: {
-        defaultForNew?: boolean,
-        public?: []
-    } = {}
+            defaultForNew?: boolean,
+            public?: []
+        } = {}
     ): string | undefined {
         const optPublic = options.public || []
         const g = graph()

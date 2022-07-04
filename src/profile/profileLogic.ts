@@ -2,9 +2,10 @@ import { NamedNode } from "rdflib";
 import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from "../logic/CustomError";
 import * as debug from "../util/debug";
 import { ns as namespace } from '../util/ns';
-import { differentOrigin, suggestPreferencesFile } from "../util/utils";
+import { differentOrigin, suggestPreferencesFile } from "../util/utils"
+import { ProfileLogic } from "../types"
 
-export function createProfileLogic(store, authn, utilityLogic) {
+export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     const ns = namespace
 
     /**

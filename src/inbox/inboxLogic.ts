@@ -1,7 +1,8 @@
 import { NamedNode } from "rdflib";
+import { InboxLogic } from "../types";
 import { getArchiveUrl } from "../util/utils";
 
-export function createInboxLogic(store, profileLogic, utilityLogic, containerLogic, aclLogic) {
+export function createInboxLogic(store, profileLogic, utilityLogic, containerLogic, aclLogic): InboxLogic {
   
     async function createInboxFor(peerWebId: string, nick: string) {
       const myWebId: NamedNode = await profileLogic.loadMe();

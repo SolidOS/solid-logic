@@ -23,13 +23,13 @@ export class SolidLogic {
     me: string | undefined;
     authn: AuthnLogic;
 
-    aclLogic
-    utilityLogic
-    containerLogic
-    profileLogic
-    inboxLogic
-    typeIndexLogic
-    chatLogic
+    readonly acl
+    readonly profile
+    readonly inbox
+    readonly typeIndex
+    readonly chat
+    private readonly containerLogic
+    private readonly utilityLogic
 
 
     constructor(specialFetch: { fetch: (url: any, requestInit: any) => any }, session: Session) {
@@ -46,13 +46,13 @@ export class SolidLogic {
 
         debug.log('SolidAuthnLogic initialized')
 
-        this.aclLogic = createAclLogic(this.store)
+        this.acl = createAclLogic(this.store)
         this.containerLogic = createContainerLogic(this.store)
-        this.utilityLogic = createUtilityLogic(this.store, this.aclLogic, this.containerLogic)
-        this.profileLogic = createProfileLogic(this.store, this.authn, this.utilityLogic)
-        this.chatLogic = createChatLogic(this.store, this.profileLogic)
-        this.inboxLogic = createInboxLogic(this.store, this.profileLogic, this.utilityLogic, this.containerLogic, this.aclLogic)
-        this.typeIndexLogic = createTypeIndexLogic(this.store, this.authn, this.profileLogic, this.utilityLogic)
+        this.utilityLogic = createUtilityLogic(this.store, this.acl, this.containerLogic)
+        this.profile = createProfileLogic(this.store, this.authn, this.utilityLogic)
+        this.chat = createChatLogic(this.store, this.profile)
+        this.inbox = createInboxLogic(this.store, this.profile, this.utilityLogic, this.containerLogic, this.acl)
+        this.typeIndex = createTypeIndexLogic(this.store, this.authn, this.profile, this.utilityLogic)
     }
 
     load(doc: NamedNode | NamedNode[] | string) {
