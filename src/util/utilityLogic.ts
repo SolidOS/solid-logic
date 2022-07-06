@@ -5,17 +5,18 @@ import { differentOrigin } from "./utils";
 
 export function createUtilityLogic(store, aclLogic, containerLogic) {
 
-  async function recursiveDelete(url: string) {
+  async function recursiveDelete(containerNode: NamedNode) {
       try {
-        if (containerLogic.isContainer(url)) {
-          const aclDocUrl = await aclLogic.findAclDocUrl(sym(url));
+        if (containerLogic.isContainer(containerNode)) {
+          const aclDocUrl = await aclLogic.findAclDocUrl(containerNode)
           await store.fetcher._fetch(aclDocUrl, { method: "DELETE" });
-          const containerMembers = await containerLogic.getContainerMembers(url);
+          const containerMembers = await containerLogic.getContainerMembers(containerNode);
           await Promise.all(
             containerMembers.map((url) => recursiveDelete(url))
           );
         }
-        return store.fetcher._fetch(url, { method: "DELETE" });
+        const nodeToStringHere = containerNode.value;
+        return store.fetcher._fetch(nodeToStringHere, { method: "DELETE" });
       } catch (e) {
         // debug.log(`Please manually remove ${url} from your system under test.`, e);
       }
@@ -126,7 +127,7 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
         ''
       ].join('\n')
     }
-    const aclDocUrl = await aclLogic.findAclDocUrl(sym(options.target));
+    const aclDocUrl = await aclLogic.findAclDocUrl(sym(options.target))
     return store.fetcher._fetch(aclDocUrl, {
       method: 'PUT',
       body: str,

@@ -54,7 +54,6 @@ describe("Inbox logic", () => {
         inboxHasSomeContainmentTriples();
         const messages = await inboxLogic.getNewMessages(bob);
         result = messages.map(oneMessage => oneMessage.value)
-        
       });
       it("Resolves to an array with URLs of non-container resources in inbox", () => {
         expect(result.sort()).toEqual([

@@ -89,7 +89,7 @@ export interface AclLogic {
 
 export interface InboxLogic {
     createInboxFor: (peerWebId: string, nick: string) => Promise<string>,
-    getNewMessages: (user?: NamedNode) => Promise<string[]>,
+    getNewMessages: (user?: NamedNode) => Promise<NamedNode[]>,
     markAsRead: (url: string, date: Date) => void
 }
 
