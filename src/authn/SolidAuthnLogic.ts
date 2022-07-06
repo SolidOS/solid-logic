@@ -3,6 +3,7 @@ import { appContext, offlineTestID } from "./authUtil";
 import * as debug from '../util/debug'
 import { Session } from "@inrupt/solid-client-authn-browser";
 import { AuthenticationContext, AuthnLogic } from "../types";
+
 export class SolidAuthnLogic implements AuthnLogic {
   private session: Session;
 
@@ -58,10 +59,10 @@ export class SolidAuthnLogic implements AuthnLogic {
       const curUrl = new URL(window.location.href)
       if (curUrl.hash !== postLoginRedirectHash) {
         if (history.pushState) {
-          // console.log('Setting window.location.has using pushState')
+          // debug.log('Setting window.location.has using pushState')
           history.pushState(null, document.title, postLoginRedirectHash)
         } else {
-          // console.warn('Setting window.location.has using location.hash')
+          // debug.warn('Setting window.location.has using location.hash')
           location.hash = postLoginRedirectHash
         }
         curUrl.hash = postLoginRedirectHash

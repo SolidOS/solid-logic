@@ -1,37 +1,38 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-import solidNamespace from "solid-namespace";
-import * as rdf from "rdflib";
-import { sym, UpdateManager } from "rdflib";
-import { ProfileLogic } from "../src/profile/ProfileLogic";
-import { UtilityLogic } from "../src/util/UtilityLogic";
-import { InboxLogic } from "../src/inbox/InboxLogic";
-import { SolidNamespace } from "../src/types";
+/**
+* @jest-environment jsdom
+*
+*/
+import { UpdateManager, Store, Fetcher, sym } from "rdflib";
+import { createAclLogic } from "../src/acl/aclLogic";
+import { createInboxLogic } from '../src/inbox/inboxLogic';
+import { createProfileLogic } from "../src/profile/profileLogic";
+import { createContainerLogic } from "../src/util/containerLogic";
+import { createUtilityLogic } from "../src/util/utilityLogic";
 
-const ns: SolidNamespace = solidNamespace(rdf);
-
-const alice = rdf.sym("https://alice.example/profile/card#me");
-const bob = rdf.sym("https://bob.example/profile/card#me");
+const alice = sym("https://alice.example.com/profile/card#me");
+const bob = sym("https://bob.example.com/profile/card#me");
 
 describe("Inbox logic", () => {
-  let inbox;
   let store;
+  let inboxLogic
   beforeEach(() => {
     fetchMock.resetMocks();
     fetchMock.mockResponse("Not Found", {
       status: 404,
     });
-    const fetcher = { fetch: fetchMock };
-    store = rdf.graph();
-    store.fetcher = rdf.fetcher(store, fetcher);
+    store = new Store()
+    store.fetcher = new Fetcher(store, { fetch: fetch });
     store.updater = new UpdateManager(store);
     const authn = {
       currentUser: () => {
         return alice;
       },
     };
-    const profile = new ProfileLogic(store, ns, authn);
-    const util = new UtilityLogic(store, ns, fetcher);
-    inbox = new InboxLogic(store, ns, profile, util);
+    const containerLogic = createContainerLogic(store)
+    const aclLogic = createAclLogic(store)
+    const util = createUtilityLogic(store, aclLogic, containerLogic);
+    const profile = createProfileLogic(store, authn, util);
+    inboxLogic = createInboxLogic(store, profile, util, containerLogic, aclLogic);
   });
 
   describe("getNewMessages", () => {
@@ -40,7 +41,7 @@ describe("Inbox logic", () => {
       beforeEach(async () => {
         bobHasAnInbox();
         inboxIsEmpty();
-        result = await inbox.getNewMessages(bob);
+        result = await inboxLogic.getNewMessages(bob);
       });
       it("Resolves to an empty array", () => {
         expect(result).toEqual([]);
@@ -51,7 +52,7 @@ describe("Inbox logic", () => {
       beforeEach(async () => {
         bobHasAnInbox();
         inboxHasSomeContainmentTriples();
-        const messages = await inbox.getNewMessages(bob);
+        const messages = await inboxLogic.getNewMessages(bob);
         result = messages.map(oneMessage => oneMessage.value)
         
       });
@@ -67,14 +68,14 @@ describe("Inbox logic", () => {
       aliceHasValidProfile();
       // First for the PUT:
       fetchMock.mockOnceIf(
-        "https://alice.example/p2p-inboxes/Peer%20Person/",
+        "https://alice.example.com/p2p-inboxes/Peer%20Person/",
         "Created", {
           status: 201
         }
       )
       // Then for the GET to read the ACL link:
       fetchMock.mockOnceIf(
-        "https://alice.example/p2p-inboxes/Peer%20Person/",
+        "https://alice.example.com/p2p-inboxes/Peer%20Person/",
         " ", {
           status: 200,
           headers: {
@@ -84,12 +85,12 @@ describe("Inbox logic", () => {
       )
       fetchMock.mockIf("https://some/acl", "Created", { status: 201 });
 
-      await inbox.createInboxFor(sym('https://peer.com/#me'), 'Peer Person');
+      await inboxLogic.createInboxFor('https://peer.com/#me', 'Peer Person');
     });
     it("creates the inbox", () => {
       expect(fetchMock.mock.calls).toEqual([
-        [ "https://alice.example/profile/card", fetchMock.mock.calls[0][1] ],
-        [ "https://alice.example/p2p-inboxes/Peer%20Person/", {
+        [ "https://alice.example.com/profile/card", fetchMock.mock.calls[0][1] ],
+        [ "https://alice.example.com/p2p-inboxes/Peer%20Person/", {
           body: " ",
           headers: {
             "Content-Type": "text/turtle",
@@ -98,18 +99,18 @@ describe("Inbox logic", () => {
           },
           method: "PUT"      
         }],
-        [ "https://alice.example/p2p-inboxes/Peer%20Person/", fetchMock.mock.calls[2][1] ],
+        [ "https://alice.example.com/p2p-inboxes/Peer%20Person/", fetchMock.mock.calls[2][1] ],
         [ "https://some/acl", {
           body: '@prefix acl: <http://www.w3.org/ns/auth/acl#>.\n' +
           '\n' +
           '<#alice> a acl:Authorization;\n' +
-          '  acl:agent <https://alice.example/profile/card#me>;\n' +
-          '  acl:accessTo <https://alice.example/p2p-inboxes/Peer%20Person/>;\n' +
-          '  acl:default <https://alice.example/p2p-inboxes/Peer%20Person/>;\n' +
+          '  acl:agent <https://alice.example.com/profile/card#me>;\n' +
+          '  acl:accessTo <https://alice.example.com/p2p-inboxes/Peer%20Person/>;\n' +
+          '  acl:default <https://alice.example.com/p2p-inboxes/Peer%20Person/>;\n' +
           '  acl:mode acl:Read, acl:Write, acl:Control.\n' +
           '<#bobAccessTo> a acl:Authorization;\n' +
           '  acl:agent <https://peer.com/#me>;\n' +
-          '  acl:accessTo <https://alice.example/p2p-inboxes/Peer%20Person/>;\n' +
+          '  acl:accessTo <https://alice.example.com/p2p-inboxes/Peer%20Person/>;\n' +
           '  acl:mode acl:Append.\n',
           headers: [
             [ 'Content-Type', 'text/turtle' ]
@@ -137,7 +138,7 @@ describe("Inbox logic", () => {
           headers: { "Content-Type": "text/turtle" },
         }
       );
-      await inbox.markAsRead(sym("https://container.com/item.ttl"), new Date('31 March 2111 UTC'));
+      await inboxLogic.markAsRead("https://container.com/item.ttl", new Date('31 March 2111 UTC'));
     });
     it('moves the item to archive', async () => {
       expect(fetchMock.mock.calls).toEqual([
@@ -162,11 +163,11 @@ describe("Inbox logic", () => {
 
   function aliceHasValidProfile() {
     fetchMock.mockOnceIf(
-      "https://alice.example/profile/card",
+      "https://alice.example.com/profile/card",
       `
-            <https://alice.example/profile/card#me>
-              <http://www.w3.org/ns/pim/space#storage> <https://alice.example/> ;
-              <http://www.w3.org/ns/solid/terms#privateTypeIndex> <https://alice.example/settings/privateTypeIndex.ttl> ;
+            <https://alice.example.com/profile/card#me>
+              <http://www.w3.org/ns/pim/space#storage> <https://alice.example.com/> ;
+              <http://www.w3.org/ns/solid/terms#privateTypeIndex> <https://alice.example.com/settings/privateTypeIndex.ttl> ;
             .`,
       {
         headers: {
@@ -178,8 +179,8 @@ describe("Inbox logic", () => {
 
   function bobHasAnInbox() {
     fetchMock.mockOnceIf(
-      "https://bob.example/profile/card",
-      "<https://bob.example/profile/card#me><http://www.w3.org/ns/ldp#inbox><https://container.com/>.",
+      "https://bob.example.com/profile/card",
+      "<https://bob.example.com/profile/card#me><http://www.w3.org/ns/ldp#inbox><https://container.com/>.",
       {
         headers: { "Content-Type": "text/turtle" },
       }
