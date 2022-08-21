@@ -2,7 +2,7 @@
 * @jest-environment jsdom
 * 
 */
-import { UpdateManager, Store, Fetcher } from "rdflib";
+import { UpdateManager, Store, Fetcher, sym } from "rdflib";
 import { createContainerLogic } from "../src/util/containerLogic";
 import { alice } from "./helpers/dataSetup";
 
@@ -21,15 +21,16 @@ describe("Container", () => {
 
     it("getContainerMembers - When container has some containment triples", async () => {
             containerHasSomeContainmentTriples()
-            const result = await containerLogic.getContainerMembers('https://com/');
+            const containerMembers = await containerLogic.getContainerMembers(sym('https://container.com/'));
+            const result = containerMembers.map(oneResult => oneResult.value)
             expect(result.sort()).toEqual([
-                'https://com/foo.txt',
-                'https://com/bar/'
+                'https://container.com/foo.txt',
+                'https://container.com/bar/'
             ].sort());
     });
     it("getContainerMembers- When container is empty - Resolves to an empty array", async () => {
         containerIsEmpty();
-        const result = await containerLogic.getContainerMembers('https://container.com/');
+        const result = await containerLogic.getContainerMembers(sym('https://container.com/'));
         expect(result).toEqual([]);
     });
 
@@ -45,7 +46,7 @@ describe("Container", () => {
     
     function containerHasSomeContainmentTriples() {
         fetchMock.mockOnceIf(
-            "https://com/",
+            "https://container.com/",
             "<.> <http://www.w3.org/ns/ldp#contains> <./foo.txt>, <./bar/> .",
             {
                 headers: { "Content-Type": "text/turtle" },

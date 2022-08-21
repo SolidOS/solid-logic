@@ -9,7 +9,7 @@ export function createInboxLogic(store, profileLogic, utilityLogic, containerLog
       const podRoot: NamedNode = await profileLogic.getPodRoot(myWebId);
       const ourInbox = `${podRoot.value}p2p-inboxes/${encodeURIComponent(nick)}/`;
       await containerLogic.createContainer(ourInbox);
-      const aclDocUrl = await aclLogic.findAclDocUrl(sym(ourInbox));
+      const aclDocUrl = await aclLogic.findAclDocUrl(sym(ourInbox))
       await utilityLogic.setSinglePeerAccess({
         ownerWebId: myWebId.value,
         peerWebId,
@@ -21,12 +21,12 @@ export function createInboxLogic(store, profileLogic, utilityLogic, containerLog
 
   async function getNewMessages(
       user?: NamedNode
-    ): Promise<string[]> {
+    ): Promise<NamedNode[]> {
       if (!user) {
         user = await profileLogic.loadMe();
       }
       const inbox = await profileLogic.getMainInbox(user);
-      const urls = await containerLogic.getContainerMembers(inbox.value);
+      const urls = await containerLogic.getContainerMembers(inbox);
       return urls.filter(url => !containerLogic.isContainer(url));
   }
 

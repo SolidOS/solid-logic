@@ -25,6 +25,7 @@
   },
   "homepage": "https://github.com/solidos/solid-logic#readme",
   "devDependencies": {
+    "@babel/core": "^7.17.10",
     "@babel/plugin-proposal-class-properties": "~7.16.7",
     "@babel/plugin-proposal-optional-chaining": "~7.16.7",
     "@babel/plugin-transform-async-to-generator": "~7.16.8",
@@ -34,6 +35,7 @@
     "@types/jest": "^27.4.1",
     "@typescript-eslint/eslint-plugin": "^5.19.0",
     "@typescript-eslint/parser": "^5.19.0",
+    "babel-jest": "^28.0.3",
     "eslint": "^8.13.0",
     "jest": "^27.5.1",
     "jest-environment-node-debug": "^2.0.0",
