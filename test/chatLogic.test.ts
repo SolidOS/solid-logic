@@ -1,34 +1,35 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { ChatLogic } from "../src/chat/ChatLogic";
-import solidNamespace from "solid-namespace";
-import * as rdf from "rdflib";
-import { ProfileLogic } from "../src/profile/ProfileLogic";
-import { UpdateManager } from "rdflib";
-import { SolidNamespace } from "../src/types";
+/**
+* @jest-environment jsdom
+*
+*/
+import { UpdateManager, Store, Fetcher } from "rdflib";
+import { createAclLogic } from "../src/acl/aclLogic";
+import { createChatLogic } from '../src/chat/chatLogic';
+import { createProfileLogic } from "../src/profile/profileLogic";
+import { createContainerLogic } from "../src/util/containerLogic";
+import { createUtilityLogic } from "../src/util/utilityLogic";
+import { alice, bob } from "./helpers/dataSetup";
 
-const ns: SolidNamespace = solidNamespace(rdf);
-
-const alice = rdf.sym("https://alice.example/profile/card#me");
-const bob = rdf.sym("https://bob.example/profile/card#me");
+window.$SolidTestEnvironment = { username: alice.uri }
 
 describe("Chat logic", () => {
-  let chat;
+  let chatLogic;
   let store;
   beforeEach(() => {
     fetchMock.resetMocks();
     fetchMock.mockResponse("Not Found", {
       status: 404,
     });
-    store = rdf.graph();
-    store.fetcher = rdf.fetcher(store, { fetch: fetchMock, timeout: 5 });
+    store = new Store()
+    store.fetcher = new Fetcher(store, { fetch: fetch });
     store.updater = new UpdateManager(store);
     const authn = {
       currentUser: () => {
         return alice;
       },
     };
-    const profile = new ProfileLogic(store, ns, authn);
-    chat = new ChatLogic(store, ns, profile);
+    const util = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
+    chatLogic = createChatLogic(store, createProfileLogic(store, authn, util))
   });
 
   describe("get chat, without creating", () => {
@@ -37,19 +38,19 @@ describe("Chat logic", () => {
       beforeEach(async () => {
         aliceHasValidProfile();
         noChatWithBobExists();
-        result = await chat.getChat(bob, false);
+        result = await chatLogic.getChat(bob, false);
       });
       it("does not return a chat", async () => {
         expect(result).toBeNull();
       });
       it("loaded the current user profile", () => {
         expect(fetchMock.mock.calls[0][0]).toBe(
-          "https://alice.example/profile/card"
+          "https://alice.example.com/profile/card.ttl"
         );
       });
       it("tried to load the chat document", () => {
         expect(fetchMock.mock.calls[1][0]).toBe(
-          "https://alice.example/IndividualChats/bob.example/index.ttl"
+          "https://alice.example.com/IndividualChats/bob.example.com/index.ttl"
         );
       });
       it("has no additional fetch requests", () => {
@@ -74,23 +75,23 @@ describe("Chat logic", () => {
         chatContainerAclCanBeSet();
         editablePrivateTypeIndexIsFound();
         privateTypeIndexIsUpdated();
-        result = await chat.getChat(bob, true);
+        result = await chatLogic.getChat(bob, true);
       });
-      it("returns the chat URI based on the invitee's WebID", async () => {
+      it("returns the chat URI based on the invitee's WebID", () => {
         expect(result.uri).toBe(
-          "https://alice.example/IndividualChats/bob.example/index.ttl#this"
+          "https://alice.example.com/IndividualChats/bob.example.com/index.ttl#this"
         );
       });
       it("created a chat document", () => {
         const request = getRequestTo(
           "PUT",
-          "https://alice.example/IndividualChats/bob.example/index.ttl"
+          "https://alice.example.com/IndividualChats/bob.example.com/index.ttl"
         );
         expect(request.body).toBe(`@prefix : <#>.
 @prefix dc: <http://purl.org/dc/elements/1.1/>.
 @prefix meeting: <http://www.w3.org/ns/pim/meeting#>.
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
-@prefix c: </profile/card#>.
+@prefix c: </profile/card.ttl#>.
 
 :this
     a meeting:LongChat;
@@ -102,41 +103,42 @@ describe("Chat logic", () => {
       it("allowed Bob to participate in the chat by adding an ACL", () => {
         const request = getRequestTo(
           "PUT",
-          "https://alice.example/IndividualChats/bob.example/.acl"
+          "https://alice.example.com/IndividualChats/bob.example.com/.acl"
         );
         expect(request.body).toBe(`
-@prefix acl: <http://www.w3.org/ns/auth/acl#>.
-<#owner>
-    a acl:Authorization;
-    acl:agent <https://alice.example/profile/card#me>;
-    acl:accessTo <.>;
-    acl:default <.>;
-    acl:mode
-        acl:Read, acl:Write, acl:Control.
-<#invitee>
-    a acl:Authorization;
-    acl:agent <https://bob.example/profile/card#me>;
-    acl:accessTo <.>;
-    acl:default <.>;
-    acl:mode
-        acl:Read, acl:Append.
-`);
+            @prefix acl: <http://www.w3.org/ns/auth/acl#>.
+            <#owner>
+            a acl:Authorization;
+            acl:agent <https://alice.example.com/profile/card.ttl#me>;
+            acl:accessTo <.>;
+            acl:default <.>;
+            acl:mode
+                acl:Read, acl:Write, acl:Control.
+            <#invitee>
+            a acl:Authorization;
+            acl:agent <https://bob.example.com/profile/card.ttl#me>;
+            acl:accessTo <.>;
+            acl:default <.>;
+            acl:mode
+                acl:Read, acl:Append.
+            `);
       });
       it("sent an invitation to invitee inbox", () => {
-        const request = getRequestTo("POST", "https://bob.example/inbox");
+        const request = getRequestTo("POST", "https://bob.example.com/inbox");
         expect(request.body).toContain(`
-<> a <http://www.w3.org/ns/pim/meeting#LongChatInvite> ;
-<http://www.w3.org/1999/02/22-rdf-syntax-ns#seeAlso> <https://alice.example/IndividualChats/bob.example/index.ttl#this> .
-  `);});
+        <> a <http://www.w3.org/ns/pim/meeting#LongChatInvite> ;
+        <http://www.w3.org/1999/02/22-rdf-syntax-ns#seeAlso> <https://alice.example.com/IndividualChats/bob.example.com/index.ttl#this> .
+        `);
+      });
       it("added the new chat to private type index", () => {
         const request = getRequestTo(
           "PATCH",
-          "https://alice.example/settings/privateTypeIndex.ttl"
+          "https://alice.example.com/settings/privateTypeIndex.ttl"
         );
         expect(request.body)
-          .toBe(`INSERT DATA { <https://alice.example/settings/privateTypeIndex.ttl#id1612606272000> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/solid/terms#TypeRegistration> .
-<https://alice.example/settings/privateTypeIndex.ttl#id1612606272000> <http://www.w3.org/ns/solid/terms#forClass> <http://www.w3.org/ns/pim/meeting#LongChat> .
-<https://alice.example/settings/privateTypeIndex.ttl#id1612606272000> <http://www.w3.org/ns/solid/terms#instance> <https://alice.example/IndividualChats/bob.example/index.ttl#this> .
+          .toBe(`INSERT DATA { <https://alice.example.com/settings/privateTypeIndex.ttl#id1612606272000> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/solid/terms#TypeRegistration> .
+<https://alice.example.com/settings/privateTypeIndex.ttl#id1612606272000> <http://www.w3.org/ns/solid/terms#forClass> <http://www.w3.org/ns/pim/meeting#LongChat> .
+<https://alice.example.com/settings/privateTypeIndex.ttl#id1612606272000> <http://www.w3.org/ns/solid/terms#instance> <https://alice.example.com/IndividualChats/bob.example.com/index.ttl#this> .
  }
 `);
       });
@@ -148,13 +150,13 @@ describe("Chat logic", () => {
 
   describe("possible errors", () => {
     it("profile does not link to storage", async () => {
-      fetchMock.mockOnceIf("https://alice.example/profile/card", "<><><>.", {
+      fetchMock.mockOnceIf("https://alice.example.com/profile/card.ttl", "<><><>.", {
         headers: {
           "Content-Type": "text/turtle",
         },
       });
       const expectedError = new Error("User pod root not found!");
-      await expect(chat.getChat(bob, false)).rejects.toEqual(expectedError);
+      await expect(chatLogic.getChat(bob, false)).rejects.toEqual(expectedError);
     });
 
     it("invitee inbox not found", async () => {
@@ -163,19 +165,19 @@ describe("Chat logic", () => {
       chatWithBobCanBeCreated();
       bobDoesNotHaveAnInbox();
       const expectedError = new Error(
-        "Invitee inbox not found! https://bob.example/profile/card#me"
+        "Invitee inbox not found! https://bob.example.com/profile/card.ttl#me"
       );
-      await expect(chat.getChat(bob, true)).rejects.toEqual(expectedError);
+      await expect(chatLogic.getChat(bob, true)).rejects.toEqual(expectedError);
     });
   });
 
   function aliceHasValidProfile() {
     fetchMock.mockOnceIf(
-      "https://alice.example/profile/card",
+      "https://alice.example.com/profile/card.ttl",
       `
-            <https://alice.example/profile/card#me>
-              <http://www.w3.org/ns/pim/space#storage> <https://alice.example/> ;
-              <http://www.w3.org/ns/solid/terms#privateTypeIndex> <https://alice.example/settings/privateTypeIndex.ttl> ;
+            <https://alice.example.com/profile/card.ttl#me>
+              <http://www.w3.org/ns/pim/space#storage> <https://alice.example.com/> ;
+              <http://www.w3.org/ns/solid/terms#privateTypeIndex> <https://alice.example.com/settings/privateTypeIndex.ttl> ;
             .`,
       {
         headers: {
@@ -188,7 +190,7 @@ describe("Chat logic", () => {
   function noChatWithBobExists() {
     return fetchMock.mockOnceIf(
       ({ url, method }) =>
-        url === "https://alice.example/IndividualChats/bob.example/index.ttl" &&
+        url === "https://alice.example.com/IndividualChats/bob.example.com/index.ttl" &&
         method === "GET",
       "Not found",
       {
@@ -200,7 +202,7 @@ describe("Chat logic", () => {
   function chatWithBobCanBeCreated() {
     return fetchMock.mockOnceIf(
       ({ url, method }) =>
-        url === "https://alice.example/IndividualChats/bob.example/index.ttl" &&
+        url === "https://alice.example.com/IndividualChats/bob.example.com/index.ttl" &&
         method === "PUT",
       "Created",
       {
@@ -211,8 +213,8 @@ describe("Chat logic", () => {
 
   function bobHasAnInbox() {
     fetchMock.mockOnceIf(
-      "https://bob.example/profile/card",
-      "<https://bob.example/profile/card#me><http://www.w3.org/ns/ldp#inbox><https://bob.example/inbox>.",
+      "https://bob.example.com/profile/card.ttl",
+      "<https://bob.example.com/profile/card.ttl#me><http://www.w3.org/ns/ldp#inbox><https://bob.example.com/inbox>.",
       {
         headers: { "Content-Type": "text/turtle" },
       }
@@ -220,7 +222,7 @@ describe("Chat logic", () => {
   }
 
   function bobDoesNotHaveAnInbox() {
-    fetchMock.mockOnceIf("https://bob.example/profile/card", "<><><>.", {
+    fetchMock.mockOnceIf("https://bob.example.com/profile/card.ttl", "<><><>.", {
       headers: {
         "Content-Type": "text/turtle",
       },
@@ -230,13 +232,13 @@ describe("Chat logic", () => {
   function invitationCanBeSent() {
     return fetchMock.mockOnceIf(
       ({ url, method }) =>
-        url === "https://bob.example/inbox" && method === "POST",
+        url === "https://bob.example.com/inbox" && method === "POST",
       "Created",
       {
         status: 201,
         headers: {
           location:
-            "https://bob.example/inbox/22373339-6cc0-49fc-b69e-0402edda6e4e.ttl",
+            "https://bob.example.com/inbox/22373339-6cc0-49fc-b69e-0402edda6e4e.ttl",
         },
       }
     );
@@ -245,7 +247,7 @@ describe("Chat logic", () => {
   function chatContainerIsFound() {
     return fetchMock.mockOnceIf(
       ({ url, method }) =>
-        url === "https://alice.example/IndividualChats/bob.example/" &&
+        url === "https://alice.example.com/IndividualChats/bob.example.com/" &&
         method === "GET",
       "<><><>.",
       {
@@ -261,7 +263,7 @@ describe("Chat logic", () => {
   function chatContainerAclCanBeSet() {
     return fetchMock.mockOnceIf(
       ({ url, method }) =>
-        url === "https://alice.example/IndividualChats/bob.example/.acl" &&
+        url === "https://alice.example.com/IndividualChats/bob.example.com/.acl" &&
         method === "PUT",
       "Created",
       {
@@ -273,7 +275,7 @@ describe("Chat logic", () => {
   function editablePrivateTypeIndexIsFound() {
     return fetchMock.mockOnceIf(
       ({ url, method }) =>
-        url === "https://alice.example/settings/privateTypeIndex.ttl" &&
+        url === "https://alice.example.com/settings/privateTypeIndex.ttl" &&
         method === "GET",
       "<><><>.",
       {
@@ -290,7 +292,7 @@ describe("Chat logic", () => {
   function privateTypeIndexIsUpdated() {
     return fetchMock.mockOnceIf(
       ({ url, method }) =>
-        url === "https://alice.example/settings/privateTypeIndex.ttl" &&
+        url === "https://alice.example.com/settings/privateTypeIndex.ttl" &&
         method === "PATCH",
       "OK",
       {
@@ -299,9 +301,6 @@ describe("Chat logic", () => {
     );
   }
 
-  /*
-    
-     */
   function getRequestTo(
     method: "GET" | "PUT" | "POST" | "DELETE" | "PATCH",
     url: string

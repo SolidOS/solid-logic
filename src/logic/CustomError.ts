@@ -6,7 +6,7 @@ class CustomError extends Error {
         this.name = new.target.name; // stack traces display correctly now
     }
 }
-    
+
 export class UnauthorizedError extends CustomError {}
 
 export class CrossOriginForbiddenError extends CustomError {}
@@ -14,6 +14,10 @@ export class CrossOriginForbiddenError extends CustomError {}
 export class SameOriginForbiddenError extends CustomError {}
 
 export class NotFoundError extends CustomError {}
+
+export class NotEditableError extends CustomError { }
+
+export class WebOperationError extends CustomError {}
 
 export class FetchError extends CustomError {
     status: number;
