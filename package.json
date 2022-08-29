@@ -32,17 +32,17 @@
     "@babel/preset-env": "~7.18.10",
     "@babel/preset-typescript": "~7.18.6",
     "@types/jest": "^27.5.2",
-    "@typescript-eslint/eslint-plugin": "^5.34.0",
-    "@typescript-eslint/parser": "^5.34.0",
-    "eslint": "^8.22.0",
+    "@typescript-eslint/eslint-plugin": "^5.35.1",
+    "@typescript-eslint/parser": "^5.35.1",
+    "eslint": "^8.23.0",
     "jest": "^27.5.1",
     "jest-environment-node-debug": "^2.0.0",
     "jest-fetch-mock": "^3.0.3",
-    "typescript": "^4.7.4"
+    "typescript": "^4.8.2"
   },
   "dependencies": {
     "@inrupt/solid-client-authn-browser": "^1.12.2",
-    "rdflib": "^2.2.19",
+    "rdflib": "^2.2.20",
     "solid-namespace": "^0.5.2"
   }
 }
