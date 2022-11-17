@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "@inrupt/solid-client-authn-browser": "^1.12.2",
-    "rdflib": "^2.2.20",
+    "rdflib": "^2.2.21",
     "solid-namespace": "^0.5.2"
   }
 }
