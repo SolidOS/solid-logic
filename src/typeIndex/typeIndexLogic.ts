@@ -155,12 +155,32 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
 
     async function getScopedAppsFromIndex(scope: TypeIndexScope, theClass: NamedNode | null): Promise<ScopedApp[]> {
         const index = scope.index
+        let results: ScopedApp[] = []
         const registrations = store.statementsMatching(null, ns.solid('instance'), null, index)
             .concat(store.statementsMatching(null, ns.solid('instanceContainer'), null, index))
             .map(st => st.subject)
         const relevant = theClass ? registrations.filter(reg => store.any(reg, ns.solid('forClass'), null, index)?.sameTerm(theClass))
             : registrations
-        const directInstances = relevant.map(reg => store.each(reg, ns.solid('instance'), null, index).map(one => sym(one.value))).flat()
+
+        for (const reg of relevant) {
+          const klass = store.any(reg, ns.solid('forClass'), null, index)
+          const instances = store.each(reg, ns.solid('instance'), null, index)
+          for (const instance of instances) {
+            results.push({ instance, type: klass, scope })
+          }
+          const containers = store.each(reg, ns.solid('instanceContainer'), null, index)
+          for (const cont of containers) {
+            await store.fetcher.load(cont)
+            const contents = store.each(cont, ns.ldp('contains'), null, cont).map(one => sym(one.value))
+            for (const instance of contents) {
+              results.push({ instance: sym(instance.value), type: klass,  scope })
+            }
+          }
+        }
+        return results
+        /*
+        const directInstances = relevant.map(reg => store.each(reg, ns.solid('instance'), null, index)).flat()
+        // const directInstances = relevant.map(reg => store.each(reg, ns.solid('instance'), null, index).map(one => sym(one.value))).flat()
         let instances = uniqueNodes(directInstances)
 
         const instanceContainers = relevant.map(
@@ -176,8 +196,9 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
             instances = instances.concat(contents)
         }
         return instances.map(instance => { return { instance, scope } })
+        */
     }
-    
+
     return {
         registerInTypeIndex,
         getRegistrations,
