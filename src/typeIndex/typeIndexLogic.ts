@@ -2,7 +2,7 @@ import { NamedNode, st, sym } from 'rdflib'
 import { ScopedApp, TypeIndexLogic, TypeIndexScope } from '../types'
 import * as debug from "../util/debug"
 import { ns as namespace } from '../util/ns'
-import { newThing, uniqueNodes } from "../util/utils"
+import { newThing } from "../util/utils"
 
 export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): TypeIndexLogic {
     const ns = namespace
@@ -155,7 +155,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
 
     async function getScopedAppsFromIndex(scope: TypeIndexScope, theClass: NamedNode | null): Promise<ScopedApp[]> {
         const index = scope.index
-        let results: ScopedApp[] = []
+        const results: ScopedApp[] = []
         const registrations = store.statementsMatching(null, ns.solid('instance'), null, index)
             .concat(store.statementsMatching(null, ns.solid('instanceContainer'), null, index))
             .map(st => st.subject)

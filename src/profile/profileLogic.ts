@@ -11,7 +11,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     /**
      * loads the preference without throwing errors - if it can create it it does so.
      * remark: it still throws error if it cannot load profile.
-     * @param user 
+     * @param user
      * @returns undefined if preferenceFile cannot be returned or NamedNode if it can find it or create it
      */
     async function silencedLoadPreferences(user: NamedNode): Promise <NamedNode | undefined> {
@@ -25,7 +25,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     /**
      * loads the preference without returning different errors if it cannot create or load it.
      * remark: it also throws error if it cannot load profile.
-     * @param user 
+     * @param user
      * @returns undefined if preferenceFile cannot be an Error or NamedNode if it can find it or create it
      */
     async function loadPreferences (user: NamedNode): Promise <NamedNode> {
@@ -48,9 +48,8 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             throw err
         }
 
-        let response
         try {
-            response = await store.fetcher.load(preferencesFile as NamedNode)
+            await store.fetcher.load(preferencesFile as NamedNode)
         } catch (err) { // Maybe a permission problem or origin problem
             const msg = `Unable to load preference of user ${user}: ${err}`
             debug.warn(msg)
@@ -123,4 +122,3 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         silencedLoadPreferences
     }
 }
-
