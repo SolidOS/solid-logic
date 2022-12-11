@@ -13,7 +13,7 @@ const DEFAULT_ISSUERS = [
   },
   {
     name: 'pod.Inrupt.com',
-    uri: 'https://broker.pod.inrupt.com'
+    uri: 'https://login.inrupt.com'
   }
 ]
 
