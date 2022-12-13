@@ -1,6 +1,6 @@
 /**
 * @jest-environment jsdom
-* 
+*
 */
 import { Fetcher, Store, sym, UpdateManager } from "rdflib";
 import { createAclLogic } from "../src/acl/aclLogic";
@@ -45,7 +45,7 @@ describe("TypeIndex logic NEW", () => {
             return alice;
         },
     };
-    
+
     beforeEach(() => {
         fetchMock.resetMocks();
         requests = []
@@ -80,7 +80,7 @@ describe("TypeIndex logic NEW", () => {
             body: 'Not Found'
         }
         })
-        
+
         store = new Store()
         store.fetcher = new Fetcher(store, { fetch: fetch });
         store.updater = new UpdateManager(store);
@@ -173,209 +173,7 @@ describe("TypeIndex logic NEW", () => {
         })
     })
 
-    const AliceAndClubScopes =
-    [
-    {
-        "instance":  {
-        "classOrder": 5,
-        "termType": "NamedNode",
-        "value": "https://alice.example.com/publicStuff/actionItems.ttl#this",
-        },
-        "scope":  {
-        "agent":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/profile/card.ttl#me",
-        },
-        "index":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/profile/public-type-index.ttl",
-        },
-        "label": "public",
-        },
-    },
-    {
-        "instance":  {
-        "classOrder": 5,
-        "termType": "NamedNode",
-        "value": "https://alice.example.com/project4/issues.ttl#this",
-        },
-        "scope": {
-        "agent":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/profile/card.ttl#me",
-        },
-        "index": {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/profile/public-type-index.ttl",
-        },
-        "label": "public",
-        },
-    },
-    {
-        "instance":  {
-        "classOrder": 5,
-        "termType": "NamedNode",
-        "value": "https://alice.example.com/privateStuff/ToDo.ttl#this",
-        },
-        "scope":  {
-        "agent": {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/profile/card.ttl#me",
-        },
-        "index":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/settings/private-type-index.ttl",
-        },
-        "label": "private",
-        },
-    },
-    {
-        "instance":  {
-        "classOrder": 5,
-        "termType": "NamedNode",
-        "value": "https://alice.example.com/privateStuff/Goals.ttl#this",
-        },
-        "scope": {
-        "agent":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/profile/card.ttl#me",
-        },
-        "index":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/settings/private-type-index.ttl",
-        },
-        "label": "private",
-        },
-    },
-    {
-        "instance":  {
-        "classOrder": 5,
-        "termType": "NamedNode",
-        "value": "https://alice.example.com/privateStuff/workingOn.ttl#this",
-        },
-        "scope":  {
-        "agent":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/profile/card.ttl#me",
-        },
-        "index":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/settings/private-type-index.ttl",
-        },
-        "label": "private",
-        },
-    },
-    {
-        "instance":  {
-        "classOrder": 5,
-        "termType": "NamedNode",
-        "value": "https://club.example.com/publicStuff/actionItems.ttl#this",
-        },
-        "scope": {
-        "agent":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/profile/card.ttl#it",
-        },
-        "index":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/profile/public-type-index.ttl",
-        },
-        "label": "public",
-        },
-    },
-    {
-        "instance":  {
-        "classOrder": 5,
-        "termType": "NamedNode",
-        "value": "https://club.example.com/project4/clubIssues.ttl#this",
-        },
-        "scope":  {
-        "agent": {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/profile/card.ttl#it",
-        },
-        "index":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/profile/public-type-index.ttl",
-        },
-        "label": "public",
-        },
-    },
-    {
-        "instance": {
-        "classOrder": 5,
-        "termType": "NamedNode",
-        "value": "https://club.example.com/privateStuff/ToDo.ttl#this",
-        },
-        "scope":  {
-        "agent":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/profile/card.ttl#it",
-        },
-        "index":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/settings/private-type-index.ttl",
-        },
-        "label": "private",
-        },
-    },
-    {
-        "instance":  {
-        "classOrder": 5,
-        "termType": "NamedNode",
-        "value": "https://club.example.com/privateStuff/Goals.ttl#this",
-        },
-        "scope":  {
-        "agent":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/profile/card.ttl#it",
-        },
-        "index":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/settings/private-type-index.ttl",
-        },
-        "label": "private",
-        },
-    },
-    {
-        "instance":  {
-        "classOrder": 5,
-        "termType": "NamedNode",
-        "value": "https://club.example.com/privateStuff/tasks.ttl#this",
-        },
-        "scope":  {
-        "agent":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/profile/card.ttl#it",
-        },
-        "index":  {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/settings/private-type-index.ttl",
-        },
-        "label": "private",
-        },
-    },
-    ]
+    const AliceAndClubScopes =  [{"instance": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/publicStuff/actionItems.ttl#this"}, "scope": {"agent": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/profile/card.ttl#me"}, "index": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/profile/public-type-index.ttl"}, "label": "public"}, "type": {"classOrder": 5, "termType": "NamedNode", "value": "http://www.w3.org/2005/01/wf/flow#Tracker"}}, {"instance": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/project4/issues.ttl#this"}, "scope": {"agent": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/profile/card.ttl#me"}, "index": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/profile/public-type-index.ttl"}, "label": "public"}, "type": {"classOrder": 5, "termType": "NamedNode", "value": "http://www.w3.org/2005/01/wf/flow#Tracker"}}, {"instance": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/privateStuff/ToDo.ttl#this"}, "scope": {"agent": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/profile/card.ttl#me"}, "index": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/settings/private-type-index.ttl"}, "label": "private"}, "type": {"classOrder": 5, "termType": "NamedNode", "value": "http://www.w3.org/2005/01/wf/flow#Tracker"}}, {"instance": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/privateStuff/Goals.ttl#this"}, "scope": {"agent": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/profile/card.ttl#me"}, "index": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/settings/private-type-index.ttl"}, "label": "private"}, "type": {"classOrder": 5, "termType": "NamedNode", "value": "http://www.w3.org/2005/01/wf/flow#Tracker"}}, {"instance": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/privateStuff/workingOn.ttl#this"}, "scope": {"agent": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/profile/card.ttl#me"}, "index": {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/settings/private-type-index.ttl"}, "label": "private"}, "type": {"classOrder": 5, "termType": "NamedNode", "value": "http://www.w3.org/2005/01/wf/flow#Tracker"}}, {"instance": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/publicStuff/actionItems.ttl#this"}, "scope": {"agent": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/profile/card.ttl#it"}, "index": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/profile/public-type-index.ttl"}, "label": "public"}, "type": {"classOrder": 5, "termType": "NamedNode", "value": "http://www.w3.org/2005/01/wf/flow#Tracker"}}, {"instance": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/project4/clubIssues.ttl#this"}, "scope": {"agent": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/profile/card.ttl#it"}, "index": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/profile/public-type-index.ttl"}, "label": "public"}, "type": {"classOrder": 5, "termType": "NamedNode", "value": "http://www.w3.org/2005/01/wf/flow#Tracker"}}, {"instance": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/privateStuff/ToDo.ttl#this"}, "scope": {"agent": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/profile/card.ttl#it"}, "index": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/settings/private-type-index.ttl"}, "label": "private"}, "type": {"classOrder": 5, "termType": "NamedNode", "value": "http://www.w3.org/2005/01/wf/flow#Tracker"}}, {"instance": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/privateStuff/Goals.ttl#this"}, "scope": {"agent": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/profile/card.ttl#it"}, "index": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/settings/private-type-index.ttl"}, "label": "private"}, "type": {"classOrder": 5, "termType": "NamedNode", "value": "http://www.w3.org/2005/01/wf/flow#Tracker"}}, {"instance": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/privateStuff/tasks.ttl#this"}, "scope": {"agent": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/profile/card.ttl#it"}, "index": {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/settings/private-type-index.ttl"}, "label": "private"}, "type": {"classOrder": 5, "termType": "NamedNode", "value": "http://www.w3.org/2005/01/wf/flow#Tracker"}}]
 
     describe('getScopedAppInstances', () => {
         it('exists', () => {
@@ -383,7 +181,7 @@ describe("TypeIndex logic NEW", () => {
         })
         it('pulls in users scopes and also community ones', async () => {
         const result = await typeIndexLogic.getScopedAppInstances(Tracker, alice)
-        expect(result).toEqual(AliceAndClubScopes)
+        expect(result).toEqual(AliceAndClubScopes) // @@ AliceAndClubScopes
         })
         it('creates new preferenceFile and typeIndex files where they dont exist', async () => {
         const result = await typeIndexLogic.getScopedAppInstances(Tracker, bob)
@@ -412,58 +210,16 @@ describe("TypeIndex logic NEW", () => {
     })
 
     const TRACKERS =
-        [
-        {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/publicStuff/actionItems.ttl#this",
-        },
-        {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/project4/issues.ttl#this",
-        },
-        {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/privateStuff/ToDo.ttl#this",
-        },
-        {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/privateStuff/Goals.ttl#this",
-        },
-        {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://alice.example.com/privateStuff/workingOn.ttl#this",
-        },
-        {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/publicStuff/actionItems.ttl#this",
-        },
-        {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/project4/clubIssues.ttl#this",
-        },
-        {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/privateStuff/ToDo.ttl#this",
-        },
-        {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/privateStuff/Goals.ttl#this",
-        },
-        {
-            "classOrder": 5,
-            "termType": "NamedNode",
-            "value": "https://club.example.com/privateStuff/tasks.ttl#this",
-        },
-        ]
+[{"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/publicStuff/actionItems.ttl#this"},
+ {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/project4/issues.ttl#this"},
+ {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/privateStuff/ToDo.ttl#this"},
+ {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/privateStuff/Goals.ttl#this"},
+ {"classOrder": 5, "termType": "NamedNode", "value": "https://alice.example.com/privateStuff/workingOn.ttl#this"},
+ {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/publicStuff/actionItems.ttl#this"},
+ {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/project4/clubIssues.ttl#this"},
+ {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/privateStuff/ToDo.ttl#this"},
+ {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/privateStuff/Goals.ttl#this"},
+ {"classOrder": 5, "termType": "NamedNode", "value": "https://club.example.com/privateStuff/tasks.ttl#this"} ]
 
     describe('getAppInstances', () => {
         it('exists', () => {
@@ -471,7 +227,7 @@ describe("TypeIndex logic NEW", () => {
         })
         it('finds trackers', async () => {
         const result = await typeIndexLogic.getAppInstances(Tracker)
-        expect(result).toEqual(TRACKERS)
+        expect(result).toEqual(TRACKERS) // TRACKERS @@
         expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
         })
         it('finds images in containers', async () => {
