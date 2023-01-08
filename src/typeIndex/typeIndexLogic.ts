@@ -167,12 +167,9 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
               results.push({ instance, type: klass, scope })
             }
             const containers = store.each(reg, ns.solid('instanceContainer'), null, index)
-            for (const cont of containers) {
-              await store.fetcher.load(cont)
-              const contents = store.each(cont, ns.ldp('contains'), null, cont).map(one => sym(one.value))
-              for (const instance of contents) {
+            for (const instance of containers) {
+                await store.fetcher.load(instance)
                 results.push({ instance: sym(instance.value), type: klass,  scope })
-              }
             }
           }
         }
