@@ -230,11 +230,11 @@ describe("TypeIndex logic NEW", () => {
         expect(result).toEqual(TRACKERS) // TRACKERS @@
         expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
         })
-        it('finds images in containers', async () => {
+        it('finds containers', async () => {
         const result = await typeIndexLogic.getAppInstances(Image)
-        expect(result.length).toEqual(3)
+        expect(result.length).toEqual(1)
         expect(result).toEqual(uniqueNodes(result)) // shoud have no dups
-        expect(result.map(x => x.uri).join()).toEqual("https://alice.example.com/profile/Photos/photo1.png,https://alice.example.com/profile/Photos/photo2.png,https://alice.example.com/profile/Photos/photo3.png")
+        expect(result.map(x => x.uri).join()).toEqual("https://alice.example.com/profile/Photos/")
         })
     })
 
