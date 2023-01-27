@@ -7,7 +7,7 @@
     "build": "npm run clean && tsc",
     "clean": "rm -rf lib",
     "lint": "eslint ./src",
-    "test": "jest",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test-debug": "node --inspect-brk ./node_modules/.bin/jest -i --env jest-environment-node-debug",
     "preversion": "npm test",
     "postversion": "git push --follow-tags",
@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "@inrupt/solid-client-authn-browser": "^1.12.2",
-    "rdflib": "^2.2.21",
+    "rdflib": "^2.2.24",
     "solid-namespace": "^0.5.2"
   }
 }
