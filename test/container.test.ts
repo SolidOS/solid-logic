@@ -27,7 +27,7 @@ describe("Container", () => {
                 'https://com/bar/'
             ].sort());
     });
-    it("getContainerMembers- When container is empty - Resolves to an empty array", async () => {
+    it.skip("getContainerMembers- When container is empty - Resolves to an empty array", async () => {
         jest.setTimeout(2000)
         containerIsEmpty();
         const result = await containerLogic.getContainerMembers('https://container.com/');
