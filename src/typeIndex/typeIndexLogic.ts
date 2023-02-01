@@ -2,7 +2,7 @@ import { NamedNode, st, sym } from 'rdflib'
 import { ScopedApp, TypeIndexLogic, TypeIndexScope } from '../types'
 import * as debug from "../util/debug"
 import { ns as namespace } from '../util/ns'
-import { newThing, uniqueNodes } from "../util/utils"
+import { newThing } from "../util/utils"
 
 export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): TypeIndexLogic {
     const ns = namespace
@@ -155,29 +155,27 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
 
     async function getScopedAppsFromIndex(scope: TypeIndexScope, theClass: NamedNode | null): Promise<ScopedApp[]> {
         const index = scope.index
+        const results: ScopedApp[] = []
         const registrations = store.statementsMatching(null, ns.solid('instance'), null, index)
             .concat(store.statementsMatching(null, ns.solid('instanceContainer'), null, index))
             .map(st => st.subject)
-        const relevant = theClass ? registrations.filter(reg => store.any(reg, ns.solid('forClass'), null, index)?.sameTerm(theClass))
-            : registrations
-        const directInstances = relevant.map(reg => store.each(reg, ns.solid('instance'), null, index).map(one => sym(one.value))).flat()
-        let instances = uniqueNodes(directInstances)
-
-        const instanceContainers = relevant.map(
-            reg => store.each(reg, ns.solid('instanceContainer'), null, index).map(one => sym(one.value))).flat()
-
-        //  instanceContainers may be deprocatable if no one has used them
-        const containers = uniqueNodes(instanceContainers)
-        if (containers.length > 0) { console.log('@@ getScopedAppsFromIndex containers ', containers) }
-        for (let i = 0; i < containers.length; i++) {
-            const cont = containers[i]
-            await store.fetcher.load(cont)
-            const contents = store.each(cont, ns.ldp('contains'), null, cont).map(one => sym(one.value))
-            instances = instances.concat(contents)
+        for (const reg of registrations) {
+          const klass = store.any(reg, ns.solid('forClass'), null, index)
+          if (!theClass || klass.sameTerm(theClass)) {
+            const instances = store.each(reg, ns.solid('instance'), null, index)
+            for (const instance of instances) {
+              results.push({ instance, type: klass, scope })
+            }
+            const containers = store.each(reg, ns.solid('instanceContainer'), null, index)
+            for (const instance of containers) {
+                await store.fetcher.load(instance)
+                results.push({ instance: sym(instance.value), type: klass,  scope })
+            }
+          }
         }
-        return instances.map(instance => { return { instance, scope } })
+        return results
     }
-    
+
     return {
         registerInTypeIndex,
         getRegistrations,

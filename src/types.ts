@@ -33,7 +33,7 @@ export interface SolidNamespace {
 }
 
 export type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode }
-export type ScopedApp = { instance: NamedNode, scope: TypeIndexScope }
+export type ScopedApp = { instance: NamedNode, type: NamedNode, scope: TypeIndexScope }
 
 export interface NewPaneOptions {
     me?: NamedNode;
@@ -119,4 +119,3 @@ export interface SolidLogic {
     updatePromise: (del: Array<Statement>, ins: Array<Statement>) => Promise<void>,
     clearStore: () => void
 }
-

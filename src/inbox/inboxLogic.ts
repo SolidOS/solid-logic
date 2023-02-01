@@ -3,13 +3,13 @@ import { InboxLogic } from "../types";
 import { getArchiveUrl } from "../util/utils";
 
 export function createInboxLogic(store, profileLogic, utilityLogic, containerLogic, aclLogic): InboxLogic {
-  
+
     async function createInboxFor(peerWebId: string, nick: string) {
       const myWebId: NamedNode = await profileLogic.loadMe();
       const podRoot: NamedNode = await profileLogic.getPodRoot(myWebId);
       const ourInbox = `${podRoot.value}p2p-inboxes/${encodeURIComponent(nick)}/`;
       await containerLogic.createContainer(ourInbox);
-      const aclDocUrl = await aclLogic.findAclDocUrl(sym(ourInbox))
+      // const aclDocUrl = await aclLogic.findAclDocUrl(ourInbox);
       await utilityLogic.setSinglePeerAccess({
         ownerWebId: myWebId.value,
         peerWebId,
