@@ -72,7 +72,7 @@ export interface ProfileLogic {
 }
 
 export interface AclLogic {
-    findAclDocUrl: (url: string) => Promise<any>,
+    findAclDocUrl: (url: NamedNode) => Promise<any>,
     setACLUserPublic: (docURI: string, me: NamedNode,
         options: {
             defaultForNew?: boolean,
@@ -89,7 +89,7 @@ export interface AclLogic {
 
 export interface InboxLogic {
     createInboxFor: (peerWebId: string, nick: string) => Promise<string>,
-    getNewMessages: (user?: NamedNode) => Promise<string[]>,
+    getNewMessages: (user?: NamedNode) => Promise<NamedNode[]>,
     markAsRead: (url: string, date: Date) => void
 }
 

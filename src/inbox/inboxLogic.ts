@@ -1,4 +1,4 @@
-import { NamedNode } from "rdflib";
+import { NamedNode, sym } from "rdflib";
 import { InboxLogic } from "../types";
 import { getArchiveUrl } from "../util/utils";
 
@@ -21,12 +21,12 @@ export function createInboxLogic(store, profileLogic, utilityLogic, containerLog
 
   async function getNewMessages(
       user?: NamedNode
-    ): Promise<string[]> {
+    ): Promise<NamedNode[]> {
       if (!user) {
         user = await profileLogic.loadMe();
       }
       const inbox = await profileLogic.getMainInbox(user);
-      const urls = await containerLogic.getContainerMembers(inbox.value);
+      const urls = await containerLogic.getContainerMembers(inbox);
       return urls.filter(url => !containerLogic.isContainer(url));
   }
 
