@@ -1,6 +1,9 @@
 module.exports = {
   verbose: true,
-  testEnvironment: 'node',
+  testEnvironment: 'jsdom',
+  testEnvironmentOptions: {
+      customExportConditions: ['node']
+  },
   setupFilesAfterEnv: [
     './test/helpers/setup.ts'
   ]
