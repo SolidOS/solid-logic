@@ -47,10 +47,12 @@ export class SolidAuthnLogic implements AuthnLogic {
     /**
      * Handle a successful authentication redirect
      */
+    const redirectUrl = new URL(window.location.href)
+    redirectUrl.hash = ''
     await this.session
       .handleIncomingRedirect({
         restorePreviousSession: true,
-        url: window.location.href
+        url: redirectUrl.href
       })
 
     // Check to see if a hash was stored in local storage
