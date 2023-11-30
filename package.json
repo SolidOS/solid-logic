@@ -42,8 +42,8 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@inrupt/solid-client-authn-browser": "^1.17.3",
-    "rdflib": "^2.2.32",
+    "@inrupt/solid-client-authn-browser": "1.16",
+    "rdflib": "^2.2.33",
     "solid-namespace": "^0.5.3"
   }
 }
