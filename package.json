@@ -44,7 +44,7 @@
   "dependencies": {
     "@inrupt/solid-client-authn-browser": "1.17",
     "lint-staged": "^13.3.0",
-    "rdflib": "^2.2.33-e72fe6d2",
+    "rdflib": "^2.2.34-beta",
     "solid-namespace": "^0.5.3"
   }
 }
