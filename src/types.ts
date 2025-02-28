@@ -9,7 +9,7 @@ export type AppDetails = {
 export type AuthenticationContext = {
     containers?: Array<NamedNode>
     div?: HTMLElement
-    dom?: HTMLDocument
+    dom?: Document|HTMLDocument
     index?: { [key: string]: Array<NamedNode> }
     instances?: Array<NamedNode>
     me?: NamedNode | null
