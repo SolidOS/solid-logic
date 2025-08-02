@@ -16,9 +16,9 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
           );
         }
         const nodeToStringHere = containerNode.value;
-        return store.fetcher._fetch(nodeToStringHere, { method: "DELETE" });
+        return store.fetcher._fetch(nodeToStringHere, { method: "DELETE" })
       } catch (e) {
-        // debug.log(`Please manually remove ${url} from your system under test.`, e);
+        debug.log(`Please manually remove ${containerNode.value} from your system.`, e);
       }
   }
 

@@ -17,6 +17,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     async function silencedLoadPreferences(user: NamedNode): Promise <NamedNode | undefined> {
         try {
             return await loadPreferences(user)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (err) {
             return undefined
         }

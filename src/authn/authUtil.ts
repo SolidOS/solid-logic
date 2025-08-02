@@ -7,7 +7,9 @@ import * as debug from '../util/debug'
  * see: https://github.com/facebook/jest/issues/936#issuecomment-545080082 for more
  * @return {any} - an appContext object
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const appContext = ():any => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let { SolidAppContext }: any = window
     SolidAppContext ||= {}
     SolidAppContext.viewingNoAuthPage = false
@@ -40,6 +42,7 @@ export const appContext = ():any => {
  * @returns {NamedNode|null}
  */
 export function offlineTestID (): NamedNode | null {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any 
     const { $SolidTestEnvironment }: any = window
     if (
       typeof $SolidTestEnvironment !== 'undefined' &&
