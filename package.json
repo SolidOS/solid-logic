@@ -25,18 +25,18 @@
   },
   "homepage": "https://github.com/solidos/solid-logic#readme",
   "devDependencies": {
-    "@babel/plugin-proposal-class-properties": "~7.18.6",
-    "@babel/plugin-proposal-optional-chaining": "~7.21.0",
-    "@babel/plugin-transform-async-to-generator": "~7.25.9",
-    "@babel/plugin-transform-runtime": "^7.25.9",
-    "@babel/preset-env": "~7.26.7",
-    "@babel/preset-typescript": "~7.26.0",
-    "@types/jest": "^29.5.14",
-    "@typescript-eslint/eslint-plugin": "^5.62.0",
-    "@typescript-eslint/parser": "^5.62.0",
-    "eslint": "^8.57.1",
-    "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
+    "@babel/plugin-transform-class-properties": "^7.27.1",
+    "@babel/plugin-transform-optional-chaining": "^7.27.1",
+    "@babel/plugin-transform-async-to-generator": "^7.27.1",
+    "@babel/plugin-transform-runtime": "^7.28.0",
+    "@babel/preset-env": "^7.28.0",
+    "@babel/preset-typescript": "^7.27.1",
+    "@types/jest": "^30.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.34.0",
+    "@typescript-eslint/parser": "^8.34.0",
+    "eslint": "^9.28.0",
+    "jest": "^30.0.2",
+    "jest-environment-jsdom": "^30.0.2",
     "jest-environment-node-debug": "^2.0.0",
     "jest-fetch-mock": "^3.0.3",
     "typescript": "^5.7.3"
@@ -44,7 +44,7 @@
   "dependencies": {
     "@inrupt/solid-client-authn-browser": "1.17",
     "lint-staged": "^15.4.3",
-    "rdflib": "^2.2.36",
+    "rdflib": "^2.2.37",
     "solid-namespace": "^0.5.4"
   }
 }

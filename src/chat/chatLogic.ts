@@ -96,6 +96,7 @@ export function createChatLogic(store, profileLogic): ChatLogic {
             await store.fetcher.load(
                 new NamedNode(chatContainer.value + "index.ttl#this")
             );
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (e) {
             exists = false;
         }
