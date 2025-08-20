@@ -42,7 +42,7 @@
     "typescript": "^5.7.3"
   },
   "dependencies": {
-    "@inrupt/solid-client-authn-browser": "1.17",
+    "@inrupt/solid-client-authn-browser": "3.1",
     "lint-staged": "^15.4.3",
     "rdflib": "^2.2.37",
     "solid-namespace": "^0.5.4"
