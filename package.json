@@ -25,9 +25,9 @@
   },
   "homepage": "https://github.com/solidos/solid-logic#readme",
   "devDependencies": {
+    "@babel/plugin-transform-async-to-generator": "^7.27.1",
     "@babel/plugin-transform-class-properties": "^7.27.1",
     "@babel/plugin-transform-optional-chaining": "^7.27.1",
-    "@babel/plugin-transform-async-to-generator": "^7.27.1",
     "@babel/plugin-transform-runtime": "^7.28.0",
     "@babel/preset-env": "^7.28.0",
     "@babel/preset-typescript": "^7.27.1",
@@ -42,7 +42,7 @@
     "typescript": "^5.7.3"
   },
   "dependencies": {
-    "@inrupt/solid-client-authn-browser": "1.17",
+    "@inrupt/solid-client-authn-browser": "^3.1.0",
     "lint-staged": "^15.4.3",
     "rdflib": "^2.2.37",
     "solid-namespace": "^0.5.4"
