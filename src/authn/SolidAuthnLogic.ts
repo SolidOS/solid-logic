@@ -41,7 +41,7 @@ export class SolidAuthnLogic implements AuthnLogic {
       window.localStorage.setItem('preLoginRedirectHash', preLoginRedirectHash)
     }
     this.session.events.on(EVENTS.SESSION_RESTORED, (url) => {
-      console.log(`Session restored to ${url}`)
+      debug.log(`Session restored to ${url}`)
       if (document.location.toString() !== url) history.replaceState(null, '', url)
     })
 
