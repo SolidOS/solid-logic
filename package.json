@@ -3,9 +3,15 @@
   "type": "module",
   "version": "3.0.9",
   "description": "Core business logic of SolidOS",
-  "main": "lib/index.js",
+  "main": "dist/solid-logic.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "clean": "rm -rf lib src/versionInfo.ts",
+    "clean": "rm -rf dist src/versionInfo.ts",
     "build": "npm run clean && npm run build-types && npm run build-version && rollup -c",
     "build-version": "./timestamp.sh > src/versionInfo.ts  && eslint 'src/versionInfo.ts' --fix",
     "build-types": "tsc --emitDeclarationOnly",

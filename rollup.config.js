@@ -10,7 +10,7 @@ const license = fs.readFileSync('./LICENSE', 'utf8')
 export default {
   input: 'src/index.ts',
   output: {
-    file: 'lib/solid-logic.js',
+    file: 'dist/solid-logic.js',
     format: 'esm',
     banner: `/*!\n${license}\n*/`,
     sourcemap: true

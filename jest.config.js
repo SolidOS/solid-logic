@@ -7,7 +7,7 @@ export default {
   testEnvironmentOptions: {
     customExportConditions: ["node"],
   },
-  testPathIgnorePatterns: ["/node_modules/", "/lib/"],
+  testPathIgnorePatterns: ["/node_modules/", "/dist/"],
   transform: {
     "^.+\\.[tj]sx?$": ["babel-jest", { configFile: "./babel.config.js" }],
   },
