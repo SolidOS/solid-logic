@@ -9,7 +9,8 @@ export default {
   output: {
     file: 'dist/solid-logic.js',
     format: 'esm',
-    sourcemap: true
+    sourcemap: true,
+    exports: 'named'
   },
   plugins: [
     resolve({ preferBuiltins: true }), // best practice to be true, chooses node.js buildins
@@ -21,5 +22,6 @@ export default {
     json(),
     terser()
   ],
+  external: ['rdflib', 'solid-namespace'],
   inlineDynamicImports: true // dissables multiple chunk creation, why we use rollup in the first place
 }

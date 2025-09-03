@@ -1,6 +1,6 @@
-import tsParser from '@typescript-eslint/parser';
-import tseslint from '@typescript-eslint/eslint-plugin';
-import importPlugin from 'eslint-plugin-import';
+import tsParser from '@typescript-eslint/parser'
+import tseslint from '@typescript-eslint/eslint-plugin'
+import importPlugin from 'eslint-plugin-import'
 
 export default [
   {
@@ -25,4 +25,4 @@ export default [
       '@typescript-eslint/no-explicit-any': 'warn',
     },
   },
-];
+]

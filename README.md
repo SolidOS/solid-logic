@@ -19,7 +19,7 @@ Check the scripts in the `package.json` for build, watch, lint and test.
 
 * TypeScript + Babel
 * Jest
-* Eslint
+* ESLint
 * Rollup
 
 # History
