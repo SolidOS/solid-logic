@@ -16,11 +16,14 @@ export default {
     sourcemap: true
   },
   plugins: [
-    resolve({ preferBuiltins: true }),
+    resolve({ preferBuiltins: true }), // best practice to be true, chooses node.js buildins
     commonjs(),
-    typescript(),
+    typescript({
+      declaration: false, // this is false so it does not generate types for the versionInfo file
+      declarationMap: false
+    }),
     json(),
     terser()
   ],
-  inlineDynamicImports: true
+  inlineDynamicImports: true // dissables multiple chunk creation, why we use rollup in the first place
 }
