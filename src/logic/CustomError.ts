@@ -1,9 +1,9 @@
 class CustomError extends Error {
     constructor(message?: string) {
-        super(message);
+        super(message)
         // see: typescriptlang.org/docs/handbook/release-notes/typescript-2-2.html
-        Object.setPrototypeOf(this, new.target.prototype); // restore prototype chain
-        this.name = new.target.name; // stack traces display correctly now
+        Object.setPrototypeOf(this, new.target.prototype) // restore prototype chain
+        this.name = new.target.name // stack traces display correctly now
     }
 }
 
@@ -20,10 +20,10 @@ export class NotEditableError extends CustomError { }
 export class WebOperationError extends CustomError {}
 
 export class FetchError extends CustomError {
-    status: number;
+    status: number
 
     constructor(status: number, message?: string) {
-        super(message);
-        this.status = status;
+        super(message)
+        this.status = status
     }
 }

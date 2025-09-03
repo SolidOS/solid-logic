@@ -10,7 +10,7 @@ import { AuthenticationContext } from '../src/types'
 silenceDebugMessages()
 let solidAuthnLogic
 
-describe("SolidAuthnLogic", () => {
+describe('SolidAuthnLogic', () => {
   
   beforeEach(() => {
     solidAuthnLogic = new SolidAuthnLogic(authSession)

@@ -5,14 +5,18 @@
   "description": "Core business logic of SolidOS",
   "main": "lib/index.js",
   "scripts": {
-    "build": "npm run clean && webpack --config webpack.config.js",
-    "clean": "rm -rf lib",
-    "lint": "eslint ./src",
+    "clean": "rm -rf lib src/versionInfo.ts",
+    "build": "npm run clean && npm run build-types && npm run build-version && webpack --config webpack.config.js",
+    "build-version": "./timestamp.sh > src/versionInfo.ts  && eslint 'src/versionInfo.ts' --fix",
+    "build-types": "tsc --emitDeclarationOnly",
+    "lint": "eslint 'src/**/*.ts' 'test/**/*.ts'",
+    "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
     "test": "jest",
     "test-debug": "node --inspect-brk ./node_modules/.bin/jest -i --env jest-environment-node-debug",
-    "preversion": "npm test",
-    "postversion": "git push --follow-tags",
     "prepublishOnly": "npm run build && npm run test",
+    "preversion": "npm run lint && npm run typecheck && npm test",
+    "postversion": "git push --follow-tags",
     "watch": "tsc --watch"
   },
   "repository": {
@@ -38,10 +42,14 @@
     "@typescript-eslint/parser": "^8.34.0",
     "babel-loader": "^10.0.0",
     "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "husky": "^9.1.7",
     "jest": "^30.0.2",
     "jest-environment-jsdom": "^30.0.2",
     "jest-environment-node-debug": "^2.0.0",
     "jest-fetch-mock": "^3.0.3",
+    "lint-staged": "^16.1.5",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.2",
     "webpack": "^5.101.3",
@@ -49,8 +57,16 @@
   },
   "dependencies": {
     "@inrupt/solid-client-authn-browser": "1.17",
-    "lint-staged": "^16.1.5",
     "rdflib": "^2.2.37",
     "solid-namespace": "^0.5.4"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "pre-push": "npm test"
+    }
+  },
+  "lint-staged": {
+    "*.ts": "eslint --fix"
   }
 }

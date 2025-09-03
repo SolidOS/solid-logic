@@ -1,8 +1,13 @@
 import { error, log, trace, warn } from '../../src/util/debug'
 import fetchMock from "jest-fetch-mock";
-import { TextEncoder, TextDecoder } from 'util'
-global.TextEncoder = TextEncoder
-global.TextDecoder = TextDecoder
+import { TextEncoder as UtilTextEncoder, TextDecoder as UtilTextDecoder } from 'util'
+
+if (typeof global.TextEncoder === 'undefined') {
+  global.TextEncoder = UtilTextEncoder as unknown as { new (): TextEncoder; prototype: TextEncoder }
+}
+if (typeof global.TextDecoder === 'undefined') {
+  global.TextDecoder = UtilTextDecoder as unknown as { new (): TextDecoder; prototype: TextDecoder }
+}
 
 
 fetchMock.enableMocks();

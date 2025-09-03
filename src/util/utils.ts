@@ -1,7 +1,7 @@
-import { NamedNode, sym } from "rdflib";
+import { NamedNode, sym } from 'rdflib'
 
 export function newThing(doc: NamedNode): NamedNode {
-    return sym(doc.uri + "#" + "id" + ("" + Date.now()));
+    return sym(doc.uri + '#' + 'id' + ('' + Date.now()))
 }
 
 export function uniqueNodes (arr: NamedNode[]): NamedNode[] {
@@ -13,21 +13,21 @@ export function uniqueNodes (arr: NamedNode[]): NamedNode[] {
 }
 
 export function getArchiveUrl(baseUrl: string, date: Date) {
-    const year = date.getUTCFullYear();
-    const month = ('0' + (date.getUTCMonth()+1)).slice(-2);
-    const day = ('0' + (date.getUTCDate())).slice(-2);
-    const parts = baseUrl.split('/');
-    const filename = parts[parts.length -1 ];
-    return new URL(`./archive/${year}/${month}/${day}/${filename}`, baseUrl).toString();
+    const year = date.getUTCFullYear()
+    const month = ('0' + (date.getUTCMonth()+1)).slice(-2)
+    const day = ('0' + (date.getUTCDate())).slice(-2)
+    const parts = baseUrl.split('/')
+    const filename = parts[parts.length -1 ]
+    return new URL(`./archive/${year}/${month}/${day}/${filename}`, baseUrl).toString()
 }
 
 export function differentOrigin(doc): boolean {
     if (!doc) {
-        return true;
+        return true
     }
     return (
         `${window.location.origin}/` !== new URL(doc.value).origin
-    );
+    )
 }
 
 export function suggestPreferencesFile (me:NamedNode) {
@@ -47,6 +47,6 @@ export function determineChatContainer(
     const chatContainerStr = new URL(
         `IndividualChats/${new URL(invitee.value).host}/`,
         podRoot.value
-    ).toString();
-    return new NamedNode(chatContainerStr);
+    ).toString()
+    return new NamedNode(chatContainerStr)
 }

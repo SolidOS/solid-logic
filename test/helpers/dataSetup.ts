@@ -46,7 +46,8 @@ const AliceProfileFile = alice.doc()
 const AlicePreferencesFile = sym('https://alice.example.com/settings/prefs.ttl')
 const AlicePublicTypeIndex = sym('https://alice.example.com/profile/public-type-index.ttl')
 const AlicePrivateTypeIndex = sym('https://alice.example.com/settings/private-type-index.ttl')
-const AlicePhotoFolder = sym(alice.dir().uri + "Photos/")
+const aliceDir = alice.dir();
+const AlicePhotoFolder = sym((aliceDir && aliceDir.uri ? aliceDir.uri : "") + "Photos/")
 const AliceProfile = `
 <#me> a vcard:Individual;
     space:preferencesFile ${AlicePreferencesFile};

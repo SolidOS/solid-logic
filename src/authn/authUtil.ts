@@ -1,4 +1,4 @@
-import { NamedNode, sym } from "rdflib"
+import { NamedNode, sym } from 'rdflib'
 import * as debug from '../util/debug'
 
 /**

@@ -1,12 +1,24 @@
-import path from 'path';
+import path from 'path'
+import fs from 'fs'
+import webpack from 'webpack'
+
+const licenseText = fs.readFileSync('./LICENSE', 'utf8')
+const commentedLicense = `/*!\n${licenseText}\n*/`
 
 export default {
-  mode: 'production', // or 'development'
+  mode: 'production',
   entry: './src/index.ts',
   output: {
-    path: path.resolve('lib'),
-    filename: 'bundle.js',
-    libraryTarget: 'module', // ESM output
+  path: path.resolve('lib'),
+  filename: 'solid-logic.js',
+  libraryTarget: 'module', // ESM output
+  },
+  optimization: {
+    splitChunks: {
+      chunks: 'async',
+      minSize: Infinity,
+    },
+    runtimeChunk: false,
   },
   experiments: {
     outputModule: true,
@@ -32,5 +44,11 @@ export default {
         exclude: /node_modules/,
       }
     ]
-  }
-};
+  },
+  plugins: [
+    new webpack.BannerPlugin({
+      banner: commentedLicense,
+      raw: true
+    })
+  ]
+}

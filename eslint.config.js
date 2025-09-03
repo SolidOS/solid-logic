@@ -1,23 +1,28 @@
-import { defineConfig } from "eslint/config";
-import tsParser from "@typescript-eslint/parser";
-import typescriptEslint from "@typescript-eslint/eslint-plugin";
-import js from "@eslint/js";
-import { FlatCompat } from "@eslint/eslintrc";
+import tsParser from '@typescript-eslint/parser';
+import tseslint from '@typescript-eslint/eslint-plugin';
+import importPlugin from 'eslint-plugin-import';
 
-const compat = new FlatCompat({
-    baseDirectory: import.meta.dirname,
-    recommendedConfig: js.configs.recommended,
-    allConfig: js.configs.all
-});
-
-export default defineConfig([{
+export default [
+  {
+    files: ['src/**/*.ts', 'test/**/*.test.ts'],
+    ignores: ['lib/**', 'node_modules/**'],
     languageOptions: {
-        parser: tsParser,
+      parser: tsParser,
+      parserOptions: {
+        project: ['./tsconfig.json', './tsconfig.test.json'],
+        sourceType: 'module',
+      },
     },
-
     plugins: {
-        "@typescript-eslint": typescriptEslint,
+      '@typescript-eslint': tseslint,
+      import: importPlugin,
     },
-
-    extends: compat.extends("eslint:recommended", "plugin:@typescript-eslint/recommended"),
-}]);
+    rules: {
+      'semi': ['error', 'never'],
+      'quotes': ['error', 'single'],
+      'no-unused-vars': 'off', // handled by TS
+      '@typescript-eslint/no-unused-vars': ['warn'],
+      '@typescript-eslint/no-explicit-any': 'warn',
+    },
+  },
+];

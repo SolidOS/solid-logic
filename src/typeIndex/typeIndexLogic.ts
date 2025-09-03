@@ -1,22 +1,22 @@
 import { NamedNode, st, sym } from 'rdflib'
 import { ScopedApp, TypeIndexLogic, TypeIndexScope } from '../types'
-import * as debug from "../util/debug"
+import * as debug from '../util/debug'
 import { ns as namespace } from '../util/ns'
-import { newThing } from "../util/utils"
+import { newThing } from '../util/utils'
 
 export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): TypeIndexLogic {
     const ns = namespace
 
     function getRegistrations(instance, theClass) {
         return store
-            .each(undefined, ns.solid("instance"), instance)
+            .each(undefined, ns.solid('instance'), instance)
             .filter((r) => {
-                return store.holds(r, ns.solid("forClass"), theClass);
-            });
+                return store.holds(r, ns.solid('forClass'), theClass)
+            })
     }
 
     async function loadTypeIndexesFor(user: NamedNode): Promise<Array<TypeIndexScope>> {
-        if (!user) throw new Error(`loadTypeIndexesFor: No user given`)
+        if (!user) throw new Error('loadTypeIndexesFor: No user given')
         const profile = await profileLogic.loadProfile(user)
 
         const suggestion = suggestPublicTypeIndex(user)
@@ -46,7 +46,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
             let privateTypeIndex
             try {
                 privateTypeIndex = store.any(user, ns.solid('privateTypeIndex'), undefined, profile) ||
-                    await utilityLogic.followOrCreateLink(user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile);
+                    await utilityLogic.followOrCreateLink(user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile)
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 } catch (err) {
                 const message = `User ${user} has no pointer in preference file to privateTypeIndex file.`
