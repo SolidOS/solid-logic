@@ -1,5 +1,6 @@
 node_modules
 lib
+coverage
 
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
