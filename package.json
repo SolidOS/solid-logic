@@ -5,6 +5,7 @@
   "description": "Core business logic of SolidOS",
   "main": "dist/solid-logic.js",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
   "files": [
     "dist/",
     "README.md",
