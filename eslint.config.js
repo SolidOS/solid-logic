@@ -1,8 +1,10 @@
 import tsParser from '@typescript-eslint/parser'
-import tseslint from '@typescript-eslint/eslint-plugin'
+import tseslintPlugin from '@typescript-eslint/eslint-plugin'
+import tseslint from 'typescript-eslint'
 import importPlugin from 'eslint-plugin-import'
 
 export default [
+  ...tseslint.configs.recommended,
   {
     files: ['src/**/*.ts', 'test/**/*.test.ts'],
     ignores: ['dist/**', 'node_modules/**'],
@@ -14,7 +16,7 @@ export default [
       },
     },
     plugins: {
-      '@typescript-eslint': tseslint,
+      '@typescript-eslint': tseslintPlugin,
       import: importPlugin,
     },
     rules: {

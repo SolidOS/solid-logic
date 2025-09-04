@@ -1,5 +1,5 @@
 import { solidLogicSingleton } from '../src/logic/solidLogicSingleton'
-import { silenceDebugMessages } from './helpers/setup'
+import { silenceDebugMessages } from './helpers/debugger'
 
 silenceDebugMessages()
 
