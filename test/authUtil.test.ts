@@ -18,6 +18,6 @@ describe('appContext', () => {
         expect(authUtil.appContext).toBeInstanceOf(Function)
     })
     it('runs', () => {
-        expect(authUtil.appContext()).toEqual({"viewingNoAuthPage": false,})
+        expect(authUtil.appContext()).toEqual({'viewingNoAuthPage': false,})
     })
 })

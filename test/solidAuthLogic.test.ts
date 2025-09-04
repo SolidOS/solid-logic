@@ -3,14 +3,14 @@
 * 
 */
 import { SolidAuthnLogic } from '../src/authn/SolidAuthnLogic'
-import { silenceDebugMessages } from './helpers/setup'
+import { silenceDebugMessages } from './helpers/debugger'
 import { authSession } from '../src/authSession/authSession'
 import { AuthenticationContext } from '../src/types'
 
 silenceDebugMessages()
 let solidAuthnLogic
 
-describe("SolidAuthnLogic", () => {
+describe('SolidAuthnLogic', () => {
   
   beforeEach(() => {
     solidAuthnLogic = new SolidAuthnLogic(authSession)

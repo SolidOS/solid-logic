@@ -1,8 +1,4 @@
 import { sym } from 'rdflib'
-import * as rdf from "rdflib";
-import solidNamespace from "solid-namespace";
-import { SolidNamespace } from '../../src/types';
-const ns: SolidNamespace = solidNamespace(rdf);
 
 //------ Club -------------------------------------------------------
 const club = sym('https://club.example.com/profile/card.ttl#it')
@@ -46,7 +42,8 @@ const AliceProfileFile = alice.doc()
 const AlicePreferencesFile = sym('https://alice.example.com/settings/prefs.ttl')
 const AlicePublicTypeIndex = sym('https://alice.example.com/profile/public-type-index.ttl')
 const AlicePrivateTypeIndex = sym('https://alice.example.com/settings/private-type-index.ttl')
-const AlicePhotoFolder = sym(alice.dir().uri + "Photos/")
+const aliceDir = alice.dir();
+const AlicePhotoFolder = sym((aliceDir && typeof aliceDir.uri === "string" && aliceDir.uri.length > 0 ? aliceDir.uri : "") + "Photos/")
 const AliceProfile = `
 <#me> a vcard:Individual;
     space:preferencesFile ${AlicePreferencesFile};
