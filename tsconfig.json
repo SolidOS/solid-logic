@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
     /* Basic Options */
-  "target": "ES2020", /* Allow top-level await and modern JS features. */
-  "module": "ESNext", /* Use ESNext modules for Webpack/Babel compatibility. */
-  "moduleResolution": "node", /* Use Node.js-style module resolution for Webpack compatibility. */
+    "target": "ES2022", /* Allow top-level await and modern JS features. */
+    "module": "ESNext", /* Use ESNext modules for Webpack/Babel compatibility. */
+    "moduleResolution": "node", /* Use Node.js-style module resolution for Webpack compatibility. */
     "lib": [
       "dom",
       "es2015",
@@ -73,5 +73,5 @@
   "include": [
     "src/**/*"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "dist"]
 }

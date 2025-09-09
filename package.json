@@ -13,9 +13,10 @@
   ],
   "scripts": {
     "clean": "rm -rf dist src/versionInfo.ts",
-    "build": "npm run clean && npm run build-types && npm run build-version && rollup -c",
+    "build": "npm run clean && npm run build-types && npm run build-version && npm run build-dist",
     "build-version": "./timestamp.sh > src/versionInfo.ts  && eslint 'src/versionInfo.ts' --fix",
     "build-types": "tsc --emitDeclarationOnly",
+    "build-dist": "rollup -c",
     "lint": "eslint 'src/**/*.ts' 'test/**/*.ts'",
     "typecheck": "tsc --noEmit",
     "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
@@ -24,8 +25,8 @@
     "test-debug": "node --inspect-brk ./node_modules/.bin/jest -i --env jest-environment-node-debug",
     "prepublishOnly": "npm run build && npm run test",
     "preversion": "npm run lint && npm run typecheck && npm test",
-    "postversion": "git push --follow-tags",
-    "watch": "tsc --watch"
+    "postversion": "git push origin main --follow-tags",
+    "watch": "npm run build-version && tsc --watch"
   },
   "repository": {
     "type": "git",
