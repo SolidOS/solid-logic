@@ -22,6 +22,11 @@ Check the scripts in the `package.json` for build, watch, lint and test.
 * ESLint
 * Rollup
 
+# How to release
+
+Either chnage version and push directly to main. This will trigger the npm release latest script in CI.
+Or commit a tag to main and than create a release (on the right side of the reps main page). Creating a release manaully, triggers teh release.yml script.
+
 # History
 
 Solid-logic was a move to separate business logic from UI functionality so that people using different UI frameworks could use logic code. 
