@@ -22,7 +22,13 @@ export default [
         sourcemap: true,
         exports: 'named',
         globals: {
-          rdflib: 'rdflib'
+          rdflib: 'rdflib',
+          'node:crypto': 'crypto',
+          'node:buffer': 'node_buffer',
+          'node:util': 'util',
+          'node:http': 'http',
+          'node:https': 'https',
+          'node:events': 'events'
         }
       }
     ],
@@ -55,7 +61,13 @@ export default [
         sourcemap: true,
         exports: 'named',
         globals: {
-          rdflib: 'rdflib'
+          rdflib: 'rdflib',
+          'node:crypto': 'crypto',
+          'node:buffer': 'node_buffer',
+          'node:util': 'util',
+          'node:http': 'http',
+          'node:https': 'https',
+          'node:events': 'events'
         }
       }
     ],
