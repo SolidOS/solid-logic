@@ -1,8 +1,8 @@
 import { namedNode, NamedNode, sym } from 'rdflib'
 import { appContext, offlineTestID } from './authUtil'
 import * as debug from '../util/debug'
-import { Session } from '@inrupt/solid-client-authn-browser'
-import { AuthenticationContext, AuthnLogic } from '../types'
+import { EVENTS, Session } from "@inrupt/solid-client-authn-browser";
+import { AuthenticationContext, AuthnLogic } from "../types";
 
 export class SolidAuthnLogic implements AuthnLogic {
   private session: Session
@@ -40,7 +40,8 @@ export class SolidAuthnLogic implements AuthnLogic {
     if (preLoginRedirectHash) {
       window.localStorage.setItem('preLoginRedirectHash', preLoginRedirectHash)
     }
-    this.session.onSessionRestore((url) => {
+    this.session.events.on(EVENTS.SESSION_RESTORED, (url) => {
+      debug.log(`Session restored to ${url}`)
       if (document.location.toString() !== url) history.replaceState(null, '', url)
     })
 
