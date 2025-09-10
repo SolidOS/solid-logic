@@ -4,9 +4,7 @@ import TerserPlugin from 'terser-webpack-plugin'
 const commonConfig = {
   mode: 'production',
   entry: './src/index.ts',
-  externals: {
-    rdflib: '$rdf'
-  },
+
   module: {
     rules: [
       {
