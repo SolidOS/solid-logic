@@ -7,9 +7,85 @@
 
 Core business logic of SolidOS which can be used for any webapp as well.
 
-# How to use
 
-Either `npm install solid-logic` or in your HTML use directly `solid-logic.js` from `dist` folder.
+# Usage
+
+## Install via npm
+
+```sh
+npm install solid-logic
+```
+
+### Import in your project (ESM/TypeScript)
+
+```js
+import { someFunction } from 'solid-logic';
+```
+
+
+## Use directly in a browser
+
+### UMD bundle (global variable)
+
+```html
+<!-- Load dependencies first -->
+<script src="https://unpkg.com/rdflib/dist/rdflib.min.js"></script>
+<!-- or -->
+<!-- script src="https://cdn.jsdelivr.net/npm/rdflib/dist/rdflib.min.js"></script -->
+<!-- Load solid-logic UMD bundle -->
+<script src="https://unpkg.com/solid-logic/dist/solid-logic.umd.min.js"></script>
+<!-- or -->
+<!-- script src="https://cdn.jsdelivr.net/npm/solid-logic/dist/solid-logic.umd.min.js"></script -->
+<!-- or -->
+<!-- script src="dist/solid-logic.umd.js"></script -->
+<script>
+	// Access via global variable
+	const logic = window.SolidLogic;
+	// Example usage
+	// logic.someFunction(...)
+</script>
+```
+
+
+### ESM bundle (import as module)
+
+```html
+<script type="module">
+	import * as rdflib from 'https://esm.sh/rdflib';
+	import { someFunction } from 'https://esm.sh/solid-logic';
+
+	// Example usage
+	// someFunction(...)
+</script>
+```
+
+or 
+
+### ESM bundle with import map (bare specifiers)
+
+```html
+<script type="importmap">
+{
+	"imports": {
+		"rdflib": "https://esm.sh/rdflib",
+		"solid-logic": "https://esm.sh/solid-logic"
+	}
+}
+</script>
+<script type="module">
+	import * as rdflib from 'rdflib';
+	import { someFunction } from 'solid-logic';
+
+	// Example usage
+	// someFunction(...)
+</script>
+```
+
+
+## Files
+- For npm/ESM: `dist/solid-logic.esm.js` (referenced automatically in npm projects)
+- For browser UMD: `dist/solid-logic.umd.js` (global `window.SolidLogic`)
+- For browser ESM: `dist/solid-logic.esm.js` (import as module)
 
 # How to develop
 
@@ -24,8 +100,7 @@ Check the scripts in the `package.json` for build, watch, lint and test.
 
 # How to release
 
-Either chnage version and push directly to main. This will trigger the npm release latest script in CI.
-Or commit a tag to main and than create a release (on the right side of the reps main page). Creating a release manaully, triggers teh release.yml script.
+Change version and push directly to main. This will trigger the npm release latest script in CI.
 
 # History
 
