@@ -51,8 +51,8 @@ import { someFunction } from 'solid-logic';
 
 ```html
 <script type="module">
-	import * as rdflib from 'https://esm.sh/rdflib';
-	import { someFunction } from 'https://esm.sh/solid-logic';
+	import * as $rdf from 'https://esm.sh/rdflib'
+	import { someFunction } from 'https://esm.sh/solid-logic'
 
 	// Example usage
 	// someFunction(...)
@@ -73,8 +73,8 @@ or
 }
 </script>
 <script type="module">
-	import * as rdflib from 'rdflib';
-	import { someFunction } from 'solid-logic';
+    import * as $rdf from 'rdflib'
+	import { someFunction } from 'solid-logic'
 
 	// Example usage
 	// someFunction(...)
