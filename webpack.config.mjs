@@ -21,7 +21,7 @@ const commonConfig = {
 };
 
 export default [
-  // Unminified UMD
+  // Fully bundled UMD (rdflib included)
   {
     ...commonConfig,
     output: {
@@ -39,7 +39,7 @@ export default [
       minimize: false
     }
   },
-  // Minified UMD
+  // Fully bundled minified UMD
   {
     ...commonConfig,
     output: {
@@ -58,17 +58,63 @@ export default [
       minimizer: [new TerserPlugin({ extractComments: false })]
     }
   },
-  // Unminified ESM
+  // UMD with rdflib as external
   {
     ...commonConfig,
     output: {
       path: path.resolve(process.cwd(), 'dist'),
-      filename: 'solid-logic.esm.js',
+      filename: 'solid-logic.umd.external.js',
+      library: {
+        name: 'SolidLogic',
+        type: 'umd'
+      },
+      globalObject: 'this',
+      iife: true,
+      clean: false
+    },
+    externals: {
+      rdflib: '$rdf'
+    },
+    optimization: {
+      minimize: false
+    }
+  },
+  // Minified UMD with rdflib as external
+  {
+    ...commonConfig,
+    output: {
+      path: path.resolve(process.cwd(), 'dist'),
+      filename: 'solid-logic.umd.external.min.js',
+      library: {
+        name: 'SolidLogic',
+        type: 'umd'
+      },
+      globalObject: 'this',
+      iife: true,
+      clean: false
+    },
+    externals: {
+      rdflib: '$rdf'
+    },
+    optimization: {
+      minimize: true,
+      minimizer: [new TerserPlugin({ extractComments: false })]
+    }
+  },
+  // Unminified ESM with rdflib as external
+  {
+    ...commonConfig,
+    output: {
+      path: path.resolve(process.cwd(), 'dist'),
+      filename: 'solid-logic.esm.external.js',
       library: {
         type: 'module'
       },
       environment: { module: true },
       clean: false
+    },
+    externals: {
+      rdflib: '$rdf'
     },
     experiments: {
       outputModule: true
@@ -77,17 +123,20 @@ export default [
       minimize: false
     }
   },
-  // Minified ESM
+  // Minified ESM with rdflib as external
   {
     ...commonConfig,
     output: {
       path: path.resolve(process.cwd(), 'dist'),
-      filename: 'solid-logic.esm.min.js',
+      filename: 'solid-logic.esm.external.min.js',
       library: {
         type: 'module'
       },
       environment: { module: true },
       clean: false
+    },
+    externals: {
+      rdflib: '$rdf'
     },
     experiments: {
       outputModule: true

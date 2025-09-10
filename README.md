@@ -22,8 +22,19 @@ npm install solid-logic
 import { someFunction } from 'solid-logic';
 ```
 
-
 ## Use directly in a browser
+
+There are a few differences to mention:
+* the UMD bundles come in 2 flavours, with rdflib bundled together and without;
+* the ESM bundles do not contain rdflib, so it must be imported separately.
+
+## Files
+- For npm/ESM: `dist/solid-logic.esm.js` (referenced automatically in npm projects)
+- For browser UMD, bundled with rdflib: `dist/solid-logic.umd.js` (global `window.SolidLogic`)
+- For browser UMD, without rdflib: `dist/solid-logic.umd.external.js` (global `window.SolidLogic`)
+- For browser ESM, without rdflib: `dist/solid-logic.esm.external.js` (import as module)
+- also, both flabours, ESM and UMD come in chunked files.
+
 
 ### UMD bundle (global variable)
 
@@ -80,12 +91,6 @@ or
 	// someFunction(...)
 </script>
 ```
-
-
-## Files
-- For npm/ESM: `dist/solid-logic.esm.js` (referenced automatically in npm projects)
-- For browser UMD: `dist/solid-logic.umd.js` (global `window.SolidLogic`)
-- For browser ESM: `dist/solid-logic.esm.js` (import as module)
 
 # How to develop
 

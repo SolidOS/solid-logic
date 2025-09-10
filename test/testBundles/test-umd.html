@@ -8,10 +8,11 @@
   <h1>Solid Logic UMD Bundle Browser Test</h1>
   <pre id="output"></pre>
   <!-- Load rdflib dependency -->
+  <script src="https://unpkg.com/rdflib/dist/rdflib.min.js"></script>
   
   <!--- !!!--- first build dist with npm run build-dist ---!!! -->
   <!-- Load solid-logic UMD bundle (adjust path if needed) -->
-  <script src="../../dist/solid-logic.umd.js"></script>
+  <script src="../../dist/solid-logic.umd.external.js"></script>
   <script>
     // Test if SolidLogic is available
     const output = document.getElementById('output');
