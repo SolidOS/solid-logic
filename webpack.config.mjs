@@ -26,7 +26,7 @@ export default [
     ...commonConfig,
     output: {
       path: path.resolve(process.cwd(), 'dist'),
-      filename: 'solid-logic.umd.js',
+      filename: 'solid-logic.js',
       library: {
         name: 'SolidLogic',
         type: 'umd'
@@ -44,7 +44,7 @@ export default [
     ...commonConfig,
     output: {
       path: path.resolve(process.cwd(), 'dist'),
-      filename: 'solid-logic.umd.min.js',
+      filename: 'solid-logic.min.js',
       library: {
         name: 'SolidLogic',
         type: 'umd'
@@ -63,7 +63,7 @@ export default [
     ...commonConfig,
     output: {
       path: path.resolve(process.cwd(), 'dist'),
-      filename: 'solid-logic.umd.external.js',
+      filename: 'solid-logic.external.js',
       library: {
         name: 'SolidLogic',
         type: 'umd'
@@ -84,7 +84,7 @@ export default [
     ...commonConfig,
     output: {
       path: path.resolve(process.cwd(), 'dist'),
-      filename: 'solid-logic.umd.external.min.js',
+      filename: 'solid-logic.external.min.js',
       library: {
         name: 'SolidLogic',
         type: 'umd'
