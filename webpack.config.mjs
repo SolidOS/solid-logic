@@ -1,6 +1,27 @@
 import path from 'path'
 import TerserPlugin from 'terser-webpack-plugin'
 
+const externalsBase = {
+  'fs': 'null',
+  'node-fetch': 'fetch',
+  'isomorphic-fetch': 'fetch',
+  'xmldom': 'window',
+  'text-encoding': 'TextEncoder',
+  'whatwg-url': 'window',
+  '@trust/webcrypto': 'crypto'
+}
+
+// rdflib externalized
+const externalsWithoutRdflib = {
+  ...externalsBase,
+  rdflib: '$rdf'
+}
+
+// rdflib bundled
+const externalsWithRdflib = {
+  ...externalsBase
+}
+
 const commonConfig = {
   mode: 'production',
   entry: './src/index.ts',
@@ -35,6 +56,7 @@ export default [
       iife: true,
       clean: false
     },
+    externals: externalsWithRdflib,
     optimization: {
       minimize: false
     }
@@ -53,6 +75,7 @@ export default [
       iife: true,
       clean: false
     },
+    externals: externalsWithRdflib,
     optimization: {
       minimize: true,
       minimizer: [new TerserPlugin({ extractComments: false })]
@@ -72,9 +95,7 @@ export default [
       iife: true,
       clean: false
     },
-    externals: {
-      rdflib: '$rdf'
-    },
+    externals: externalsWithoutRdflib,
     optimization: {
       minimize: false
     }
@@ -93,9 +114,7 @@ export default [
       iife: true,
       clean: false
     },
-    externals: {
-      rdflib: '$rdf'
-    },
+    externals: externalsWithoutRdflib,
     optimization: {
       minimize: true,
       minimizer: [new TerserPlugin({ extractComments: false })]
@@ -113,9 +132,7 @@ export default [
       environment: { module: true },
       clean: false
     },
-    externals: {
-      rdflib: '$rdf'
-    },
+    externals: externalsWithoutRdflib,
     experiments: {
       outputModule: true
     },
@@ -135,9 +152,7 @@ export default [
       environment: { module: true },
       clean: false
     },
-    externals: {
-      rdflib: '$rdf'
-    },
+    externals: externalsWithoutRdflib,
     experiments: {
       outputModule: true
     },

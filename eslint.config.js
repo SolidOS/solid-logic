@@ -4,14 +4,19 @@ import tseslint from 'typescript-eslint'
 import importPlugin from 'eslint-plugin-import'
 
 export default [
-  ...tseslint.configs.recommended,
   {
-    files: ['src/**/*.ts', 'test/**/*.test.ts'],
-    ignores: ['dist/**', 'node_modules/**'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'coverage/**'
+    ],
+  },
+  {
+    files: ['src/**/*.js', 'src/**/*.ts', 'src/**/*.cjs', 'src/**/*.mjs'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
-        project: ['./tsconfig.json', './tsconfig.test.json'],
+        project: ['./tsconfig.json'],
         sourceType: 'module',
       },
     },
@@ -20,11 +25,26 @@ export default [
       import: importPlugin,
     },
     rules: {
-      'semi': ['error', 'never'],
-      'quotes': ['error', 'single'],
+      semi: ['error', 'never'],
+      quotes: ['error', 'single'],
       'no-unused-vars': 'off', // handled by TS
       '@typescript-eslint/no-unused-vars': ['warn'],
       '@typescript-eslint/no-explicit-any': 'warn',
     },
   },
+  {
+    files: ['test/**/*.js', 'test/**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: ['./tsconfig.test.json'],
+      },
+    },
+    rules: {
+      semi: ['error', 'never'],
+      quotes: ['error', 'single'],
+      'no-console': 'off', // Allow console in tests
+      'no-undef': 'off', // Tests may define globals
+    }
+  }
 ]

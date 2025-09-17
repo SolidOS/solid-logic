@@ -147,7 +147,6 @@ describe('Profile', () => {
             expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
         })
         it('creates new file', async () => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const result = await profileLogic.silencedLoadPreferences(bob)
 
             const patchRequest = requests[0]
@@ -229,7 +228,6 @@ describe('Profile', () => {
             expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
         })
         it('creates new file', async () => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const result = await profileLogic.loadPreferences(boby)
 
             const patchRequest = requests[0]
