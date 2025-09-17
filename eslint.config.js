@@ -1,6 +1,5 @@
 import tsParser from '@typescript-eslint/parser'
 import tseslintPlugin from '@typescript-eslint/eslint-plugin'
-import tseslint from 'typescript-eslint'
 import importPlugin from 'eslint-plugin-import'
 
 export default [
