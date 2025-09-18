@@ -8,11 +8,11 @@ const DEFAULT_ISSUERS = [
     uri: 'https://solidweb.org'
   },
   {
-    name: 'Inrupt.net',
-    uri: 'https://inrupt.net'
+    name: 'Solid Web ME',
+    uri: 'https://solidweb.me'
   },
   {
-    name: 'pod.Inrupt.com',
+    name: 'Inrupt.com',
     uri: 'https://login.inrupt.com'
   }
 ]
