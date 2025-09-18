@@ -4,3 +4,5 @@ lib
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
 .history
+
+src/versionInfo.ts
