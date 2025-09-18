@@ -5,7 +5,7 @@ const externalsBase = {
   'fs': 'null',
   'node-fetch': 'fetch',
   'isomorphic-fetch': 'fetch',
-  'xmldom': 'window',
+  '@xmldom/xmldom': 'window',
   'text-encoding': 'TextEncoder',
   'whatwg-url': 'window',
   '@trust/webcrypto': 'crypto'

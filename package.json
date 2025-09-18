@@ -31,7 +31,7 @@
     "test": "jest --no-coverage",
     "test-coverage": "jest --coverage",
     "test-debug": "node --inspect-brk ./node_modules/.bin/jest -i --env jest-environment-node-debug",
-    "prepublishOnly": "npm run build && npm run test",
+    "prepublishOnly": "npm run build && npm run lint && npm run test",
     "preversion": "npm run lint && npm run typecheck && npm test",
     "postversion": "git push origin main --follow-tags",
     "watch": "npm run build-version && tsc --watch"
