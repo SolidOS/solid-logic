@@ -25,13 +25,13 @@
     "build-js": "tsc",
     "postbuild-js": "rm -f dist/versionInfo.d.ts dist/versionInfo.d.ts.map",
     "build-dist": "webpack --progress",
-    "lint": "eslint 'src/**/*.ts' 'test/**/*.ts'",
+    "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "typecheck-test": "tsc --noEmit -p tsconfig.test.json",
     "test": "jest --no-coverage",
     "test-coverage": "jest --coverage",
     "test-debug": "node --inspect-brk ./node_modules/.bin/jest -i --env jest-environment-node-debug",
-    "prepublishOnly": "npm run build && npm run test",
+    "prepublishOnly": "npm run build && npm run lint && npm run test",
     "preversion": "npm run lint && npm run typecheck && npm test",
     "postversion": "git push origin main --follow-tags",
     "watch": "npm run build-version && tsc --watch"
@@ -68,10 +68,8 @@
     "ts-loader": "^9.5.4",
     "tslib": "^2.8.1",
     "typescript": "^5.9.2",
-    "typescript-eslint": "^8.42.0",
     "webpack": "^5.101.3",
-    "webpack-cli": "^6.0.1",
-    "webpack-node-externals": "^3.0.0"
+    "webpack-cli": "^6.0.1"
   },
   "dependencies": {
     "@inrupt/solid-client-authn-browser": "^3.1.0",

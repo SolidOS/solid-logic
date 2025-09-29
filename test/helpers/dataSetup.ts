@@ -23,7 +23,7 @@ const ClubPublicTypes = `
 :todo solid:forClass wf:Tracker; solid:instance  <../publicStuff/actionItems.ttl#this>.
 
 :issues solid:forClass wf:Tracker; solid:instance  <../project4/clubIssues.ttl#this>.
-`;
+`
 
 const ClubPrivateTypes = `
 :id1592319218311 solid:forClass wf:Tracker; solid:instance  <../privateStuff/ToDo.ttl#this>.
@@ -34,16 +34,16 @@ const ClubPrivateTypes = `
 
 :id1596123375929 solid:forClass meeting:Meeting; solid:instance  <../project4/clubMeeting.ttl#this>.
 
-`;
+`
 
 //------ Alice -------------------------------------------------------
-const alice = sym("https://alice.example.com/profile/card.ttl#me")
+const alice = sym('https://alice.example.com/profile/card.ttl#me')
 const AliceProfileFile = alice.doc()
 const AlicePreferencesFile = sym('https://alice.example.com/settings/prefs.ttl')
 const AlicePublicTypeIndex = sym('https://alice.example.com/profile/public-type-index.ttl')
 const AlicePrivateTypeIndex = sym('https://alice.example.com/settings/private-type-index.ttl')
-const aliceDir = alice.dir();
-const AlicePhotoFolder = sym((aliceDir && typeof aliceDir.uri === "string" && aliceDir.uri.length > 0 ? aliceDir.uri : "") + "Photos/")
+const aliceDir = alice.dir()
+const AlicePhotoFolder = sym((aliceDir && typeof aliceDir.uri === 'string' && aliceDir.uri.length > 0 ? aliceDir.uri : '') + 'Photos/')
 const AliceProfile = `
 <#me> a vcard:Individual;
     space:preferencesFile ${AlicePreferencesFile};
@@ -63,7 +63,7 @@ const AlicePublicTypes = `
 :issues solid:forClass wf:Tracker; solid:instance  <../project4/issues.ttl#this>.
 
 :photos solid:forClass schema:Image; solid:instanceContainer  ${AlicePhotoFolder} .
-`;
+`
 
 const AlicePrivateTypes = `
 :id1592319218311 solid:forClass wf:Tracker; solid:instance  <../privateStuff/ToDo.ttl#this>.
@@ -74,7 +74,7 @@ const AlicePrivateTypes = `
 
 :id1596123375929 solid:forClass meeting:Meeting; solid:instance  <../project4/meeting1.ttl#this>.
 
-`;
+`
 
 const AlicePhotos = `
 <>

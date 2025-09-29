@@ -29,11 +29,11 @@ There are a few differences to mention:
 * the ESM bundles do not contain rdflib, so it must be imported separately.
 
 ## Files
-- For npm/ESM: `dist/solid-logic.esm.js` (referenced automatically in npm projects)
-- For browser UMD, bundled with rdflib: `dist/solid-logic.umd.js` (global `window.SolidLogic`)
-- For browser UMD, without rdflib: `dist/solid-logic.umd.external.js` (global `window.SolidLogic`)
+- For browser UMD, bundled with rdflib: `dist/solid-logic.js` (global `window.SolidLogic`)
+- For browser UMD, without rdflib: `dist/solid-logic.external.js` (global `window.SolidLogic`)
 - For browser ESM, without rdflib: `dist/solid-logic.esm.external.js` (import as module)
-- also, both flabours, ESM and UMD come in chunked files.
+- UMD have also chunked files.
+- both version also containe minified versions.
 
 
 ### UMD bundle (global variable)
@@ -44,11 +44,11 @@ There are a few differences to mention:
 <!-- or -->
 <!-- script src="https://cdn.jsdelivr.net/npm/rdflib/dist/rdflib.min.js"></script -->
 <!-- Load solid-logic UMD bundle -->
-<script src="https://unpkg.com/solid-logic/dist/solid-logic.umd.min.js"></script>
+<script src="https://unpkg.com/solid-logic/dist/solid-logic.min.js"></script>
 <!-- or -->
-<!-- script src="https://cdn.jsdelivr.net/npm/solid-logic/dist/solid-logic.umd.min.js"></script -->
+<!-- script src="https://cdn.jsdelivr.net/npm/solid-logic/dist/solid-logic.min.js"></script -->
 <!-- or -->
-<!-- script src="dist/solid-logic.umd.js"></script -->
+<!-- script src="dist/solid-logic.js"></script -->
 <script>
 	// Access via global variable
 	const logic = window.SolidLogic;
@@ -101,7 +101,7 @@ Check the scripts in the `package.json` for build, watch, lint and test.
 * TypeScript + Babel
 * Jest
 * ESLint
-* Rollup
+* Webpack
 
 # How to release
 
