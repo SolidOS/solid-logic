@@ -83,15 +83,13 @@ describe('utilityLogic', () => {
             expect(utilityLogic.loadOrCreateIfNotExists).toBeInstanceOf(Function)
         })
         it('does nothing if existing file', async () => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars 
-            const result = await utilityLogic.loadOrCreateIfNotExists(alice.doc())
+            await utilityLogic.loadOrCreateIfNotExists(alice.doc())
             expect(requests).toEqual([])
 
         })
         it('creates empty file if did not exist', async () => {
             const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars 
-            const result = await utilityLogic.loadOrCreateIfNotExists(sym(suggestion))
+            await utilityLogic.loadOrCreateIfNotExists(sym(suggestion))
             expect(requests[0].method).toEqual('PUT')
             expect(requests[0].url).toEqual(suggestion)
         })

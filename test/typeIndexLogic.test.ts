@@ -183,8 +183,7 @@ describe('TypeIndex logic NEW', () => {
         expect(result).toEqual(AliceAndClubScopes) // @@ AliceAndClubScopes
         })
         it('creates new preferenceFile and typeIndex files where they dont exist', async () => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars    
-        const result = await typeIndexLogic.getScopedAppInstances(Tracker, bob)
+        await typeIndexLogic.getScopedAppInstances(Tracker, bob)
 
         expect(requests[0].method).toEqual('PATCH') // Add preferrencesFile link to profile
         expect(requests[0].url).toEqual('https://bob.example.com/profile/card.ttl')
