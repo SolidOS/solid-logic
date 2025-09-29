@@ -2,33 +2,32 @@
 * @jest-environment jsdom
 * 
 */
-import fetchMock from "jest-fetch-mock";
-import { UpdateManager, sym, Fetcher, Store } from "rdflib";
-import { createAclLogic } from "../src/acl/aclLogic";
-import { WebOperationError } from "../src/logic/CustomError";
-import { createContainerLogic } from "../src/util/containerLogic";
-import { ns } from "../src/util/ns";
-import { createUtilityLogic } from "../src/util/utilityLogic";
-import { alice, AlicePhotoFolder, AlicePhotos, AlicePreferences, AlicePreferencesFile, AlicePrivateTypeIndex, AlicePrivateTypes, AliceProfile, AlicePublicTypeIndex, AlicePublicTypes, bob, BobProfile, club, ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes } from "./helpers/dataSetup";
+import fetchMock from 'jest-fetch-mock'
+import { UpdateManager, sym, Fetcher, Store } from 'rdflib'
+import { createAclLogic } from '../src/acl/aclLogic'
+import { WebOperationError } from '../src/logic/CustomError'
+import { createContainerLogic } from '../src/util/containerLogic'
+import { ns } from '../src/util/ns'
+import { createUtilityLogic } from '../src/util/utilityLogic'
+import { alice, AlicePhotoFolder, AlicePhotos, AlicePreferences, AlicePreferencesFile, AlicePrivateTypeIndex, AlicePrivateTypes, AliceProfile, AlicePublicTypeIndex, AlicePublicTypes, bob, BobProfile, club, ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes } from './helpers/dataSetup'
 
 window.$SolidTestEnvironment = { username: alice.uri }
 const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
 
-describe("utilityLogic", () => {
-    let store;
-    let options;
+describe('utilityLogic', () => {
+    let store
+    let options
     let web = {}
-    let requests = []
+    let requests: Request[] = []
     let statustoBeReturned = 200
     let utilityLogic
     beforeEach(() => {
-        fetchMock.resetMocks();
-        fetchMock.mockResponse("Not Found", {
+        fetchMock.resetMocks()
+        fetchMock.mockResponse('Not Found', {
             status: 404,
-        });
+        })
         requests = []
         statustoBeReturned = 200
-        const init = { headers: { "Content-Type": "text/turtle" } } // Fetch options tend to be called this
 
         fetchMock.mockIf(/^https?.*$/, async req => {
 
@@ -47,9 +46,9 @@ describe("utilityLogic", () => {
                     body: prefixes + contents, // Add namespaces to anything
                     status: 200,
                     headers: {
-                        "Content-Type": "text/turtle",
-                        "WAC-Allow": 'user="write", public="read"',
-                        "Accept-Patch": "application/sparql-update"
+                        'Content-Type': 'text/turtle',
+                        'WAC-Allow': 'user="write", public="read"',
+                        'Accept-Patch': 'application/sparql-update'
                     }
                 }
             } // if contents
@@ -71,26 +70,26 @@ describe("utilityLogic", () => {
         web[ClubPrivateTypeIndex.uri] = ClubPrivateTypes
         web[ClubPublicTypeIndex.uri] = ClubPublicTypes
     
-        options = { fetch: fetch };
+        options = { fetch: fetch }
         store = new Store()
-        store.fetcher = new Fetcher(store, options);
-        store.updater = new UpdateManager(store);
+        store.fetcher = new Fetcher(store, options)
+        store.updater = new UpdateManager(store)
         requests = []
 		utilityLogic = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
-    });
+    })
 
     describe('loadOrCreateIfNotExists', () => {
         it('exists', () => {
             expect(utilityLogic.loadOrCreateIfNotExists).toBeInstanceOf(Function)
         })
         it('does nothing if existing file', async () => {
-            const result = await utilityLogic.loadOrCreateIfNotExists(alice.doc())
+            await utilityLogic.loadOrCreateIfNotExists(alice.doc())
             expect(requests).toEqual([])
 
         })
         it('creates empty file if did not exist', async () => {
             const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
-            const result = await utilityLogic.loadOrCreateIfNotExists(sym(suggestion))
+            await utilityLogic.loadOrCreateIfNotExists(sym(suggestion))
             expect(requests[0].method).toEqual('PUT')
             expect(requests[0].url).toEqual(suggestion)
         })
@@ -126,32 +125,32 @@ describe("utilityLogic", () => {
         })
 
     })
-describe("setSinglePeerAccess", () => {
+describe('setSinglePeerAccess', () => {
 	beforeEach(() => {
 		fetchMock.mockOnceIf(
-		"https://owner.com/some/resource",
-		"hello", {
+		'https://owner.com/some/resource',
+		'hello', {
 		headers: {
 			Link: '<https://owner.com/some/acl>; rel="acl"'
 		}
-		});
+		})
 		fetchMock.mockOnceIf(
-		"https://owner.com/some/acl",
-		"Created", {
+		'https://owner.com/some/acl',
+		'Created', {
 		status: 201
-		});
-	});
-	it("Creates the right ACL doc", async () => {
+		})
+	})
+	it('Creates the right ACL doc', async () => {
 		await utilityLogic.setSinglePeerAccess({
-		ownerWebId: "https://owner.com/#me",
-		peerWebId: "https://peer.com/#me",
-		accessToModes: "acl:Read, acl:Control",
-		defaultModes: "acl:Write",
-		target: "https://owner.com/some/resource"
-		});
+		ownerWebId: 'https://owner.com/#me',
+		peerWebId: 'https://peer.com/#me',
+		accessToModes: 'acl:Read, acl:Control',
+		defaultModes: 'acl:Write',
+		target: 'https://owner.com/some/resource'
+		})
 		expect(fetchMock.mock.calls).toEqual([
-		[ "https://owner.com/some/resource", fetchMock.mock.calls[0][1] ],
-		[ "https://owner.com/some/acl", {
+		[ 'https://owner.com/some/resource', fetchMock.mock.calls[0][1] ],
+		[ 'https://owner.com/some/acl', {
 			body: '@prefix acl: <http://www.w3.org/ns/auth/acl#>.\n' +
 			'\n' +
 			'<#alice> a acl:Authorization;\n' +
@@ -168,12 +167,12 @@ describe("setSinglePeerAccess", () => {
 			'  acl:default <https://owner.com/some/resource>;\n' +
 			'  acl:mode acl:Write.\n',
 			headers: [
-				["Content-Type", "text/turtle"]
+				['Content-Type', 'text/turtle']
 			],
-			method: "PUT"
+			method: 'PUT'
 		}]
-		]);
-	});
-});
+		])
+	})
+})
 
 })

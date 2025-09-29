@@ -11,7 +11,7 @@ export { offlineTestID, appContext } from './authn/authUtil'
 export { getSuggestedIssuers } from './issuer/issuerLogic'
 export { createTypeIndexLogic } from './typeIndex/typeIndexLogic'
 export { AppDetails, SolidNamespace, AuthenticationContext, SolidLogic } from './types'
-export { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError, NotEditableError, WebOperationError } from './logic/CustomError'
+export type { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError, NotEditableError, WebOperationError } from './logic/CustomError'
 
 export {
   solidLogicSingleton, // solidLogicSingleton is exported entirely because it is used in solid-panes

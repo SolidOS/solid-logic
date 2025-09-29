@@ -1,7 +1,7 @@
-import { NamedNode, st, sym } from "rdflib";
-import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from "../logic/CustomError";
-import * as debug from '../util/debug';
-import { differentOrigin } from "./utils";
+import { NamedNode, st, sym } from 'rdflib'
+import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from '../logic/CustomError'
+import * as debug from '../util/debug'
+import { differentOrigin } from './utils'
 
 export function createUtilityLogic(store, aclLogic, containerLogic) {
 
@@ -9,16 +9,16 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
       try {
         if (containerLogic.isContainer(containerNode)) {
           const aclDocUrl = await aclLogic.findAclDocUrl(containerNode)
-          await store.fetcher._fetch(aclDocUrl, { method: "DELETE" });
-          const containerMembers = await containerLogic.getContainerMembers(containerNode);
+          await store.fetcher._fetch(aclDocUrl, { method: 'DELETE' })
+          const containerMembers = await containerLogic.getContainerMembers(containerNode)
           await Promise.all(
             containerMembers.map((url) => recursiveDelete(url))
-          );
+          )
         }
-        const nodeToStringHere = containerNode.value;
-        return store.fetcher._fetch(nodeToStringHere, { method: "DELETE" })
+        const nodeToStringHere = containerNode.value
+        return store.fetcher._fetch(nodeToStringHere, { method: 'DELETE' })
       } catch (e) {
-        debug.log(`Please manually remove ${containerNode.value} from your system.`, e);
+        debug.log(`Please manually remove ${containerNode.value} from your system.`, e)
       }
   }
 
@@ -43,13 +43,13 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
         await store.fetcher.load(doc)
       } else {
         if (err.response.status === 401) {
-          throw new UnauthorizedError();
+          throw new UnauthorizedError()
         }
         if (err.response.status === 403) {
           if (differentOrigin(doc)) {
-            throw new CrossOriginForbiddenError();
+            throw new CrossOriginForbiddenError()
           }
-          throw new SameOriginForbiddenError();
+          throw new SameOriginForbiddenError()
         }
         const msg = 'createIfNotExists doc load error NOT 404:  ' + doc + ': ' + err
         throw new FetchError(err.status, err.message + msg)
@@ -87,7 +87,7 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
       // store.fetcher.webOperation('PUT', object, { data: '', contentType: 'text/turtle'})
     } catch (err) {
       debug.warn(`followOrCreateLink: Error loading or saving new linked document: ${object}: ${err}`)
-      throw err;
+      throw err
     }
     return object
   }
@@ -134,15 +134,15 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
       headers: [
         ['Content-Type', 'text/turtle']
       ]
-    });
+    })
   }
 
   async function createEmptyRdfDoc(doc: NamedNode, comment: string) {
-    await store.fetcher.webOperation("PUT", doc.uri, {
+    await store.fetcher.webOperation('PUT', doc.uri, {
       data: `# ${new Date()} ${comment}
   `,
-      contentType: "text/turtle",
-    });
+      contentType: 'text/turtle',
+    })
   }
   
   return {
