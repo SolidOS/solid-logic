@@ -10,7 +10,7 @@ export { ACL_LINK } from './acl/aclLogic'
 export { offlineTestID, appContext } from './authn/authUtil'
 export { getSuggestedIssuers } from './issuer/issuerLogic'
 export { createTypeIndexLogic } from './typeIndex/typeIndexLogic'
-export { AppDetails, SolidNamespace, AuthenticationContext, SolidLogic } from './types'
+export { AppDetails, SolidNamespace, AuthenticationContext, SolidLogic, ChatLogic } from './types'
 export type { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError, NotEditableError, WebOperationError } from './logic/CustomError'
 
 export {
