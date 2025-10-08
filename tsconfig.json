@@ -2,7 +2,7 @@
   "compilerOptions": {
     /* Basic Options */
     "target": "ES2022", /* Allow top-level await and modern JS features. */
-    "module": "ESNext", /* Use ESNext modules for Webpack/Babel compatibility. */
+    "module": "CommonJS", /* Use ESNext modules for Webpack/Babel compatibility. */
     "moduleResolution": "node", /* Use Node.js-style module resolution for Webpack compatibility. */
     "lib": [
       "dom",
