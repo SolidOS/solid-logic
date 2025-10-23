@@ -61,7 +61,7 @@ export default [
       minimize: false
     }
   },
-  // Fully bundled minified UMD
+  // Fully bundled minified UMD (rdflib included)
   {
     ...commonConfig,
     output: {

@@ -2,13 +2,13 @@
   "name": "solid-logic",
   "version": "3.1.1",
   "description": "Core business logic of SolidOS",
-  "main": "dist/solid-logic.umd.js",
-  "module": "dist/solid-logic.esm.js",
+  "main": "dist/solid-logic.js",
+  "module": "dist/solid-logic.esm.external.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/solid-logic.esm.js",
-      "require": "./dist/solid-logic.umd.js",
+      "import": "./dist/solid-logic.esm.external.js",
+      "require": "./dist/solid-logic.js",
       "types": "./dist/index.d.ts"
     }
   },
