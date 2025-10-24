@@ -2,23 +2,23 @@
 * @jest-environment jsdom
 * 
 */
-import { UpdateManager, Store, Fetcher } from 'rdflib';
-import { createProfileLogic } from "../src/profile/profileLogic";
-import { createUtilityLogic } from "../src/util/utilityLogic"
-import { ns } from "../src/util/ns";
+import { UpdateManager, Store, Fetcher } from 'rdflib'
+import { createProfileLogic } from '../src/profile/profileLogic'
+import { createUtilityLogic } from '../src/util/utilityLogic'
+import { ns } from '../src/util/ns'
 import {
     alice, AlicePreferencesFile, AlicePrivateTypeIndex, AliceProfileFile, bob, boby, loadWebObject
-} from './helpers/dataSetup';
-import { createAclLogic } from "../src/acl/aclLogic";
-import { createContainerLogic } from "../src/util/containerLogic";
+} from './helpers/dataSetup'
+import { createAclLogic } from '../src/acl/aclLogic'
+import { createContainerLogic } from '../src/util/containerLogic'
 
 const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
 const user = alice
 const profile = user.doc()
-let requests = []
+let requests: Request[] = []
 let profileLogic
 
-describe("Profile", () => {
+describe('Profile', () => {
 
     describe('loadProfile', () => {
         window.$SolidTestEnvironment = { username: alice.uri }
@@ -28,11 +28,11 @@ describe("Profile", () => {
         let web = {}
         const authn = {
             currentUser: () => {
-                return alice;
+                return alice
             },
-        };
+        }
         beforeEach(() => {
-            fetchMock.resetMocks();
+            fetchMock.resetMocks()
             web = loadWebObject()
             requests = []
             fetchMock.mockIf(/^https?.*$/, async req => {
@@ -52,9 +52,9 @@ describe("Profile", () => {
                     body: prefixes + contents, // Add namespaces to anything
                     status: 200,
                     headers: {
-                        "Content-Type": "text/turtle",
-                        "WAC-Allow":    'user="write", public="read"',
-                        "Accept-Patch": "application/sparql-update"
+                        'Content-Type': 'text/turtle',
+                        'WAC-Allow':    'user="write", public="read"',
+                        'Accept-Patch': 'application/sparql-update'
                     }
                     }
                 } // if contents
@@ -65,8 +65,8 @@ describe("Profile", () => {
             })
 
             store = new Store()
-            store.fetcher = new Fetcher(store, { fetch: fetch });
-            store.updater = new UpdateManager(store);
+            store.fetcher = new Fetcher(store, { fetch: fetch })
+            store.updater = new UpdateManager(store)
             const util = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
             profileLogic = createProfileLogic(store, authn, util)
         })
@@ -91,11 +91,11 @@ describe("Profile", () => {
         let web = {}
         const authn = {
             currentUser: () => {
-                return alice;
+                return alice
             },
-        };
+        }
         beforeEach(() => {
-            fetchMock.resetMocks();
+            fetchMock.resetMocks()
             web = loadWebObject()
             requests = []
             fetchMock.mockIf(/^https?.*$/, async req => {
@@ -115,9 +115,9 @@ describe("Profile", () => {
                     body: prefixes + contents, // Add namespaces to anything
                     status: 200,
                     headers: {
-                        "Content-Type": "text/turtle",
-                        "WAC-Allow":    'user="write", public="read"',
-                        "Accept-Patch": "application/sparql-update"
+                        'Content-Type': 'text/turtle',
+                        'WAC-Allow':    'user="write", public="read"',
+                        'Accept-Patch': 'application/sparql-update'
                     }
                     }
                 } // if contents
@@ -128,8 +128,8 @@ describe("Profile", () => {
             })
 
             store = new Store()
-            store.fetcher = new Fetcher(store, { fetch: fetch });
-            store.updater = new UpdateManager(store);
+            store.fetcher = new Fetcher(store, { fetch: fetch })
+            store.updater = new UpdateManager(store)
                 const util = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
             profileLogic = createProfileLogic(store, authn, util)
         })
@@ -147,7 +147,7 @@ describe("Profile", () => {
             expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
         })
         it('creates new file', async () => {
-            const result = await profileLogic.silencedLoadPreferences(bob)
+             await profileLogic.silencedLoadPreferences(bob)
 
             const patchRequest = requests[0]
             expect(patchRequest.method).toEqual('PATCH')
@@ -172,11 +172,11 @@ describe("Profile", () => {
         let web = {}
         const authn = {
             currentUser: () => {
-                return boby;
+                return boby
             },
-        };
+        }
         beforeEach(() => {
-            fetchMock.resetMocks();
+            fetchMock.resetMocks()
             web = loadWebObject()
             requests = []
             fetchMock.mockIf(/^https?.*$/, async req => {
@@ -196,9 +196,9 @@ describe("Profile", () => {
                     body: prefixes + contents, // Add namespaces to anything
                     status: 200,
                     headers: {
-                        "Content-Type": "text/turtle",
-                        "WAC-Allow":    'user="write", public="read"',
-                        "Accept-Patch": "application/sparql-update"
+                        'Content-Type': 'text/turtle',
+                        'WAC-Allow':    'user="write", public="read"',
+                        'Accept-Patch': 'application/sparql-update'
                     }
                     }
                 } // if contents
@@ -209,8 +209,8 @@ describe("Profile", () => {
             })
 
             store = new Store()
-            store.fetcher = new Fetcher(store, { fetch: fetch });
-            store.updater = new UpdateManager(store);
+            store.fetcher = new Fetcher(store, { fetch: fetch })
+            store.updater = new UpdateManager(store)
             const util = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
             profileLogic = createProfileLogic(store, authn, util)
         })
@@ -228,7 +228,7 @@ describe("Profile", () => {
             expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
         })
         it('creates new file', async () => {
-            const result = await profileLogic.loadPreferences(boby)
+             await profileLogic.loadPreferences(boby)
 
             const patchRequest = requests[0]
             expect(patchRequest.method).toEqual('PATCH')
