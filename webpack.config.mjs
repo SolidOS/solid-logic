@@ -1,25 +1,24 @@
 import path from 'path'
 import TerserPlugin from 'terser-webpack-plugin'
 
-// rdflib externalized
-const externalsWithoutRdflib = {
-  'fs': 'null',
-  'node-fetch': 'fetch',
-  'isomorphic-fetch': 'fetch',
-  'text-encoding': 'TextEncoder',
-  '@trust/webcrypto': 'crypto',
-  'rdflib': '$rdf'
-  // Removed @xmldom/xmldom and whatwg-url - use native browser APIs
-}
-
-// rdflib bundled - minimal externals for Node.js compatibility
-const externalsWithRdflib = {
+const externalsBase = {
   'fs': 'null',
   'node-fetch': 'fetch',
   'isomorphic-fetch': 'fetch',
   'text-encoding': 'TextEncoder',
   '@trust/webcrypto': 'crypto'
-  // Remove @xmldom/xmldom and whatwg-url - let them be bundled or use native APIs
+  // Removed @xmldom/xmldom and whatwg-url - use native browser APIs
+}
+
+// rdflib externalized
+const externalsWithoutRdflib = {
+  ...externalsBase,
+  'rdflib': '$rdf'
+}
+
+// rdflib bundled
+const externalsWithRdflib = {
+  ...externalsBase
 }
 
 const commonConfig = {
