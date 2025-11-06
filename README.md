@@ -47,7 +47,7 @@ import { someFunction } from 'solid-logic';
 <!-- script src="dist/solid-logic.js"></script -->
 <script>
 	// Access via global variable
-	const logic = window.$rdf;
+	const rdflib = window.$rdf;
 	const logic = window.SolidLogic;
 	// Example usage
 	// logic.someFunction(...)
