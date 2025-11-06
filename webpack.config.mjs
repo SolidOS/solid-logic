@@ -75,7 +75,7 @@ export default [
     ...commonConfig,
     output: {
       path: path.resolve(process.cwd(), 'dist'),
-      filename: 'solid-logic.esm.external.js',
+      filename: 'solid-logic.esm.js',
       library: {
         type: 'module'
       },
@@ -95,7 +95,7 @@ export default [
     ...commonConfig,
     output: {
       path: path.resolve(process.cwd(), 'dist'),
-      filename: 'solid-logic.esm.external.min.js',
+      filename: 'solid-logic.esm.min.js',
       library: {
         type: 'module'
       },
