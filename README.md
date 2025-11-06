@@ -23,14 +23,10 @@ import { someFunction } from 'solid-logic';
 ```
 
 ## Use directly in a browser
-
-There are a few differences to mention:
-* the UMD bundles come in 2 flavours, with rdflib bundled together and without;
-* the ESM bundles do not contain rdflib, so it must be imported separately.
+ Both UMD and ESM bundles take rdflib as external, this means you need to install it yourself, separately. 
 
 ## Files
-- For browser UMD, bundled with rdflib: `dist/solid-logic.js` (global `window.SolidLogic`)
-- For browser UMD, without rdflib: `dist/solid-logic.external.js` (global `window.SolidLogic`)
+- For browser UMD, without rdflib: `dist/solid-logic.js` (global `window.SolidLogic`)
 - For browser ESM, without rdflib: `dist/solid-logic.esm.external.js` (import as module)
 - UMD have also chunked files.
 - both version also containe minified versions.
@@ -51,6 +47,7 @@ There are a few differences to mention:
 <!-- script src="dist/solid-logic.js"></script -->
 <script>
 	// Access via global variable
+	const logic = window.$rdf;
 	const logic = window.SolidLogic;
 	// Example usage
 	// logic.someFunction(...)

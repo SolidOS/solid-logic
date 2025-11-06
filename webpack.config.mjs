@@ -6,19 +6,9 @@ const externalsBase = {
   'node-fetch': 'fetch',
   'isomorphic-fetch': 'fetch',
   'text-encoding': 'TextEncoder',
-  '@trust/webcrypto': 'crypto'
+  '@trust/webcrypto': 'crypto',
   // Removed @xmldom/xmldom and whatwg-url - use native browser APIs
-}
-
-// rdflib externalized
-const externalsWithoutRdflib = {
-  ...externalsBase,
   'rdflib': '$rdf'
-}
-
-// rdflib bundled
-const externalsWithRdflib = {
-  ...externalsBase
 }
 
 const commonConfig = {
@@ -41,7 +31,7 @@ const commonConfig = {
 };
 
 export default [
-  // Fully bundled UMD (rdflib included)
+  // UMD with rdflib as external
   {
     ...commonConfig,
     output: {
@@ -55,12 +45,12 @@ export default [
       iife: true,
       clean: false
     },
-    externals: externalsWithRdflib,
+    externals: externalsBase,
     optimization: {
       minimize: false
     }
   },
-  // Fully bundled minified UMD (rdflib included)
+  // Minified UMD with rdflib as external
   {
     ...commonConfig,
     output: {
@@ -74,46 +64,7 @@ export default [
       iife: true,
       clean: false
     },
-    externals: externalsWithRdflib,
-    optimization: {
-      minimize: true,
-      minimizer: [new TerserPlugin({ extractComments: false })]
-    }
-  },
-  // UMD with rdflib as external
-  {
-    ...commonConfig,
-    output: {
-      path: path.resolve(process.cwd(), 'dist'),
-      filename: 'solid-logic.external.js',
-      library: {
-        name: 'SolidLogic',
-        type: 'umd'
-      },
-      globalObject: 'this',
-      iife: true,
-      clean: false
-    },
-    externals: externalsWithoutRdflib,
-    optimization: {
-      minimize: false
-    }
-  },
-  // Minified UMD with rdflib as external
-  {
-    ...commonConfig,
-    output: {
-      path: path.resolve(process.cwd(), 'dist'),
-      filename: 'solid-logic.external.min.js',
-      library: {
-        name: 'SolidLogic',
-        type: 'umd'
-      },
-      globalObject: 'this',
-      iife: true,
-      clean: false
-    },
-    externals: externalsWithoutRdflib,
+    externals: externalsBase,
     optimization: {
       minimize: true,
       minimizer: [new TerserPlugin({ extractComments: false })]
@@ -131,7 +82,7 @@ export default [
       environment: { module: true },
       clean: false
     },
-    externals: externalsWithoutRdflib,
+    externals: externalsBase,
     experiments: {
       outputModule: true
     },
@@ -151,7 +102,7 @@ export default [
       environment: { module: true },
       clean: false
     },
-    externals: externalsWithoutRdflib,
+    externals: externalsBase,
     experiments: {
       outputModule: true
     },

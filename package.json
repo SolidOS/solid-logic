@@ -58,12 +58,9 @@
     "eslint": "^9.38.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
-    "husky": "^9.1.7",
     "jest": "^30.0.2",
     "jest-environment-jsdom": "^30.0.2",
-    "jest-environment-node-debug": "^2.0.0",
     "jest-fetch-mock": "^3.0.3",
-    "lint-staged": "^16.2.6",
     "terser-webpack-plugin": "^5.3.14",
     "ts-loader": "^9.5.4",
     "tslib": "^2.8.1",
@@ -73,16 +70,9 @@
   },
   "dependencies": {
     "@inrupt/solid-client-authn-browser": "^3.1.0",
-    "rdflib": "^2.2.37",
     "solid-namespace": "^0.5.4"
   },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged",
-      "pre-push": "npm test"
-    }
-  },
-  "lint-staged": {
-    "*.ts": "eslint --fix"
+  "peerDependencies": {
+    "rdflib": "^2.2.37"
   }
 }
