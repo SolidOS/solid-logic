@@ -12,9 +12,21 @@ const _fetch = async (url, requestInit) => {
     }
 }
 
-//this const makes solidLogicSingleton global accessible in mashlib
-const solidLogicSingleton = createSolidLogic({ fetch: _fetch }, authSession)
+// Global singleton pattern to ensure unique store across library versions
+const SINGLETON_SYMBOL = Symbol.for('solid-logic-singleton')
+const globalThis = (typeof window !== 'undefined' ? window : global) as any
 
-debug.log('Unique quadstore initialized.')
+function getOrCreateSingleton() {
+    if (!globalThis[SINGLETON_SYMBOL]) {
+        debug.log('SolidLogic: Creating new global singleton instance.')
+        globalThis[SINGLETON_SYMBOL] = createSolidLogic({ fetch: _fetch }, authSession)
+        debug.log('Unique quadstore initialized.')
+    } else {
+        debug.log('SolidLogic: Using existing global singleton instance.')
+    }
+    return globalThis[SINGLETON_SYMBOL]
+}
+//this const makes solidLogicSingleton global accessible in mashlib
+const solidLogicSingleton = getOrCreateSingleton()
 
 export { solidLogicSingleton }
