@@ -36,9 +36,7 @@ import { someFunction } from 'solid-logic';
 
 ```html
 <!-- Load dependencies first -->
-<script src="https://unpkg.com/rdflib/dist/rdflib.min.js"></script>
-<!-- or -->
-<!-- script src="https://cdn.jsdelivr.net/npm/rdflib/dist/rdflib.min.js"></script -->
+<script src="https://cdn.jsdelivr.net/npm/rdflib/dist/rdflib.min.js"></script>
 <!-- Load solid-logic UMD bundle -->
 <script src="https://unpkg.com/solid-logic/dist/solid-logic.min.js"></script>
 <!-- or -->

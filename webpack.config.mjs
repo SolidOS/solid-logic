@@ -38,7 +38,7 @@ export default [
       path: path.resolve(process.cwd(), 'dist'),
       filename: 'solid-logic.js',
       library: {
-        name: 'solid-logic',
+        name: 'SolidLogic',
         type: 'umd'
       },
       globalObject: 'this',
