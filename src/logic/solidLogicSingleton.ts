@@ -1,6 +1,7 @@
 import * as debug from '../util/debug'
 import { authSession } from '../authSession/authSession'
 import { createSolidLogic } from './solidLogic'
+import { SolidLogic } from '../types'
 
 const _fetch = async (url, requestInit) => {
     const omitCreds = requestInit && requestInit.credentials && requestInit.credentials == 'omit'
@@ -14,9 +15,15 @@ const _fetch = async (url, requestInit) => {
 
 // Global singleton pattern to ensure unique store across library versions
 const SINGLETON_SYMBOL = Symbol.for('solid-logic-singleton')
-const globalThis = (typeof window !== 'undefined' ? window : global) as any
 
-function getOrCreateSingleton() {
+// Type the global object properly with the singleton
+interface GlobalWithSingleton {
+    [SINGLETON_SYMBOL]?: SolidLogic
+}
+
+const globalThis = (typeof window !== 'undefined' ? window : global) as GlobalWithSingleton
+
+function getOrCreateSingleton(): SolidLogic {
     if (!globalThis[SINGLETON_SYMBOL]) {
         debug.log('SolidLogic: Creating new global singleton instance.')
         globalThis[SINGLETON_SYMBOL] = createSolidLogic({ fetch: _fetch }, authSession)
@@ -24,7 +31,7 @@ function getOrCreateSingleton() {
     } else {
         debug.log('SolidLogic: Using existing global singleton instance.')
     }
-    return globalThis[SINGLETON_SYMBOL]
+    return globalThis[SINGLETON_SYMBOL]!
 }
 //this const makes solidLogicSingleton global accessible in mashlib
 const solidLogicSingleton = getOrCreateSingleton()
