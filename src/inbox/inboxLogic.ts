@@ -2,7 +2,6 @@ import { NamedNode } from 'rdflib'
 import { InboxLogic } from '../types'
 import { getArchiveUrl } from '../util/utils'
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function createInboxLogic(store, profileLogic, utilityLogic, containerLogic, aclLogic): InboxLogic {
 
     async function createInboxFor(peerWebId: string, nick: string) {

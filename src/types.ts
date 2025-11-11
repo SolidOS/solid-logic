@@ -103,7 +103,6 @@ export interface TypeIndexLogic {
     suggestPublicTypeIndex: (me: NamedNode) => NamedNode,
     suggestPrivateTypeIndex: (preferencesFile: NamedNode) => NamedNode,
     registerInTypeIndex: (instance: NamedNode, index: NamedNode, theClass: NamedNode) => Promise<NamedNode | null>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     deleteTypeIndexRegistration: (item: any) => Promise<void>
     getScopedAppsFromIndex: (scope: TypeIndexScope, theClass: NamedNode | null) => Promise<ScopedApp[]>
 }

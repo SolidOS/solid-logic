@@ -87,7 +87,6 @@ export function createAclLogic(store): AclLogic {
 
         return fetcher.load(docURI).then(result => {
             if (!result.ok) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 throw new Error('fetchACLRel: While loading:' + (result as any).error)
             }
 

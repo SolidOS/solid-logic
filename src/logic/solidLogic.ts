@@ -17,7 +17,6 @@ import * as debug from '../util/debug'
 ** into a `ConnectedStore` or a `LiveStore`.  A Fetcher object is
 ** available at store.fetcher, and `fetch` function at `store.fetcher._fetch`,
 */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: any) => any }, session: Session): SolidLogic {
 
     debug.log('SolidLogic: Unique instance created.  There should only be one of these.')

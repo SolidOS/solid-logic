@@ -1,5 +1,4 @@
 import tsParser from '@typescript-eslint/parser'
-import tseslintPlugin from '@typescript-eslint/eslint-plugin'
 import importPlugin from 'eslint-plugin-import'
 
 export default [
@@ -12,7 +11,7 @@ export default [
     ],
   },
   {
-    files: ['src/**/*.js', 'src/**/*.ts', 'src/**/*.cjs', 'src/**/*.mjs'],
+    files: ['src/**/*.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -21,19 +20,20 @@ export default [
       },
     },
     plugins: {
-      '@typescript-eslint': tseslintPlugin,
       import: importPlugin,
     },
     rules: {
+      // Style rules (not handled by TypeScript)
       semi: ['error', 'never'],
       quotes: ['error', 'single'],
-      'no-unused-vars': 'off', // handled by TS
-      '@typescript-eslint/no-unused-vars': ['warn'],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      
+      // Disable ESLint rules that TypeScript handles better
+      'no-unused-vars': 'off', // TypeScript handles this via noUnusedLocals
+      'no-undef': 'off', // TypeScript handles undefined variables
     },
   },
   {
-    files: ['test/**/*.js', 'test/**/*.ts'],
+    files: ['test/**/*.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
