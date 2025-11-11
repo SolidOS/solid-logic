@@ -1,13 +1,12 @@
 {
   "compilerOptions": {
     /* Basic Options */
-    "target": "ES2022", /* Allow top-level await and modern JS features. */
-    "module": "CommonJS", /* Use ESNext modules for Webpack/Babel compatibility. */
+   "target": "ES2019" /* Specify ECMAScript target version - matches your browser support */,
+    "module": "ESNext" /* Let bundlers handle module transformation for better tree-shaking */,
     "moduleResolution": "node", /* Use Node.js-style module resolution for Webpack compatibility. */
     "lib": [
-      "dom",
-      "es2015",
-      "es2019"
+      "DOM",
+      "ES2019"
     ] /* Specify library files to be included in the compilation. */,
     // "allowJs": true,                       /* Allow javascript files to be compiled. */
     // "checkJs": true,                       /* Report errors in .js files. */

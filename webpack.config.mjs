@@ -39,10 +39,10 @@ export default [
       filename: 'solid-logic.js',
       library: {
         name: 'SolidLogic',
-        type: 'umd'
+        type: 'umd',
+        umdNamedDefine: true
       },
       globalObject: 'this',
-      iife: true,
       clean: false
     },
     externals: externalsBase,
@@ -58,10 +58,10 @@ export default [
       filename: 'solid-logic.min.js',
       library: {
         name: 'SolidLogic',
-        type: 'umd'
+        type: 'umd',
+        umdNamedDefine: true
       },
       globalObject: 'this',
-      iife: true,
       clean: false
     },
     externals: externalsBase,

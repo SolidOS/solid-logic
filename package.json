@@ -2,6 +2,7 @@
   "name": "solid-logic",
   "version": "3.1.1",
   "description": "Core business logic of SolidOS",
+  "type": "module",
   "main": "dist/solid-logic.js",
   "module": "dist/solid-logic.esm.js",
   "types": "dist/index.d.ts",
