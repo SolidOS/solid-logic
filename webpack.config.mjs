@@ -7,7 +7,8 @@ const externalsBase = {
   'isomorphic-fetch': 'fetch',
   'text-encoding': 'TextEncoder',
   '@trust/webcrypto': 'crypto',
-  // Removed @xmldom/xmldom and whatwg-url - use native browser APIs
+  '@xmldom/xmldom': 'window',
+  'whatwg-url': 'URL',
   'rdflib': '$rdf'
 }
 
