@@ -27,7 +27,7 @@ import { someFunction } from 'solid-logic';
 
 ## Files
 - For browser UMD, without rdflib: `dist/solid-logic.js` (global `window.SolidLogic`)
-- For browser ESM, without rdflib: `dist/solid-logic.esm.external.js` (import as module)
+- For browser ESM, without rdflib: `dist/solid-logic.esm.js` (import as module)
 - UMD has also chunked files.
 - both versions also contain minified versions.
 
