@@ -1,23 +1,23 @@
-import { graph, NamedNode, Namespace, serialize, sym } from "rdflib"
-import { AclLogic } from "../types";
+import { graph, NamedNode, Namespace, serialize, sym } from 'rdflib'
+import { AclLogic } from '../types'
 import { ns as namespace } from '../util/ns'
 
 
 export const ACL_LINK = sym(
-    "http://www.iana.org/assignments/link-relations/acl"
-);
+    'http://www.iana.org/assignments/link-relations/acl'
+)
 
 export function createAclLogic(store): AclLogic {
 
     const ns = namespace
     
     async function findAclDocUrl(url: NamedNode) {
-        await store.fetcher.load(url);
-        const docNode = store.any(url, ACL_LINK);
+        await store.fetcher.load(url)
+        const docNode = store.any(url, ACL_LINK)
         if (!docNode) {
-            throw new Error(`No ACL link discovered for ${url}`);
+            throw new Error(`No ACL link discovered for ${url}`)
         }
-        return docNode.value;
+        return docNode.value
     }
     /**
      * Simple Access Control
@@ -87,7 +87,6 @@ export function createAclLogic(store): AclLogic {
 
         return fetcher.load(docURI).then(result => {
             if (!result.ok) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 throw new Error('fetchACLRel: While loading:' + (result as any).error)
             }
 
