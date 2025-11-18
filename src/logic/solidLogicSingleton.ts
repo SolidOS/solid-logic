@@ -21,17 +21,17 @@ interface GlobalWithSingleton {
     [SINGLETON_SYMBOL]?: SolidLogic
 }
 
-const globalThis = (typeof window !== 'undefined' ? window : global) as GlobalWithSingleton
+const globalTarget = (typeof window !== 'undefined' ? window : global) as GlobalWithSingleton
 
 function getOrCreateSingleton(): SolidLogic {
-    if (!globalThis[SINGLETON_SYMBOL]) {
+    if (!globalTarget[SINGLETON_SYMBOL]) {
         debug.log('SolidLogic: Creating new global singleton instance.')
-        globalThis[SINGLETON_SYMBOL] = createSolidLogic({ fetch: _fetch }, authSession)
+        globalTarget[SINGLETON_SYMBOL] = createSolidLogic({ fetch: _fetch }, authSession)
         debug.log('Unique quadstore initialized.')
     } else {
         debug.log('SolidLogic: Using existing global singleton instance.')
     }
-    return globalThis[SINGLETON_SYMBOL]!
+    return globalTarget[SINGLETON_SYMBOL]!
 }
 //this const makes solidLogicSingleton global accessible in mashlib
 const solidLogicSingleton = getOrCreateSingleton()
