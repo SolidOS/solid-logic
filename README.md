@@ -10,64 +10,71 @@ Core business logic of SolidOS which can be used for any webapp as well.
 
 # Usage
 
-## Install via npm
+## 📦 Install via npm
 
 ```sh
-npm install solid-logic
+npm install solid-logic rdflib
 ```
+
+> **Important**: `rdflib` is a peer dependency - you must install it separately.
 
 ### Import in your project (ESM/TypeScript)
 
 ```js
-import { someFunction } from 'solid-logic';
+import { solidLogicSingleton, store, authn } from 'solid-logic';
+
+// Example usage
+console.log('Current user:', authn.currentUser());
 ```
 
-## Use directly in a browser
- Both UMD and ESM bundles take rdflib as external, this means you need to install it yourself, separately. 
+## 🌐 Use directly in a browser
 
-## Files
-- For browser UMD, without rdflib: `dist/solid-logic.js` (global `window.SolidLogic`)
-- For browser ESM, without rdflib: `dist/solid-logic.esm.js` (import as module)
-- UMD has also chunked files.
-- both versions also contain minified versions.
+Both UMD and ESM bundles externalize rdflib to keep bundle sizes small and avoid version conflicts.
 
+## Available Files
 
-### UMD bundle (global variable)
+| Format | File | Usage | Global Variable |
+|--------|------|-------|----------------|
+| UMD | `dist/solid-logic.js` | Development | `window.SolidLogic` |
+| UMD | `dist/solid-logic.min.js` | Production | `window.SolidLogic` |
+| ESM | `dist/solid-logic.esm.js` | Development | Import only |
+| ESM | `dist/solid-logic.esm.min.js` | Production | Import only |
+
+### UMD Bundle (Script Tags)
+
+**⚠️ Important**: Load rdflib **before** solid-logic or you'll get `$rdf is not defined` errors.
 
 ```html
-<!-- Load dependencies first -->
+<!-- 1. Load rdflib first (creates window.$rdf) -->
 <script src="https://cdn.jsdelivr.net/npm/rdflib/dist/rdflib.min.js"></script>
-<!-- Load solid-logic UMD bundle -->
+
+<!-- 2. Load solid-logic (expects $rdf to exist) -->
 <script src="https://unpkg.com/solid-logic/dist/solid-logic.min.js"></script>
-<!-- or -->
-<!-- script src="https://cdn.jsdelivr.net/npm/solid-logic/dist/solid-logic.min.js"></script -->
-<!-- or -->
-<!-- script src="dist/solid-logic.js"></script -->
+
 <script>
 	// Access via global variable
-	const rdflib = window.$rdf;
-	const logic = window.SolidLogic;
+	const { solidLogicSingleton, store, authn } = window.SolidLogic;
+	
 	// Example usage
-	// logic.someFunction(...)
+	console.log('Store:', store);
+	console.log('Authentication:', authn.currentUser());
 </script>
 ```
 
-
-### ESM bundle (import as module)
+### ESM Bundle (Native Modules)
 
 ```html
 <script type="module">
-	import * as $rdf from 'https://esm.sh/rdflib'
-	import { someFunction } from 'https://esm.sh/solid-logic'
+	import * as $rdf from 'https://esm.sh/rdflib';
+	import { solidLogicSingleton, store, authn } from 'https://esm.sh/solid-logic';
 
 	// Example usage
-	// someFunction(...)
+	console.log('Store:', store);
+	console.log('Authentication:', authn.currentUser());
 </script>
 ```
 
-or 
-
-### ESM bundle with import map (bare specifiers)
+### ESM with Import Maps (Recommended)
 
 ```html
 <script type="importmap">
@@ -79,12 +86,31 @@ or
 }
 </script>
 <script type="module">
-    import * as $rdf from 'rdflib'
-	import { someFunction } from 'solid-logic'
+	import * as $rdf from 'rdflib';
+	import { solidLogicSingleton, store, authn } from 'solid-logic';
 
-	// Example usage
-	// someFunction(...)
+	// Example usage - cleaner imports!
+	console.log('Store:', store);
+	console.log('Authentication:', authn.currentUser());
 </script>
+```
+
+## Common Exports
+
+```js
+import { 
+	solidLogicSingleton,  // Complete singleton instance
+	store,                // RDF store
+	authn,                // Authentication logic
+	authSession,          // Authentication session
+	ACL_LINK,            // ACL constants
+	getSuggestedIssuers,  // Identity provider suggestions
+	createTypeIndexLogic, // Type index functionality
+	// Error classes
+	UnauthorizedError,
+	NotFoundError,
+	FetchError
+} from 'solid-logic';
 ```
 
 # How to develop
