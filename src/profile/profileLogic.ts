@@ -1,9 +1,9 @@
-import { NamedNode } from "rdflib";
-import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from "../logic/CustomError";
-import * as debug from "../util/debug";
-import { ns as namespace } from '../util/ns';
-import { differentOrigin, suggestPreferencesFile } from "../util/utils"
-import { ProfileLogic } from "../types"
+import { NamedNode } from 'rdflib'
+import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from '../logic/CustomError'
+import * as debug from '../util/debug'
+import { ns as namespace } from '../util/ns'
+import { differentOrigin, suggestPreferencesFile } from '../util/utils'
+import { ProfileLogic } from '../types'
 
 export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     const ns = namespace
@@ -17,7 +17,6 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     async function silencedLoadPreferences(user: NamedNode): Promise <NamedNode | undefined> {
         try {
             return await loadPreferences(user)
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (err) {
             return undefined
         }
@@ -55,13 +54,13 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             const msg = `Unable to load preference of user ${user}: ${err}`
             debug.warn(msg)
             if (err.response.status === 401) {
-                throw new UnauthorizedError();
+                throw new UnauthorizedError()
             }
             if (err.response.status === 403) {
                 if (differentOrigin(preferencesFile)) {
-                throw new CrossOriginForbiddenError();
+                throw new CrossOriginForbiddenError()
                 }
-                throw new SameOriginForbiddenError();
+                throw new SameOriginForbiddenError()
             }
             /*if (err.response.status === 404) {
                 throw new NotFoundError();
@@ -73,7 +72,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
 
     async function loadProfile (user: NamedNode):Promise <NamedNode> {
         if (!user) {
-            throw new Error(`loadProfile: no user given.`)
+            throw new Error('loadProfile: no user given.')
         }
         try {
             await store.fetcher.load(user.doc())
@@ -84,33 +83,33 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     }
 
     async function loadMe(): Promise<NamedNode> {
-        const me = authn.currentUser();
+        const me = authn.currentUser()
         if (me === null) {
-            throw new Error("Current user not found! Not logged in?");
+            throw new Error('Current user not found! Not logged in?')
         }
-        await store.fetcher.load(me.doc());
-        return me;
+        await store.fetcher.load(me.doc())
+        return me
     }
 
     function getPodRoot(user: NamedNode): NamedNode {
-        const podRoot = findStorage(user);
+        const podRoot = findStorage(user)
         if (!podRoot) {
-            throw new Error("User pod root not found!");
+            throw new Error('User pod root not found!')
         }
-        return podRoot as NamedNode;
+        return podRoot as NamedNode
     }
 
     async function getMainInbox(user: NamedNode): Promise<NamedNode> {
-        await store.fetcher.load(user);
-        const mainInbox = store.any(user, ns.ldp("inbox"), undefined, user.doc());
+        await store.fetcher.load(user)
+        const mainInbox = store.any(user, ns.ldp('inbox'), undefined, user.doc())
         if (!mainInbox) {
-            throw new Error("User main inbox not found!");
+            throw new Error('User main inbox not found!')
         }
-        return mainInbox as NamedNode;
+        return mainInbox as NamedNode
     }
 
     function findStorage(me: NamedNode) {
-        return store.any(me, ns.space("storage"), undefined, me.doc());
+        return store.any(me, ns.space('storage'), undefined, me.doc())
     }
 
     return {

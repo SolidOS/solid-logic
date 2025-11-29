@@ -1,8 +1,11 @@
 node_modules
-lib
+dist
+coverage
 
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
 .history
+.idea
+.vscode
 
 src/versionInfo.ts
