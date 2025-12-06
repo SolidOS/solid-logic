@@ -1,6 +1,7 @@
 import path from 'path'
 import TerserPlugin from 'terser-webpack-plugin'
 
+
 const externalsBase = {
   'fs': 'null',
   'node-fetch': 'fetch',
@@ -10,6 +11,11 @@ const externalsBase = {
   '@xmldom/xmldom': 'window',
   'whatwg-url': 'URL',
   'rdflib': '$rdf'
+}
+
+const externalsESM = {
+  ...externalsBase,
+  'rdflib': 'rdflib'
 }
 
 const commonConfig = {
@@ -83,7 +89,7 @@ export default [
       environment: { module: true },
       clean: false
     },
-    externals: externalsBase,
+    externals: externalsESM,
     experiments: {
       outputModule: true
     },
@@ -103,7 +109,7 @@ export default [
       environment: { module: true },
       clean: false
     },
-    externals: externalsBase,
+    externals: externalsESM,
     experiments: {
       outputModule: true
     },
