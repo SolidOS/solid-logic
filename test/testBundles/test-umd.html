@@ -7,18 +7,25 @@
 <body>
   <h1>Solid Logic UMD Bundle Browser Test</h1>
   <pre id="output"></pre>
-  <!--- !!!--- first build dist with npm run build-dist ---!!! -->
-  <!-- Load solid-logic UMD bundle (adjust path if needed) -->
-  <script src="../../dist/solid-logic.js"></script>
-  <script>
-    // Test if SolidLogic is available
+  <script type="importmap">
+  {
+    "imports": {
+      "rdflib": "https://esm.sh/rdflib",
+      "solid-logic": "https://esm.sh/solid-logic"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as $rdf from "rdflib";
+    import { solidLogicSingleton, store, authn } from "solid-logic";
     const output = document.getElementById('output');
-    if (window.SolidLogic) {
-      output.textContent = 'SolidLogic loaded!';
-      // Example: test a function if available
-      // output.textContent += '\n' + window.SolidLogic.someFunction();
+    if ($rdf && solidLogicSingleton && store && authn) {
+      output.textContent = 'SolidLogic and rdflib loaded as ESM!';
+      // Example usage
+      output.textContent += '\nStore: ' + (store ? 'available' : 'missing');
+      output.textContent += '\nAuthentication: ' + (authn.currentUser ? authn.currentUser() : 'missing');
     } else {
-      output.textContent = 'SolidLogic NOT loaded!';
+      output.textContent = 'SolidLogic or rdflib NOT loaded!';
     }
   </script>
 </body>
