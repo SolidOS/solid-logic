@@ -14,8 +14,7 @@ const externalsBase = {
 }
 
 const externalsESM = {
-  ...externalsBase,
-  'rdflib': 'rdflib'
+  'rdflib': { import: 'rdflib' }
 }
 
 const commonConfig = {

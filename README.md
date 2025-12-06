@@ -66,7 +66,7 @@ Both UMD and ESM bundles externalize rdflib to keep bundle sizes small and avoid
 ```html
 <script type="module">
 	import * as $rdf from 'https://esm.sh/rdflib';
-	import { solidLogicSingleton, store, authn } from 'https://esm.sh/solid-logic@4.0.1';
+	import { solidLogicSingleton, store, authn } from 'https://esm.sh/solid-logic@4.0.2';
 
 	// Example usage
 	console.log('Store:', store);
@@ -81,7 +81,7 @@ Both UMD and ESM bundles externalize rdflib to keep bundle sizes small and avoid
 {
 	"imports": {
 		"rdflib": "https://esm.sh/rdflib",
-		"solid-logic": "https://esm.sh/solid-logic@4.0.1"
+		"solid-logic": "https://esm.sh/solid-logic@4.0.2"
 	}
 }
 </script>
