@@ -39,7 +39,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/solidos/solid-logic.git"
+    "url": "git+https://github.com/SolidOS/solid-logic.git"
   },
   "author": "",
   "license": "MIT",
