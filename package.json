@@ -47,6 +47,9 @@
     "url": "https://github.com/solidos/solid-logic/issues"
   },
   "homepage": "https://github.com/solidos/solid-logic#readme",
+  "engines": {
+    "node": ">=18"
+  },
   "devDependencies": {
     "@babel/core": "^7.28.4",
     "@babel/preset-env": "^7.28.3",
