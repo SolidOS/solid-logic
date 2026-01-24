@@ -97,11 +97,11 @@ describe('Chat logic', () => {
 @prefix dc: <http://purl.org/dc/elements/1.1/>.
 @prefix meeting: <http://www.w3.org/ns/pim/meeting#>.
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
-@prefix c: </profile/card.ttl#>.
+@prefix card: </profile/card.ttl#>.
 
 :this
     a meeting:LongChat;
-    dc:author c:me;
+    dc:author card:me;
     dc:created "2021-02-06T10:11:12Z"^^xsd:dateTime;
     dc:title "Chat channel".
 `)

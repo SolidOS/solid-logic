@@ -1,6 +1,6 @@
 {
   "name": "solid-logic",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "Core business logic of SolidOS",
   "type": "module",
   "main": "dist/solid-logic.js",
@@ -47,6 +47,9 @@
     "url": "https://github.com/solidos/solid-logic/issues"
   },
   "homepage": "https://github.com/solidos/solid-logic#readme",
+  "engines": {
+    "node": ">=18"
+  },
   "devDependencies": {
     "@babel/core": "^7.28.4",
     "@babel/preset-env": "^7.28.3",
@@ -73,6 +76,6 @@
     "solid-namespace": "^0.5.4"
   },
   "peerDependencies": {
-    "rdflib": "^2.3.0"
+    "rdflib": "^2.3.5"
   }
 }
