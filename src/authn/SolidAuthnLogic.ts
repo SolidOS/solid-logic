@@ -17,11 +17,14 @@ export class SolidAuthnLogic implements AuthnLogic {
   currentUser(): NamedNode | null {
     const app = appContext()
     if (app.viewingNoAuthPage) {
+      debug.log(`currentUser: viewingNoAuthPage webId=${app.webId}`)
       return sym(app.webId)
     }
     if (this && this.session && this.session.info && this.session.info.webId && this.session.info.isLoggedIn) {
+      debug.log(`currentUser: session webId=${this.session.info.webId}`)
       return sym(this.session.info.webId)
     }
+    debug.log('currentUser: no user found, falling back to offlineTestID')
     return offlineTestID() // null unless testing
   }
 

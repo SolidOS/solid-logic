@@ -19,13 +19,21 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         if (!user) throw new Error('loadTypeIndexesFor: No user given')
         const profile = await profileLogic.loadProfile(user)
 
-        const suggestion = suggestPublicTypeIndex(user)
-        let publicTypeIndex
+        let suggestion: NamedNode | null = null
         try {
-            publicTypeIndex = await utilityLogic.followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, suggestion, profile)
+            suggestion = suggestPublicTypeIndex(user)
         } catch (err) {
-            const message = `User ${user} has no pointer in profile to publicTypeIndex file.`
+            const message = `User ${user} has no usable profile document directory for publicTypeIndex.`
             debug.warn(message)
+        }
+        let publicTypeIndex
+        if (suggestion) {
+            try {
+                publicTypeIndex = await utilityLogic.followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, suggestion, profile)
+            } catch (err) {
+                const message = `User ${user} has no pointer in profile to publicTypeIndex file.`
+                debug.warn(message)
+            }
         }
         const publicScopes = publicTypeIndex ? [{ label: 'public', index: publicTypeIndex as NamedNode, agent: user }] : []
 
@@ -40,11 +48,19 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         if (preferencesFile) { // watch out - can be in either as spec was not clear.  Legacy is profile.
             // If there is a legacy one linked from the profile, use that.
             // Otherwiae use or make one linked from Preferences
-            const suggestedPrivateTypeIndex = suggestPrivateTypeIndex(preferencesFile)
+            let suggestedPrivateTypeIndex: NamedNode | null = null
+            try {
+                suggestedPrivateTypeIndex = suggestPrivateTypeIndex(preferencesFile)
+            } catch (err) {
+                const message = `User ${user} has no usable preferences document directory for privateTypeIndex.`
+                debug.warn(message)
+            }
             let privateTypeIndex
             try {
                 privateTypeIndex = store.any(user, ns.solid('privateTypeIndex'), undefined, profile) ||
-                    await utilityLogic.followOrCreateLink(user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile)
+                    (suggestedPrivateTypeIndex
+                        ? await utilityLogic.followOrCreateLink(user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile)
+                        : null)
                 } catch (err) {
                 const message = `User ${user} has no pointer in preference file to privateTypeIndex file.`
                 debug.warn(message)
@@ -109,13 +125,35 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         return scopedAppInstances.map(scoped => scoped.instance)
     }
 
+    function docDirUri(node: NamedNode): string | null {
+        const doc = node.doc()
+        const dir = doc.dir()
+        if (dir?.uri) return dir.uri
+        const docUri = doc.uri
+        if (!docUri) {
+            debug.log(`docDirUri: missing doc uri for ${node?.uri}`)
+            return null
+        }
+        const withoutFragment = docUri.split('#')[0]
+        const lastSlash = withoutFragment.lastIndexOf('/')
+        if (lastSlash === -1) {
+            debug.log(`docDirUri: no slash in doc uri ${docUri}`)
+            return null
+        }
+        return withoutFragment.slice(0, lastSlash + 1)
+    }
+
     function suggestPublicTypeIndex(me: NamedNode) {
-        return sym(me.doc().dir()?.uri + 'publicTypeIndex.ttl')
+        const dirUri = docDirUri(me)
+        if (!dirUri) throw new Error(`suggestPublicTypeIndex: Cannot derive directory for ${me.uri}`)
+        return sym(dirUri + 'publicTypeIndex.ttl')
     }
     // Note this one is based off the pref file not the profile
 
     function suggestPrivateTypeIndex(preferencesFile: NamedNode) {
-        return sym(preferencesFile.doc().dir()?.uri + 'privateTypeIndex.ttl')
+        const dirUri = docDirUri(preferencesFile)
+        if (!dirUri) throw new Error(`suggestPrivateTypeIndex: Cannot derive directory for ${preferencesFile.uri}`)
+        return sym(dirUri + 'privateTypeIndex.ttl')
     }
 
     /*
