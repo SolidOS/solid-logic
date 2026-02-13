@@ -2,7 +2,7 @@
 * @jest-environment jsdom
 *
 */
-import { Fetcher, Store, sym, UpdateManager } from 'rdflib'
+import { Fetcher, parse, Store, sym, UpdateManager } from 'rdflib'
 import { createAclLogic } from '../src/acl/aclLogic'
 import { createProfileLogic } from '../src/profile/profileLogic'
 import { createTypeIndexLogic} from '../src/typeIndex/typeIndexLogic'
@@ -51,7 +51,7 @@ describe('TypeIndex logic NEW', () => {
         requests = []
         statustoBeReturned = 200
 
-        fetchMock.mockIf(/^https?.*$/, async req => {
+        fetchMock.mockIf(/^(https?|mailto):.*$/, async req => {
 
         if (req.method !== 'GET') {
             requests.push(req)
@@ -130,6 +130,50 @@ describe('TypeIndex logic NEW', () => {
             expect(result).toEqual(AliceScopes)
             expect(store.statementsMatching(null, null, null, AlicePrivateTypeIndex).length).toEqual(8)
             expect(store.statementsMatching(null, null, null, AlicePublicTypeIndex).length).toEqual(8)
+        })
+        it('uses existing publicTypeIndex when suggestion fails', async () => {
+            const carol = sym('urn:uuid:carol#me')
+            const CarolProfileDoc = carol.doc()
+            const CarolPreferencesFile = sym('https://carol.example.com/settings/prefs.ttl')
+            const CarolPublicTypeIndex = sym('https://carol.example.com/profile/public-type-index.ttl')
+            const CarolPrivateTypeIndex = sym('https://carol.example.com/settings/private-type-index.ttl')
+
+            const CarolProfile = `
+<#me> a vcard:Individual;
+    space:preferencesFile ${CarolPreferencesFile};
+    solid:publicTypeIndex ${CarolPublicTypeIndex}.
+`
+            const CarolPreferences = `
+    ${carol} solid:privateTypeIndex ${CarolPrivateTypeIndex} .
+`
+
+            web[CarolPreferencesFile.uri] = CarolPreferences
+            web[CarolPublicTypeIndex.uri] = `
+:t solid:forClass wf:Tracker; solid:instance <../publicStuff/actionItems.ttl#this> .
+`
+            web[CarolPrivateTypeIndex.uri] = `
+:t solid:forClass wf:Tracker; solid:instance <../privateStuff/ToDo.ttl#this> .
+`
+
+            const util = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
+            const profileLogic = {
+                loadProfile: async (user) => {
+                    parse(prefixes + CarolProfile, store, CarolProfileDoc.uri, 'text/turtle')
+                    return user.doc()
+                },
+                silencedLoadPreferences: async () => {
+                    parse(prefixes + CarolPreferences, store, CarolPreferencesFile.uri, 'text/turtle')
+                    return CarolPreferencesFile
+                }
+            }
+            const typeIndexLogicWithStub = createTypeIndexLogic(store, authn, profileLogic as any, util)
+
+            const result = await typeIndexLogicWithStub.loadTypeIndexesFor(carol)
+            expect(result).toEqual([
+                { label: 'public', index: CarolPublicTypeIndex as any, agent: carol as any },
+                { label: 'private', index: CarolPrivateTypeIndex as any, agent: carol as any }
+            ])
+            expect(requests.length).toEqual(0)
         })
     })
 

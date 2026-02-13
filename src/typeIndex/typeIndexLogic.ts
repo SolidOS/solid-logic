@@ -27,13 +27,15 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
             debug.warn(message)
         }
         let publicTypeIndex
-        if (suggestion) {
-            try {
-                publicTypeIndex = await utilityLogic.followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, suggestion, profile)
-            } catch (err) {
-                const message = `User ${user} has no pointer in profile to publicTypeIndex file.`
-                debug.warn(message)
-            }
+        try {
+            publicTypeIndex =
+                store.any(user, ns.solid('publicTypeIndex'), undefined, profile) ||
+                (suggestion
+                    ? await utilityLogic.followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, suggestion, profile)
+                    : null)
+        } catch (err) {
+            const message = `User ${user} has no pointer in profile to publicTypeIndex file: ${err}`
+            debug.warn(message)
         }
         const publicScopes = publicTypeIndex ? [{ label: 'public', index: publicTypeIndex as NamedNode, agent: user }] : []
 
@@ -62,7 +64,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
                         ? await utilityLogic.followOrCreateLink(user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile)
                         : null)
                 } catch (err) {
-                const message = `User ${user} has no pointer in preference file to privateTypeIndex file.`
+                const message = `User ${user} has no pointer in preference file to privateTypeIndex file: ${err}`
                 debug.warn(message)
             }
             privateScopes = privateTypeIndex ? [{ label: 'private', index: privateTypeIndex as NamedNode, agent: user }] : []
