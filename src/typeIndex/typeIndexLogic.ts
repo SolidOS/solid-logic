@@ -86,7 +86,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         return scopes
     }
 
-    async function loadCommunityTypeIndexes(user: NamedNode): Promise<TypeIndexScope[][]> {
+    async function loadCommunityTypeIndexes(user: NamedNode): Promise<TypeIndexScope[]> {
         let preferencesFile
         try {
             preferencesFile = await profileLogic.silencedLoadPreferences(user)
@@ -116,7 +116,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
     }
 
     async function loadAllTypeIndexes(user: NamedNode) {
-        return (await loadTypeIndexesFor(user)).concat((await loadCommunityTypeIndexes(user)).flat())
+        return (await loadTypeIndexesFor(user)).concat(await loadCommunityTypeIndexes(user))
     }
 
     async function getScopedAppInstances(klass: NamedNode, user: NamedNode): Promise<ScopedApp[]> {
@@ -145,7 +145,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         if (dir?.uri && isAbsoluteHttpUri(dir.uri)) return dir.uri
         const docUri = doc.uri
         if (!docUri || !isAbsoluteHttpUri(docUri)) {
-            debug.log(`docDirUri: missing doc uri for ${node?.uri}`)
+            debug.log(`docDirUri: missing or non-http(s) doc uri for ${node?.uri}`)
             return null
         }
         const withoutFragment = docUri.split('#')[0]
@@ -159,14 +159,14 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
 
     function suggestPublicTypeIndex(me: NamedNode) {
         const dirUri = docDirUri(me)
-        if (!dirUri || !isAbsoluteHttpUri(dirUri)) throw new Error(`suggestPublicTypeIndex: Cannot derive directory for ${me.uri}`)
+        if (!dirUri) throw new Error(`suggestPublicTypeIndex: Cannot derive directory for ${me.uri}`)
         return sym(dirUri + 'publicTypeIndex.ttl')
     }
     // Note this one is based off the pref file not the profile
 
     function suggestPrivateTypeIndex(preferencesFile: NamedNode) {
         const dirUri = docDirUri(preferencesFile)
-        if (!dirUri || !isAbsoluteHttpUri(dirUri)) throw new Error(`suggestPrivateTypeIndex: Cannot derive directory for ${preferencesFile.uri}`)
+        if (!dirUri) throw new Error(`suggestPrivateTypeIndex: Cannot derive directory for ${preferencesFile.uri}`)
         return sym(dirUri + 'privateTypeIndex.ttl')
     }
 
