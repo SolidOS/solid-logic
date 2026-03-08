@@ -7,6 +7,10 @@ import { newThing } from '../util/utils'
 export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): TypeIndexLogic {
     const ns = namespace
 
+    function isAbsoluteHttpUri(uri: string | null | undefined): boolean {
+        return !!uri && (uri.startsWith('https://') || uri.startsWith('http://'))
+    }
+
     function getRegistrations(instance, theClass) {
         return store
             .each(undefined, ns.solid('instance'), instance)
@@ -96,7 +100,15 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
             )
             let result = []
             for (const org of communities) {
-                result = result.concat(await loadTypeIndexesFor(org as NamedNode) as any)
+                if (org.termType !== 'NamedNode' || !isAbsoluteHttpUri((org as NamedNode).uri)) {
+                    debug.warn(`Skipping malformed community node for ${user}: ${org}`)
+                    continue
+                }
+                try {
+                    result = result.concat(await loadTypeIndexesFor(org as NamedNode) as any)
+                } catch (err) {
+                    debug.warn(`Skipping community type indexes for ${(org as NamedNode).uri}: ${err}`)
+                }
             }
             return result
         }
@@ -130,9 +142,9 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
     function docDirUri(node: NamedNode): string | null {
         const doc = node.doc()
         const dir = doc.dir()
-        if (dir?.uri) return dir.uri
+        if (dir?.uri && isAbsoluteHttpUri(dir.uri)) return dir.uri
         const docUri = doc.uri
-        if (!docUri) {
+        if (!docUri || !isAbsoluteHttpUri(docUri)) {
             debug.log(`docDirUri: missing doc uri for ${node?.uri}`)
             return null
         }
@@ -147,14 +159,14 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
 
     function suggestPublicTypeIndex(me: NamedNode) {
         const dirUri = docDirUri(me)
-        if (!dirUri) throw new Error(`suggestPublicTypeIndex: Cannot derive directory for ${me.uri}`)
+        if (!dirUri || !isAbsoluteHttpUri(dirUri)) throw new Error(`suggestPublicTypeIndex: Cannot derive directory for ${me.uri}`)
         return sym(dirUri + 'publicTypeIndex.ttl')
     }
     // Note this one is based off the pref file not the profile
 
     function suggestPrivateTypeIndex(preferencesFile: NamedNode) {
         const dirUri = docDirUri(preferencesFile)
-        if (!dirUri) throw new Error(`suggestPrivateTypeIndex: Cannot derive directory for ${preferencesFile.uri}`)
+        if (!dirUri || !isAbsoluteHttpUri(dirUri)) throw new Error(`suggestPrivateTypeIndex: Cannot derive directory for ${preferencesFile.uri}`)
         return sym(dirUri + 'privateTypeIndex.ttl')
     }
 
