@@ -149,16 +149,23 @@ describe('Profile', () => {
         it('creates new file', async () => {
              await profileLogic.silencedLoadPreferences(bob)
 
-            const patchRequest = requests[0]
-            expect(patchRequest.method).toEqual('PATCH')
-            expect(patchRequest.url).toEqual(bob.doc().uri)
-            const text = await patchRequest.text()
-            expect(text).toContain('INSERT DATA { <https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://bob.example.com/Settings/Preferences.ttl> .')
+            const profilePatch = requests.find(req => req.method === 'PATCH' && req.url === bob.doc().uri)
+            expect(profilePatch).toBeDefined()
+            const profilePatchText = await profilePatch.text()
+            expect(profilePatchText).toContain('INSERT DATA { <https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://bob.example.com/Settings/Preferences.ttl> .')
 
-            const putRequest = requests[1]
-            expect(putRequest.method).toEqual('PUT')
-            expect(putRequest.url).toEqual('https://bob.example.com/Settings/Preferences.ttl')
-            expect(web[putRequest.url]).toEqual('')
+            const preferencesPatch = requests.find(req => req.method === 'PATCH' && req.url === 'https://bob.example.com/Settings/Preferences.ttl')
+            expect(preferencesPatch).toBeDefined()
+            const preferencesPatchText = await preferencesPatch.text()
+            expect(preferencesPatchText).toContain('<https://bob.example.com/Settings/Preferences.ttl> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/pim/space#ConfigurationFile> .')
+            expect(preferencesPatchText).toContain('<https://bob.example.com/Settings/Preferences.ttl> <http://purl.org/dc/terms/title> "Preferences file" .')
+            expect(preferencesPatchText).toContain('<https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/solid/terms#publicTypeIndex>')
+            expect(preferencesPatchText).toContain('<https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/solid/terms#privateTypeIndex>')
+
+            const putUrls = requests.filter(req => req.method === 'PUT').map(req => req.url)
+            expect(putUrls).toContain('https://bob.example.com/Settings/Preferences.ttl')
+            expect(putUrls).toContain('https://bob.example.com/Settings/publicTypeIndex.ttl')
+            expect(putUrls).toContain('https://bob.example.com/Settings/privateTypeIndex.ttl')
 
         })
     })
@@ -230,16 +237,23 @@ describe('Profile', () => {
         it('creates new file', async () => {
              await profileLogic.loadPreferences(boby)
 
-            const patchRequest = requests[0]
-            expect(patchRequest.method).toEqual('PATCH')
-            expect(patchRequest.url).toEqual(boby.doc().uri)
-            const text = await patchRequest.text()
-            expect(text).toContain('INSERT DATA { <https://boby.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://boby.example.com/Settings/Preferences.ttl> .')
+            const profilePatch = requests.find(req => req.method === 'PATCH' && req.url === boby.doc().uri)
+            expect(profilePatch).toBeDefined()
+            const profilePatchText = await profilePatch.text()
+            expect(profilePatchText).toContain('INSERT DATA { <https://boby.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://boby.example.com/Settings/Preferences.ttl> .')
 
-            const putRequest = requests[1]
-            expect(putRequest.method).toEqual('PUT')
-            expect(putRequest.url).toEqual('https://boby.example.com/Settings/Preferences.ttl')
-            expect(web[putRequest.url]).toEqual('')
+            const preferencesPatch = requests.find(req => req.method === 'PATCH' && req.url === 'https://boby.example.com/Settings/Preferences.ttl')
+            expect(preferencesPatch).toBeDefined()
+            const preferencesPatchText = await preferencesPatch.text()
+            expect(preferencesPatchText).toContain('<https://boby.example.com/Settings/Preferences.ttl> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/pim/space#ConfigurationFile> .')
+            expect(preferencesPatchText).toContain('<https://boby.example.com/Settings/Preferences.ttl> <http://purl.org/dc/terms/title> "Preferences file" .')
+            expect(preferencesPatchText).toContain('<https://boby.example.com/profile/card.ttl#me> <http://www.w3.org/ns/solid/terms#publicTypeIndex>')
+            expect(preferencesPatchText).toContain('<https://boby.example.com/profile/card.ttl#me> <http://www.w3.org/ns/solid/terms#privateTypeIndex>')
+
+            const putUrls = requests.filter(req => req.method === 'PUT').map(req => req.url)
+            expect(putUrls).toContain('https://boby.example.com/Settings/Preferences.ttl')
+            expect(putUrls).toContain('https://boby.example.com/Settings/publicTypeIndex.ttl')
+            expect(putUrls).toContain('https://boby.example.com/Settings/privateTypeIndex.ttl')
 
         })
     })
