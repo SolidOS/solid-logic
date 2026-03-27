@@ -50,6 +50,37 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         ].join('\n')
     }
 
+    function publicTypeIndexAcl(webId: string, publicTypeIndex: NamedNode): string {
+        const fileName = new URL(publicTypeIndex.uri).pathname.split('/').pop() || 'publicTypeIndex.ttl'
+        return [
+            '# ACL resource for the Public Type Index',
+            '',
+            '@prefix acl: <http://www.w3.org/ns/auth/acl#>.',
+            '@prefix foaf: <http://xmlns.com/foaf/0.1/>.',
+            '',
+            '<#owner>',
+            '    a acl:Authorization;',
+            '',
+            '    acl:agent',
+            `        <${webId}>;`,
+            '',
+            `    acl:accessTo <./${fileName}>;`,
+            '',
+            '    acl:mode',
+            '        acl:Read, acl:Write, acl:Control.',
+            '',
+            '# Public-readable',
+            '<#public>',
+            '    a acl:Authorization;',
+            '',
+            '    acl:agentClass foaf:Agent;',
+            '',
+            `    acl:accessTo <./${fileName}>;`,
+            '',
+            '    acl:mode acl:Read.'
+        ].join('\n')
+    }
+
     async function ensureContainerExists(containerUri: string): Promise<void> {
         const containerNode = sym(containerUri)
         try {
@@ -103,6 +134,42 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         })
     }
 
+    async function ensurePublicTypeIndexAclOnCreate(user: NamedNode, publicTypeIndex: NamedNode): Promise<void> {
+        let created = false
+        try {
+            await store.fetcher.load(publicTypeIndex)
+        } catch (err) {
+            if (!isNotFoundError(err)) throw err
+            await utilityLogic.loadOrCreateIfNotExists(publicTypeIndex)
+            created = true
+        }
+        if (!created) return
+
+        let aclDocUri: string | undefined
+        try {
+            await store.fetcher.load(publicTypeIndex)
+            aclDocUri = store.any(publicTypeIndex, ACL_LINK)?.value
+        } catch (err) {
+            if (!isNotFoundError(err)) throw err
+        }
+        if (!aclDocUri) {
+            aclDocUri = `${publicTypeIndex.uri}.acl`
+        }
+
+        const aclDoc = sym(aclDocUri)
+        try {
+            await store.fetcher.load(aclDoc)
+            return
+        } catch (err) {
+            if (!isNotFoundError(err)) throw err
+        }
+
+        await store.fetcher.webOperation('PUT', aclDoc.uri, {
+            data: publicTypeIndexAcl(user.uri, publicTypeIndex),
+            contentType: 'text/turtle'
+        })
+    }
+
     async function initializePreferencesDefaults(user: NamedNode, preferencesFile: NamedNode): Promise<void> {
         const preferencesDoc = preferencesFile.doc() as NamedNode
         await store.fetcher.load(preferencesDoc)
@@ -134,7 +201,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             await store.fetcher.load(preferencesDoc)
         }
 
-        await utilityLogic.loadOrCreateIfNotExists(publicTypeIndex)
+        await ensurePublicTypeIndexAclOnCreate(user, publicTypeIndex)
         await utilityLogic.loadOrCreateIfNotExists(privateTypeIndex)
     }
 
