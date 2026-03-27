@@ -190,6 +190,7 @@ describe('Profile', () => {
             const settingsAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://bob.example.com/Settings/.acl')
             expect(settingsAclPut).toBeDefined()
             const settingsAclBody = web['https://bob.example.com/Settings/.acl']
+            expect(settingsAclBody).toBeDefined()
             expect(settingsAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
             expect(settingsAclBody).toContain('<#owner>')
             expect(settingsAclBody).toContain('acl:agent <https://bob.example.com/profile/card.ttl#me>;')
@@ -200,6 +201,7 @@ describe('Profile', () => {
             const publicTypeIndexAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://bob.example.com/Settings/publicTypeIndex.ttl.acl')
             expect(publicTypeIndexAclPut).toBeDefined()
             const publicTypeIndexAclBody = web['https://bob.example.com/Settings/publicTypeIndex.ttl.acl']
+            expect(publicTypeIndexAclBody).toBeDefined()
             expect(publicTypeIndexAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
             expect(publicTypeIndexAclBody).toContain('@prefix foaf: <http://xmlns.com/foaf/0.1/>.')
             expect(publicTypeIndexAclBody).toContain('<#owner>')
@@ -312,6 +314,7 @@ describe('Profile', () => {
             const settingsAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://boby.example.com/Settings/.acl')
             expect(settingsAclPut).toBeDefined()
             const settingsAclBody = web['https://boby.example.com/Settings/.acl']
+            expect(settingsAclBody).toBeDefined()
             expect(settingsAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
             expect(settingsAclBody).toContain('<#owner>')
             expect(settingsAclBody).toContain('acl:agent <https://boby.example.com/profile/card.ttl#me>;')
@@ -322,6 +325,7 @@ describe('Profile', () => {
             const publicTypeIndexAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://boby.example.com/Settings/publicTypeIndex.ttl.acl')
             expect(publicTypeIndexAclPut).toBeDefined()
             const publicTypeIndexAclBody = web['https://boby.example.com/Settings/publicTypeIndex.ttl.acl']
+            expect(publicTypeIndexAclBody).toBeDefined()
             expect(publicTypeIndexAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
             expect(publicTypeIndexAclBody).toContain('@prefix foaf: <http://xmlns.com/foaf/0.1/>.')
             expect(publicTypeIndexAclBody).toContain('<#owner>')
