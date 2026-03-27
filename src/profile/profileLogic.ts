@@ -1,4 +1,5 @@
 import { literal, NamedNode, st, sym } from 'rdflib'
+import { ACL_LINK } from '../acl/aclLogic'
 import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from '../logic/CustomError'
 import * as debug from '../util/debug'
 import { ns as namespace } from '../util/ns'
@@ -28,6 +29,78 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         const dirUri = docDirUri(preferencesFile)
         if (!dirUri) throw new Error(`Cannot derive directory for preferences file ${preferencesFile.uri}`)
         return sym(dirUri + filename)
+    }
+
+    function isNotFoundError(err: any): boolean {
+        if (err?.response?.status === 404) return true
+        const text = `${err?.message || err || ''}`
+        return text.includes('404') || text.includes('Not Found')
+    }
+
+    function ownerOnlyContainerAcl(webId: string): string {
+        return [
+            '@prefix acl: <http://www.w3.org/ns/auth/acl#>.',
+            '',
+            '<#owner>',
+            'a acl:Authorization;',
+            `acl:agent <${webId}>;`,
+            'acl:accessTo <./>;',
+            'acl:default <./>;',
+            'acl:mode acl:Read, acl:Write, acl:Control.'
+        ].join('\n')
+    }
+
+    async function ensureContainerExists(containerUri: string): Promise<void> {
+        const containerNode = sym(containerUri)
+        try {
+            await store.fetcher.load(containerNode)
+            return
+        } catch (err) {
+            if (!isNotFoundError(err)) throw err
+        }
+        const result = await store.fetcher._fetch(containerUri, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'text/turtle',
+                'If-None-Match': '*',
+                Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+            },
+            body: ' '
+        })
+        if (result.status.toString()[0] !== '2') {
+            throw new Error(`Not OK: got ${result.status} response while creating container at ${containerUri}`)
+        }
+    }
+
+    async function ensureOwnerOnlyAclForSettings(user: NamedNode, preferencesFile: NamedNode): Promise<void> {
+        const dirUri = docDirUri(preferencesFile)
+        if (!dirUri) throw new Error(`Cannot derive settings directory from ${preferencesFile.uri}`)
+        await ensureContainerExists(dirUri)
+
+        const containerNode = sym(dirUri)
+        let aclDocUri: string | undefined
+        try {
+            await store.fetcher.load(containerNode)
+            aclDocUri = store.any(containerNode, ACL_LINK)?.value
+        } catch (err) {
+            if (!isNotFoundError(err)) throw err
+        }
+        if (!aclDocUri) {
+            // Fallback for servers/tests where rel=acl is not exposed in mocked headers.
+            aclDocUri = `${dirUri}.acl`
+        }
+        const aclDoc = sym(aclDocUri)
+        try {
+            await store.fetcher.load(aclDoc)
+            return
+        } catch (err) {
+            if (!isNotFoundError(err)) throw err
+        }
+
+        await store.fetcher.webOperation('PUT', aclDoc.uri, {
+            data: ownerOnlyContainerAcl(user.uri),
+            contentType: 'text/turtle'
+        })
     }
 
     async function initializePreferencesDefaults(user: NamedNode, preferencesFile: NamedNode): Promise<void> {
@@ -119,6 +192,8 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             } else {
                 preferencesFile = await utilityLogic.followOrCreateLink(user, ns.space('preferencesFile') as NamedNode, possiblePreferencesFile, user.doc())
             }
+
+            await ensureOwnerOnlyAclForSettings(user, preferencesFile as NamedNode)
 
             const createdOrRepairedPreferencesDoc = await ensurePreferencesDocExists(preferencesFile as NamedNode)
             if (!existingPreferencesFile || createdOrRepairedPreferencesDoc) {
