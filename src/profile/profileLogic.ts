@@ -262,10 +262,8 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
 
             await ensureOwnerOnlyAclForSettings(user, preferencesFile as NamedNode)
 
-            const createdOrRepairedPreferencesDoc = await ensurePreferencesDocExists(preferencesFile as NamedNode)
-            if (!existingPreferencesFile || createdOrRepairedPreferencesDoc) {
-                await initializePreferencesDefaults(user, preferencesFile as NamedNode)
-            }
+            await ensurePreferencesDocExists(preferencesFile as NamedNode)
+            await initializePreferencesDefaults(user, preferencesFile as NamedNode)
         } catch (err) {
             const message = `User ${user} has no pointer in profile to preferences file.`
             debug.warn(message)
