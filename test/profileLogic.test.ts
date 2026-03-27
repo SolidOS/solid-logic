@@ -202,6 +202,7 @@ describe('Profile', () => {
             expect(publicTypeIndexAclPut).toBeDefined()
             const publicTypeIndexAclBody = web['https://bob.example.com/Settings/publicTypeIndex.ttl.acl']
             expect(publicTypeIndexAclBody).toBeDefined()
+            expect(publicTypeIndexAclBody).not.toEqual('')
             expect(publicTypeIndexAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
             expect(publicTypeIndexAclBody).toContain('@prefix foaf: <http://xmlns.com/foaf/0.1/>.')
             expect(publicTypeIndexAclBody).toContain('<#owner>')
@@ -326,6 +327,7 @@ describe('Profile', () => {
             expect(publicTypeIndexAclPut).toBeDefined()
             const publicTypeIndexAclBody = web['https://boby.example.com/Settings/publicTypeIndex.ttl.acl']
             expect(publicTypeIndexAclBody).toBeDefined()
+            expect(publicTypeIndexAclBody).not.toEqual('')
             expect(publicTypeIndexAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
             expect(publicTypeIndexAclBody).toContain('@prefix foaf: <http://xmlns.com/foaf/0.1/>.')
             expect(publicTypeIndexAclBody).toContain('<#owner>')
