@@ -163,9 +163,21 @@ describe('Profile', () => {
             expect(preferencesPatchText).toContain('<https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/solid/terms#privateTypeIndex>')
 
             const putUrls = requests.filter(req => req.method === 'PUT').map(req => req.url)
+            expect(putUrls).toContain('https://bob.example.com/Settings/')
+            expect(putUrls).toContain('https://bob.example.com/Settings/.acl')
             expect(putUrls).toContain('https://bob.example.com/Settings/Preferences.ttl')
             expect(putUrls).toContain('https://bob.example.com/Settings/publicTypeIndex.ttl')
             expect(putUrls).toContain('https://bob.example.com/Settings/privateTypeIndex.ttl')
+
+            const settingsAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://bob.example.com/Settings/.acl')
+            expect(settingsAclPut).toBeDefined()
+            const settingsAclBody = web['https://bob.example.com/Settings/.acl']
+            expect(settingsAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
+            expect(settingsAclBody).toContain('<#owner>')
+            expect(settingsAclBody).toContain('acl:agent <https://bob.example.com/profile/card.ttl#me>;')
+            expect(settingsAclBody).toContain('acl:accessTo <./>;')
+            expect(settingsAclBody).toContain('acl:default <./>;')
+            expect(settingsAclBody).toContain('acl:mode acl:Read, acl:Write, acl:Control.')
 
         })
     })
@@ -251,9 +263,21 @@ describe('Profile', () => {
             expect(preferencesPatchText).toContain('<https://boby.example.com/profile/card.ttl#me> <http://www.w3.org/ns/solid/terms#privateTypeIndex>')
 
             const putUrls = requests.filter(req => req.method === 'PUT').map(req => req.url)
+            expect(putUrls).toContain('https://boby.example.com/Settings/')
+            expect(putUrls).toContain('https://boby.example.com/Settings/.acl')
             expect(putUrls).toContain('https://boby.example.com/Settings/Preferences.ttl')
             expect(putUrls).toContain('https://boby.example.com/Settings/publicTypeIndex.ttl')
             expect(putUrls).toContain('https://boby.example.com/Settings/privateTypeIndex.ttl')
+
+            const settingsAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://boby.example.com/Settings/.acl')
+            expect(settingsAclPut).toBeDefined()
+            const settingsAclBody = web['https://boby.example.com/Settings/.acl']
+            expect(settingsAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
+            expect(settingsAclBody).toContain('<#owner>')
+            expect(settingsAclBody).toContain('acl:agent <https://boby.example.com/profile/card.ttl#me>;')
+            expect(settingsAclBody).toContain('acl:accessTo <./>;')
+            expect(settingsAclBody).toContain('acl:default <./>;')
+            expect(settingsAclBody).toContain('acl:mode acl:Read, acl:Write, acl:Control.')
 
         })
     })
