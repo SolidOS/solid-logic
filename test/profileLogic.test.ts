@@ -12,20 +12,28 @@ import {
 import { createAclLogic } from '../src/acl/aclLogic'
 import { createContainerLogic } from '../src/util/containerLogic'
 
+declare const fetchMock: any
+
+declare global {
+    interface Window {
+        $SolidTestEnvironment?: { username: string }
+    }
+}
+
 const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
 const user = alice
 const profile = user.doc()
 let requests: Request[] = []
-let profileLogic
+let profileLogic: ReturnType<typeof createProfileLogic>
 
 describe('Profile', () => {
 
     describe('loadProfile', () => {
         window.$SolidTestEnvironment = { username: alice.uri }
-        let store
+        let store: Store
         requests = []
         const statustoBeReturned = 200
-        let web = {}
+        let web: Record<string, string> = {}
         const authn = {
             currentUser: () => {
                 return alice
@@ -35,7 +43,7 @@ describe('Profile', () => {
             fetchMock.resetMocks()
             web = loadWebObject()
             requests = []
-            fetchMock.mockIf(/^https?.*$/, async req => {
+            fetchMock.mockIf(/^https?.*$/, async (req: Request) => {
 
                 if (req.method !== 'GET') {
                     requests.push(req)
@@ -85,10 +93,10 @@ describe('Profile', () => {
     
     describe('silencedLoadPreferences', () => {
         window.$SolidTestEnvironment = { username: alice.uri }
-        let store
+        let store: Store
         requests = []
         const statustoBeReturned = 200
-        let web = {}
+        let web: Record<string, string> = {}
         const authn = {
             currentUser: () => {
                 return alice
@@ -98,7 +106,7 @@ describe('Profile', () => {
             fetchMock.resetMocks()
             web = loadWebObject()
             requests = []
-            fetchMock.mockIf(/^https?.*$/, async req => {
+            fetchMock.mockIf(/^https?.*$/, async (req: Request) => {
 
                 if (req.method !== 'GET') {
                     requests.push(req)
@@ -139,6 +147,9 @@ describe('Profile', () => {
         it('loads data', async () => {
             const result = await profileLogic.silencedLoadPreferences(alice)
             expect(result).toBeInstanceOf(Object)
+            if (!result) {
+                throw new Error('Expected preferences document for alice')
+            }
             expect(result.uri).toEqual(AlicePreferencesFile.uri)
             expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
             expect(store.statementsMatching(null, null, null, profile).length).toEqual(4)
@@ -151,11 +162,17 @@ describe('Profile', () => {
 
             const profilePatch = requests.find(req => req.method === 'PATCH' && req.url === bob.doc().uri)
             expect(profilePatch).toBeDefined()
+            if (!profilePatch) {
+                throw new Error('Expected profile patch request for bob')
+            }
             const profilePatchText = await profilePatch.text()
             expect(profilePatchText).toContain('INSERT DATA { <https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://bob.example.com/Settings/Preferences.ttl> .')
 
             const preferencesPatch = requests.find(req => req.method === 'PATCH' && req.url === 'https://bob.example.com/Settings/Preferences.ttl')
             expect(preferencesPatch).toBeDefined()
+            if (!preferencesPatch) {
+                throw new Error('Expected preferences patch request for bob')
+            }
             const preferencesPatchText = await preferencesPatch.text()
             expect(preferencesPatchText).toContain('<https://bob.example.com/Settings/Preferences.ttl> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/pim/space#ConfigurationFile> .')
             expect(preferencesPatchText).toContain('<https://bob.example.com/Settings/Preferences.ttl> <http://purl.org/dc/terms/title> "Preferences file" .')
@@ -167,6 +184,7 @@ describe('Profile', () => {
             expect(putUrls).toContain('https://bob.example.com/Settings/.acl')
             expect(putUrls).toContain('https://bob.example.com/Settings/Preferences.ttl')
             expect(putUrls).toContain('https://bob.example.com/Settings/publicTypeIndex.ttl')
+            expect(putUrls).toContain('https://bob.example.com/Settings/publicTypeIndex.ttl.acl')
             expect(putUrls).toContain('https://bob.example.com/Settings/privateTypeIndex.ttl')
 
             const settingsAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://bob.example.com/Settings/.acl')
@@ -179,16 +197,31 @@ describe('Profile', () => {
             expect(settingsAclBody).toContain('acl:default <./>;')
             expect(settingsAclBody).toContain('acl:mode acl:Read, acl:Write, acl:Control.')
 
+            const publicTypeIndexAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://bob.example.com/Settings/publicTypeIndex.ttl.acl')
+            expect(publicTypeIndexAclPut).toBeDefined()
+            const publicTypeIndexAclBody = web['https://bob.example.com/Settings/publicTypeIndex.ttl.acl']
+            expect(publicTypeIndexAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
+            expect(publicTypeIndexAclBody).toContain('@prefix foaf: <http://xmlns.com/foaf/0.1/>.')
+            expect(publicTypeIndexAclBody).toContain('<#owner>')
+            expect(publicTypeIndexAclBody).toContain('acl:agent')
+            expect(publicTypeIndexAclBody).toContain('<https://bob.example.com/profile/card.ttl#me>;')
+            expect(publicTypeIndexAclBody).toContain('acl:accessTo <./publicTypeIndex.ttl>;')
+            expect(publicTypeIndexAclBody).toContain('acl:mode')
+            expect(publicTypeIndexAclBody).toContain('acl:Read, acl:Write, acl:Control.')
+            expect(publicTypeIndexAclBody).toContain('<#public>')
+            expect(publicTypeIndexAclBody).toContain('acl:agentClass foaf:Agent;')
+            expect(publicTypeIndexAclBody).toContain('acl:mode acl:Read.')
+
         })
     })
 
 
     describe('loadPreferences', () => {
         window.$SolidTestEnvironment = { username: boby.uri }
-        let store
+        let store: Store
         requests = []
         const statustoBeReturned = 200
-        let web = {}
+        let web: Record<string, string> = {}
         const authn = {
             currentUser: () => {
                 return boby
@@ -198,7 +231,7 @@ describe('Profile', () => {
             fetchMock.resetMocks()
             web = loadWebObject()
             requests = []
-            fetchMock.mockIf(/^https?.*$/, async req => {
+            fetchMock.mockIf(/^https?.*$/, async (req: Request) => {
 
                 if (req.method !== 'GET') {
                     requests.push(req)
@@ -251,11 +284,17 @@ describe('Profile', () => {
 
             const profilePatch = requests.find(req => req.method === 'PATCH' && req.url === boby.doc().uri)
             expect(profilePatch).toBeDefined()
+            if (!profilePatch) {
+                throw new Error('Expected profile patch request for boby')
+            }
             const profilePatchText = await profilePatch.text()
             expect(profilePatchText).toContain('INSERT DATA { <https://boby.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://boby.example.com/Settings/Preferences.ttl> .')
 
             const preferencesPatch = requests.find(req => req.method === 'PATCH' && req.url === 'https://boby.example.com/Settings/Preferences.ttl')
             expect(preferencesPatch).toBeDefined()
+            if (!preferencesPatch) {
+                throw new Error('Expected preferences patch request for boby')
+            }
             const preferencesPatchText = await preferencesPatch.text()
             expect(preferencesPatchText).toContain('<https://boby.example.com/Settings/Preferences.ttl> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/pim/space#ConfigurationFile> .')
             expect(preferencesPatchText).toContain('<https://boby.example.com/Settings/Preferences.ttl> <http://purl.org/dc/terms/title> "Preferences file" .')
@@ -267,6 +306,7 @@ describe('Profile', () => {
             expect(putUrls).toContain('https://boby.example.com/Settings/.acl')
             expect(putUrls).toContain('https://boby.example.com/Settings/Preferences.ttl')
             expect(putUrls).toContain('https://boby.example.com/Settings/publicTypeIndex.ttl')
+            expect(putUrls).toContain('https://boby.example.com/Settings/publicTypeIndex.ttl.acl')
             expect(putUrls).toContain('https://boby.example.com/Settings/privateTypeIndex.ttl')
 
             const settingsAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://boby.example.com/Settings/.acl')
@@ -278,6 +318,21 @@ describe('Profile', () => {
             expect(settingsAclBody).toContain('acl:accessTo <./>;')
             expect(settingsAclBody).toContain('acl:default <./>;')
             expect(settingsAclBody).toContain('acl:mode acl:Read, acl:Write, acl:Control.')
+
+            const publicTypeIndexAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://boby.example.com/Settings/publicTypeIndex.ttl.acl')
+            expect(publicTypeIndexAclPut).toBeDefined()
+            const publicTypeIndexAclBody = web['https://boby.example.com/Settings/publicTypeIndex.ttl.acl']
+            expect(publicTypeIndexAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
+            expect(publicTypeIndexAclBody).toContain('@prefix foaf: <http://xmlns.com/foaf/0.1/>.')
+            expect(publicTypeIndexAclBody).toContain('<#owner>')
+            expect(publicTypeIndexAclBody).toContain('acl:agent')
+            expect(publicTypeIndexAclBody).toContain('<https://boby.example.com/profile/card.ttl#me>;')
+            expect(publicTypeIndexAclBody).toContain('acl:accessTo <./publicTypeIndex.ttl>;')
+            expect(publicTypeIndexAclBody).toContain('acl:mode')
+            expect(publicTypeIndexAclBody).toContain('acl:Read, acl:Write, acl:Control.')
+            expect(publicTypeIndexAclBody).toContain('<#public>')
+            expect(publicTypeIndexAclBody).toContain('acl:agentClass foaf:Agent;')
+            expect(publicTypeIndexAclBody).toContain('acl:mode acl:Read.')
 
         })
     })
