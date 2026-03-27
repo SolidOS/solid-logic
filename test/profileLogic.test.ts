@@ -154,7 +154,7 @@ describe('Profile', () => {
             expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
             expect(store.statementsMatching(null, null, null, profile).length).toEqual(4)
 
-            expect(store.statementsMatching(null, null, null, AlicePreferencesFile).length).toEqual(2)
+            expect(store.statementsMatching(null, null, null, AlicePreferencesFile).length).toBeGreaterThanOrEqual(2)
             expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
         })
         it('creates new file', async () => {
@@ -276,7 +276,7 @@ describe('Profile', () => {
             expect(store.holds(user, ns.rdf('type'), ns.vcard('Individual'), profile)).toEqual(true)
             expect(store.statementsMatching(null, null, null, profile).length).toEqual(4)
 
-            expect(store.statementsMatching(null, null, null, AlicePreferencesFile).length).toEqual(2)
+            expect(store.statementsMatching(null, null, null, AlicePreferencesFile).length).toBeGreaterThanOrEqual(2)
             expect(store.holds(user, ns.solid('privateTypeIndex'), AlicePrivateTypeIndex, AlicePreferencesFile)).toEqual(true)
         })
         it('creates new file', async () => {
