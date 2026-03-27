@@ -134,7 +134,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         })
     }
 
-    async function ensurePublicTypeIndexAclOnCreate(user: NamedNode, publicTypeIndex: NamedNode): Promise<void> {
+    async function ensurePublicTypeIndexAclOnCreate(user: NamedNode, publicTypeIndex: NamedNode, ensureAcl = false): Promise<void> {
         let created = false
         try {
             await store.fetcher.load(publicTypeIndex)
@@ -143,7 +143,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             await utilityLogic.loadOrCreateIfNotExists(publicTypeIndex)
             created = true
         }
-        if (!created) return
+        if (!created && !ensureAcl) return
 
         let aclDocUri: string | undefined
         try {
@@ -172,15 +172,26 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
 
     async function initializePreferencesDefaults(user: NamedNode, preferencesFile: NamedNode): Promise<void> {
         const preferencesDoc = preferencesFile.doc() as NamedNode
+        const profileDoc = user.doc() as NamedNode
         await store.fetcher.load(preferencesDoc)
 
+        const profilePublicTypeIndex =
+            (store.any(user, ns.solid('publicTypeIndex'), null, profileDoc) as NamedNode | null)
+        const preferencesPublicTypeIndex =
+            (store.any(user, ns.solid('publicTypeIndex'), null, preferencesDoc) as NamedNode | null)
         const publicTypeIndex =
-            (store.any(user, ns.solid('publicTypeIndex'), null, preferencesDoc) as NamedNode | null) ||
-            (store.any(user, ns.solid('publicTypeIndex'), null, user.doc()) as NamedNode | null) ||
+            profilePublicTypeIndex ||
+            preferencesPublicTypeIndex ||
             suggestTypeIndexInPreferences(preferencesFile, 'publicTypeIndex.ttl')
         const privateTypeIndex =
             (store.any(user, ns.solid('privateTypeIndex'), null, preferencesDoc) as NamedNode | null) ||
             suggestTypeIndexInPreferences(preferencesFile, 'privateTypeIndex.ttl')
+
+        // Keep discovery consistent with typeIndexLogic, which resolves publicTypeIndex from the profile doc.
+        const createdProfilePublicTypeIndexLink = !profilePublicTypeIndex
+        if (createdProfilePublicTypeIndexLink) {
+            await utilityLogic.followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, publicTypeIndex, profileDoc)
+        }
 
         const toInsert: any[] = []
         if (!store.holds(preferencesDoc, ns.rdf('type'), ns.space('ConfigurationFile'), preferencesDoc)) {
@@ -201,7 +212,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             await store.fetcher.load(preferencesDoc)
         }
 
-        await ensurePublicTypeIndexAclOnCreate(user, publicTypeIndex)
+        await ensurePublicTypeIndexAclOnCreate(user, publicTypeIndex, createdProfilePublicTypeIndexLink)
         await utilityLogic.loadOrCreateIfNotExists(privateTypeIndex)
     }
 
