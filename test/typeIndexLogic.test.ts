@@ -212,8 +212,8 @@ describe('TypeIndex logic NEW', () => {
         // Existing behavior that must remain true
         expect(byUrlAndMethod('https://bob.example.com/profile/card.ttl', 'PATCH')).toEqual(true)
         expect(byUrlAndMethod('https://bob.example.com/profile/publicTypeIndex.ttl', 'PUT')).toEqual(true)
-        expect(byUrlAndMethod('https://bob.example.com/Settings/Preferences.ttl', 'PUT')).toEqual(true)
-        expect(byUrlAndMethod('https://bob.example.com/Settings/Preferences.ttl', 'PATCH')).toEqual(true)
+        expect(byUrlAndMethod('https://bob.example.com/Settings/prefs.ttl', 'PUT')).toEqual(true)
+        expect(byUrlAndMethod('https://bob.example.com/Settings/prefs.ttl', 'PATCH')).toEqual(true)
         expect(byUrlAndMethod('https://bob.example.com/Settings/privateTypeIndex.ttl', 'PUT')).toEqual(true)
 
         // New ACL/setup behavior

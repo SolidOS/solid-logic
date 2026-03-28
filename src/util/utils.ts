@@ -34,7 +34,7 @@ export function suggestPreferencesFile (me:NamedNode) {
     const stripped = me.uri.replace('/profile/', '/').replace('/public/', '/')
     // const stripped = me.uri.replace(\/[p|P]rofile/\g, '/').replace(\/[p|P]ublic/\g, '/')
     const folderURI = stripped.split('/').slice(0,-1).join('/') + '/Settings/'
-    const fileURI = folderURI + 'Preferences.ttl'
+    const fileURI = folderURI + 'prefs.ttl'
     return sym(fileURI)
 }
 
