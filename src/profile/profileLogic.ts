@@ -4,11 +4,13 @@ import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForb
 import * as debug from '../util/debug'
 import { ns as namespace } from '../util/ns'
 import { privateTypeIndexDocument, publicTypeIndexDocument } from '../typeIndex/typeIndexDocuments'
+import { createContainerLogic } from '../util/containerLogic'
 import { differentOrigin, suggestPreferencesFile } from '../util/utils'
 import { ProfileLogic } from '../types'
 
 export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     const ns = namespace
+    const containerLogic = createContainerLogic(store)
 
     function isAbsoluteHttpUri(uri: string | null | undefined): boolean {
         return !!uri && (uri.startsWith('https://') || uri.startsWith('http://'))
@@ -90,18 +92,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         } catch (err) {
             if (!isNotFoundError(err)) throw err
         }
-        const result = await store.fetcher._fetch(containerUri, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'text/turtle',
-                'If-None-Match': '*',
-                Link: '<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
-            },
-            body: ' '
-        })
-        if (result.status.toString()[0] !== '2') {
-            throw new Error(`Not OK: got ${result.status} response while creating container at ${containerUri}`)
-        }
+        await containerLogic.createContainer(containerUri)
     }
 
     async function ensureOwnerOnlyAclForSettings(user: NamedNode, preferencesFile: NamedNode): Promise<void> {
