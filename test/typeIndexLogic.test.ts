@@ -2,7 +2,7 @@
 * @jest-environment jsdom
 *
 */
-import { Fetcher, Store, sym, UpdateManager } from 'rdflib'
+import { Fetcher, NamedNode, Store, sym, UpdateManager } from 'rdflib'
 import { createAclLogic } from '../src/acl/aclLogic'
 import { createProfileLogic } from '../src/profile/profileLogic'
 import { createTypeIndexLogic} from '../src/typeIndex/typeIndexLogic'
@@ -22,7 +22,7 @@ const Image = ns.schema('Image')
 //web = loadWebObject()
 const user = alice
 const profile = user.doc()
-const web = {}
+const web: Record<string, string> = {}
 web[profile.uri] = AliceProfile
 web[AlicePreferencesFile.uri] = AlicePreferences
 web[AlicePrivateTypeIndex.uri] = AlicePrivateTypes
@@ -36,10 +36,10 @@ web[ClubPrivateTypeIndex.uri] = ClubPrivateTypes
 web[ClubPublicTypeIndex.uri] = ClubPublicTypes
 let requests: Request[] = []
 let statustoBeReturned = 200
-let typeIndexLogic
+let typeIndexLogic: ReturnType<typeof createTypeIndexLogic>
 
 describe('TypeIndex logic NEW', () => {
-    let store
+    let store: Store
     const authn = {
         currentUser: () => {
             return alice
@@ -51,7 +51,7 @@ describe('TypeIndex logic NEW', () => {
         requests = []
         statustoBeReturned = 200
 
-        fetchMock.mockIf(/^https?.*$/, async req => {
+        fetchMock.mockIf(/^https?.*$/, async (req: Request) => {
 
         if (req.method !== 'GET') {
             requests.push(req)
@@ -215,6 +215,20 @@ describe('TypeIndex logic NEW', () => {
         expect(byUrlAndMethod('https://bob.example.com/Settings/prefs.ttl', 'PUT')).toEqual(true)
         expect(byUrlAndMethod('https://bob.example.com/Settings/prefs.ttl', 'PATCH')).toEqual(true)
         expect(byUrlAndMethod('https://bob.example.com/Settings/privateTypeIndex.ttl', 'PUT')).toEqual(true)
+
+        const createdPublicTypeIndexBody = web['https://bob.example.com/profile/publicTypeIndex.ttl']
+        expect(createdPublicTypeIndexBody).toBeDefined()
+        expect(createdPublicTypeIndexBody).toContain('@prefix solid: <http://www.w3.org/ns/solid/terms#>.')
+        expect(createdPublicTypeIndexBody).toContain('<>')
+        expect(createdPublicTypeIndexBody).toContain('a solid:TypeIndex ;')
+        expect(createdPublicTypeIndexBody).toContain('a solid:ListedDocument.')
+
+        const createdPrivateTypeIndexBody = web['https://bob.example.com/Settings/privateTypeIndex.ttl']
+        expect(createdPrivateTypeIndexBody).toBeDefined()
+        expect(createdPrivateTypeIndexBody).toContain('@prefix solid: <http://www.w3.org/ns/solid/terms#>.')
+        expect(createdPrivateTypeIndexBody).toContain('<>')
+        expect(createdPrivateTypeIndexBody).toContain('a solid:TypeIndex ;')
+        expect(createdPrivateTypeIndexBody).toContain('a solid:UnlistedDocument.')
 
         // New ACL/setup behavior
         expect(byUrlAndMethod('https://bob.example.com/Settings/', 'PUT')).toEqual(true)

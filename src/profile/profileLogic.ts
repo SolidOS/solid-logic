@@ -99,23 +99,6 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         ].join('\n')
     }
 
-    async function ensureTypeIndexOnCreate(typeIndex: NamedNode, data: string): Promise<boolean> {
-        try {
-            await store.fetcher.load(typeIndex)
-            return false
-        } catch (err) {
-            if (!isNotFoundError(err)) throw err
-        }
-
-        await utilityLogic.loadOrCreateIfNotExists(typeIndex)
-        await store.fetcher.webOperation('PUT', typeIndex.uri, {
-            data,
-            contentType: 'text/turtle'
-        })
-        await store.fetcher.load(typeIndex)
-        return true
-    }
-
     async function ensureContainerExists(containerUri: string): Promise<void> {
         const containerNode = sym(containerUri)
         try {
@@ -170,7 +153,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     }
 
     async function ensurePublicTypeIndexAclOnCreate(user: NamedNode, publicTypeIndex: NamedNode, ensureAcl = false): Promise<void> {
-        const created = await ensureTypeIndexOnCreate(publicTypeIndex, publicTypeIndexDocument())
+        const created = await utilityLogic.loadOrCreateWithContentOnCreate(publicTypeIndex, publicTypeIndexDocument())
         if (!created && !ensureAcl) return
 
         let aclDocUri: string | undefined
@@ -199,7 +182,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     }
 
     async function ensurePrivateTypeIndexOnCreate(privateTypeIndex: NamedNode): Promise<void> {
-        await ensureTypeIndexOnCreate(privateTypeIndex, privateTypeIndexDocument())
+        await utilityLogic.loadOrCreateWithContentOnCreate(privateTypeIndex, privateTypeIndexDocument())
     }
 
     async function initializePreferencesDefaults(user: NamedNode, preferencesFile: NamedNode): Promise<void> {
@@ -222,7 +205,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         // Keep discovery consistent with typeIndexLogic, which resolves publicTypeIndex from the profile doc.
         const createdProfilePublicTypeIndexLink = !profilePublicTypeIndex
         if (createdProfilePublicTypeIndexLink) {
-            await ensureTypeIndexOnCreate(publicTypeIndex, publicTypeIndexDocument())
+            await utilityLogic.loadOrCreateWithContentOnCreate(publicTypeIndex, publicTypeIndexDocument())
             await utilityLogic.followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, publicTypeIndex, profileDoc)
         }
 

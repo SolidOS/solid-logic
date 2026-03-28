@@ -5,6 +5,12 @@ import { differentOrigin } from './utils'
 
 export function createUtilityLogic(store, aclLogic, containerLogic) {
 
+  function isNotFoundError(err: any): boolean {
+    if (err?.response?.status === 404) return true
+    const text = `${err?.message || err || ''}`
+    return text.includes('404') || text.includes('Not Found')
+  }
+
   async function recursiveDelete(containerNode: NamedNode) {
       try {
         if (containerLogic.isContainer(containerNode)) {
@@ -56,6 +62,20 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
       }
     }
     return response
+  }
+
+  async function loadOrCreateWithContentOnCreate(doc: NamedNode, data: string): Promise<boolean> {
+    try {
+      await store.fetcher.load(doc)
+      return false
+    } catch (err) {
+      if (!isNotFoundError(err)) throw err
+    }
+
+    await loadOrCreateIfNotExists(doc)
+    await store.fetcher.webOperation('PUT', doc.uri, { data, contentType: 'text/turtle' })
+    await store.fetcher.load(doc)
+    return true
   }
 
   /* Follow link from this doc to another thing, or else make a new link
@@ -150,7 +170,8 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     setSinglePeerAccess,
     createEmptyRdfDoc,
     followOrCreateLink,
-    loadOrCreateIfNotExists
+    loadOrCreateIfNotExists,
+    loadOrCreateWithContentOnCreate
   }
 }
 

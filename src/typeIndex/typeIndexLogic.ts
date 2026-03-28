@@ -7,6 +7,24 @@ import { newThing } from '../util/utils'
 export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): TypeIndexLogic {
     const ns = namespace
 
+    function publicTypeIndexDocument(): string {
+        return [
+            '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
+            '<>',
+            '    a solid:TypeIndex ;',
+            '    a solid:ListedDocument.'
+        ].join('\n')
+    }
+
+    function privateTypeIndexDocument(): string {
+        return [
+            '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
+            '<>',
+            '    a solid:TypeIndex ;',
+            '    a solid:UnlistedDocument.'
+        ].join('\n')
+    }
+
     function isAbsoluteHttpUri(uri: string | null | undefined): boolean {
         return !!uri && (uri.startsWith('https://') || uri.startsWith('http://'))
     }
@@ -32,11 +50,15 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         }
         let publicTypeIndex
         try {
-            publicTypeIndex =
-                store.any(user, ns.solid('publicTypeIndex'), undefined, profile) ||
-                (suggestion
-                    ? await utilityLogic.followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, suggestion, profile)
-                    : null)
+            const existingPublicTypeIndex = store.any(user, ns.solid('publicTypeIndex'), undefined, profile)
+            if (existingPublicTypeIndex) {
+                publicTypeIndex = existingPublicTypeIndex
+            } else if (suggestion) {
+                await utilityLogic.loadOrCreateWithContentOnCreate(suggestion, publicTypeIndexDocument())
+                publicTypeIndex = await utilityLogic.followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, suggestion, profile)
+            } else {
+                publicTypeIndex = null
+            }
         } catch (err) {
             const message = `User ${user} has no pointer in profile to publicTypeIndex file: ${err}`
             debug.warn(message)
@@ -63,10 +85,15 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
             }
             let privateTypeIndex
             try {
-                privateTypeIndex = store.any(user, ns.solid('privateTypeIndex'), undefined, profile) ||
-                    (suggestedPrivateTypeIndex
-                        ? await utilityLogic.followOrCreateLink(user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile)
-                        : null)
+                const existingPrivateTypeIndex = store.any(user, ns.solid('privateTypeIndex'), undefined, profile)
+                if (existingPrivateTypeIndex) {
+                    privateTypeIndex = existingPrivateTypeIndex
+                } else if (suggestedPrivateTypeIndex) {
+                    await utilityLogic.loadOrCreateWithContentOnCreate(suggestedPrivateTypeIndex, privateTypeIndexDocument())
+                    privateTypeIndex = await utilityLogic.followOrCreateLink(user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile)
+                } else {
+                    privateTypeIndex = null
+                }
                 } catch (err) {
                 const message = `User ${user} has no pointer in preference file to privateTypeIndex file: ${err}`
                 debug.warn(message)
