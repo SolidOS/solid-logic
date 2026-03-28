@@ -152,6 +152,35 @@ describe('utilityLogic', () => {
         })
 
     })
+
+    describe('followOrCreateLinkWithContentOnCreate', () => {
+        it('exists', () => {
+            expect(utilityLogic.followOrCreateLinkWithContentOnCreate).toBeInstanceOf(Function)
+        })
+        it('does not create target doc when link patch fails', async () => {
+            const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
+            const body = [
+                '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
+                '<>',
+                '  a solid:TypeIndex ;',
+                '  a solid:ListedDocument.'
+            ].join('\n')
+
+            statustoBeReturned = 403 // Make PATCH fail
+            await expect(
+                utilityLogic.followOrCreateLinkWithContentOnCreate(
+                    bob,
+                    ns.space('preferencesFile'),
+                    sym(suggestion),
+                    bob.doc(),
+                    body
+                )
+            ).rejects.toThrow(WebOperationError)
+
+            expect(web[suggestion]).toBeUndefined()
+        })
+    })
+
 describe('setSinglePeerAccess', () => {
 	beforeEach(() => {
 		fetchMock.mockOnceIf(

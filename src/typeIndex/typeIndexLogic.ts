@@ -37,8 +37,13 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
             if (existingPublicTypeIndex) {
                 publicTypeIndex = existingPublicTypeIndex
             } else if (suggestion) {
-                await utilityLogic.loadOrCreateWithContentOnCreate(suggestion, publicTypeIndexDocument())
-                publicTypeIndex = await utilityLogic.followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, suggestion, profile)
+                publicTypeIndex = await utilityLogic.followOrCreateLinkWithContentOnCreate(
+                    user,
+                    ns.solid('publicTypeIndex') as NamedNode,
+                    suggestion,
+                    profile,
+                    publicTypeIndexDocument()
+                )
             } else {
                 publicTypeIndex = null
             }
@@ -72,8 +77,13 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
                 if (existingPrivateTypeIndex) {
                     privateTypeIndex = existingPrivateTypeIndex
                 } else if (suggestedPrivateTypeIndex) {
-                    await utilityLogic.loadOrCreateWithContentOnCreate(suggestedPrivateTypeIndex, privateTypeIndexDocument())
-                    privateTypeIndex = await utilityLogic.followOrCreateLink(user, ns.solid('privateTypeIndex') as NamedNode, suggestedPrivateTypeIndex, preferencesFile)
+                    privateTypeIndex = await utilityLogic.followOrCreateLinkWithContentOnCreate(
+                        user,
+                        ns.solid('privateTypeIndex') as NamedNode,
+                        suggestedPrivateTypeIndex,
+                        preferencesFile,
+                        privateTypeIndexDocument()
+                    )
                 } else {
                     privateTypeIndex = null
                 }

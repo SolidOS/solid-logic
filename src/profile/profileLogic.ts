@@ -188,8 +188,13 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         // Keep discovery consistent with typeIndexLogic, which resolves publicTypeIndex from the profile doc.
         const createdProfilePublicTypeIndexLink = !profilePublicTypeIndex
         if (createdProfilePublicTypeIndexLink) {
-            await utilityLogic.loadOrCreateWithContentOnCreate(publicTypeIndex, publicTypeIndexDocument())
-            await utilityLogic.followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, publicTypeIndex, profileDoc)
+            await utilityLogic.followOrCreateLinkWithContentOnCreate(
+                user,
+                ns.solid('publicTypeIndex') as NamedNode,
+                publicTypeIndex,
+                profileDoc,
+                publicTypeIndexDocument()
+            )
         }
 
         const toInsert: any[] = []

@@ -129,6 +129,39 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     return object
   }
 
+  async function followOrCreateLinkWithContentOnCreate(
+    subject: NamedNode,
+    predicate: NamedNode,
+    object: NamedNode,
+    doc: NamedNode,
+    data: string
+  ): Promise<NamedNode | null> {
+    await store.fetcher.load(doc)
+    const result = store.any(subject, predicate, null, doc)
+
+    if (result) return result as NamedNode
+    if (!store.updater.editable(doc)) {
+      const msg = `followOrCreateLinkWithContentOnCreate: cannot edit ${doc.value}`
+      debug.warn(msg)
+      throw new NotEditableError(msg)
+    }
+    try {
+      await store.updater.update([], [st(subject, predicate, object, doc)])
+    } catch (err) {
+      const msg = `followOrCreateLinkWithContentOnCreate: Error making link in ${doc} to ${object}: ${err}`
+      debug.warn(msg)
+      throw new WebOperationError(err)
+    }
+
+    try {
+      await loadOrCreateWithContentOnCreate(object, data)
+    } catch (err) {
+      debug.warn(`followOrCreateLinkWithContentOnCreate: Error loading or saving new linked document: ${object}: ${err}`)
+      throw err
+    }
+    return object
+  }
+
   // Copied from https://github.com/solidos/web-access-control-tests/blob/v3.0.0/test/surface/delete.test.ts#L5
   async function setSinglePeerAccess(options: {
     ownerWebId: string,
@@ -187,6 +220,7 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     setSinglePeerAccess,
     createEmptyRdfDoc,
     followOrCreateLink,
+    followOrCreateLinkWithContentOnCreate,
     loadOrCreateIfNotExists,
     loadOrCreateWithContentOnCreate
   }
