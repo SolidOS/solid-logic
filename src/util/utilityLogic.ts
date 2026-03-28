@@ -66,16 +66,33 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
 
   async function loadOrCreateWithContentOnCreate(doc: NamedNode, data: string): Promise<boolean> {
     try {
+      // If the document already exists, do not overwrite it; just report "not created".
       await store.fetcher.load(doc)
       return false
-    } catch (err) {
+    } catch (err: any) {
       if (!isNotFoundError(err)) throw err
     }
 
-    await loadOrCreateIfNotExists(doc)
-    await store.fetcher.webOperation('PUT', doc.uri, { data, contentType: 'text/turtle' })
-    await store.fetcher.load(doc)
-    return true
+    // At this point, the document appears to be missing. Try to create it atomically
+    // with a conditional PUT so we don't overwrite a concurrently created resource.
+    try {
+      await store.fetcher.webOperation('PUT', doc, {
+        data,
+        contentType: 'text/turtle',
+        headers: { 'If-None-Match': '*' }
+      })
+      await store.fetcher.load(doc)
+      return true
+    } catch (err: any) {
+      const status = err?.response?.status ?? err?.status
+      if (status === 412) {
+        // Another client created the resource between our initial 404 and this PUT.
+        // Treat it as pre-existing and do not overwrite their content.
+        await store.fetcher.load(doc)
+        return false
+      }
+      throw err
+    }
   }
 
   /* Follow link from this doc to another thing, or else make a new link
