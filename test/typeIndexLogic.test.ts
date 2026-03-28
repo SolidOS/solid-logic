@@ -2,7 +2,7 @@
 * @jest-environment jsdom
 *
 */
-import { Fetcher, NamedNode, Store, sym, UpdateManager } from 'rdflib'
+import { Fetcher, Store, sym, UpdateManager } from 'rdflib'
 import { createAclLogic } from '../src/acl/aclLogic'
 import { createProfileLogic } from '../src/profile/profileLogic'
 import { createTypeIndexLogic} from '../src/typeIndex/typeIndexLogic'
