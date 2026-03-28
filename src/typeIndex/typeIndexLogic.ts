@@ -3,27 +3,10 @@ import { ScopedApp, TypeIndexLogic, TypeIndexScope } from '../types'
 import * as debug from '../util/debug'
 import { ns as namespace } from '../util/ns'
 import { newThing } from '../util/utils'
+import { privateTypeIndexDocument, publicTypeIndexDocument } from './typeIndexDocuments'
 
 export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): TypeIndexLogic {
     const ns = namespace
-
-    function publicTypeIndexDocument(): string {
-        return [
-            '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
-            '<>',
-            '    a solid:TypeIndex ;',
-            '    a solid:ListedDocument.'
-        ].join('\n')
-    }
-
-    function privateTypeIndexDocument(): string {
-        return [
-            '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
-            '<>',
-            '    a solid:TypeIndex ;',
-            '    a solid:UnlistedDocument.'
-        ].join('\n')
-    }
 
     function isAbsoluteHttpUri(uri: string | null | undefined): boolean {
         return !!uri && (uri.startsWith('https://') || uri.startsWith('http://'))

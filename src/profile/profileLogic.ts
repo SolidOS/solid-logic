@@ -3,6 +3,7 @@ import { ACL_LINK } from '../acl/aclLogic'
 import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from '../logic/CustomError'
 import * as debug from '../util/debug'
 import { ns as namespace } from '../util/ns'
+import { privateTypeIndexDocument, publicTypeIndexDocument } from '../typeIndex/typeIndexDocuments'
 import { differentOrigin, suggestPreferencesFile } from '../util/utils'
 import { ProfileLogic } from '../types'
 
@@ -78,24 +79,6 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             `    acl:accessTo <./${fileName}>;`,
             '',
             '    acl:mode acl:Read.'
-        ].join('\n')
-    }
-
-    function publicTypeIndexDocument(): string {
-        return [
-            '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
-            '<>',
-            '    a solid:TypeIndex ;',
-            '    a solid:ListedDocument.'
-        ].join('\n')
-    }
-
-    function privateTypeIndexDocument(): string {
-        return [
-            '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
-            '<>',
-            '    a solid:TypeIndex ;',
-            '    a solid:UnlistedDocument.'
         ].join('\n')
     }
 
