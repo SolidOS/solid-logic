@@ -87,7 +87,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
                 } else {
                     privateTypeIndex = null
                 }
-                } catch (err) {
+            } catch (err) {
                 const message = `User ${user} has no pointer in preference file to privateTypeIndex file: ${err}`
                 debug.warn(message)
             }
