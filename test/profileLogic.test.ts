@@ -187,6 +187,13 @@ describe('Profile', () => {
             expect(putUrls).toContain('https://bob.example.com/Settings/publicTypeIndex.ttl.acl')
             expect(putUrls).toContain('https://bob.example.com/Settings/privateTypeIndex.ttl')
 
+            const publicTypeIndexBody = web['https://bob.example.com/Settings/publicTypeIndex.ttl']
+            expect(publicTypeIndexBody).toBeDefined()
+            expect(publicTypeIndexBody).toContain('@prefix solid: <http://www.w3.org/ns/solid/terms#>.')
+            expect(publicTypeIndexBody).toContain('<>')
+            expect(publicTypeIndexBody).toContain('a solid:TypeIndex ;')
+            expect(publicTypeIndexBody).toContain('a solid:ListedDocument.')
+
             const privateTypeIndexBody = web['https://bob.example.com/Settings/privateTypeIndex.ttl']
             expect(privateTypeIndexBody).toBeDefined()
             expect(privateTypeIndexBody).toContain('@prefix solid: <http://www.w3.org/ns/solid/terms#>.')
@@ -318,6 +325,13 @@ describe('Profile', () => {
             expect(putUrls).toContain('https://boby.example.com/Settings/publicTypeIndex.ttl')
             expect(putUrls).toContain('https://boby.example.com/Settings/publicTypeIndex.ttl.acl')
             expect(putUrls).toContain('https://boby.example.com/Settings/privateTypeIndex.ttl')
+
+            const publicTypeIndexBody = web['https://boby.example.com/Settings/publicTypeIndex.ttl']
+            expect(publicTypeIndexBody).toBeDefined()
+            expect(publicTypeIndexBody).toContain('@prefix solid: <http://www.w3.org/ns/solid/terms#>.')
+            expect(publicTypeIndexBody).toContain('<>')
+            expect(publicTypeIndexBody).toContain('a solid:TypeIndex ;')
+            expect(publicTypeIndexBody).toContain('a solid:ListedDocument.')
 
             const privateTypeIndexBody = web['https://boby.example.com/Settings/privateTypeIndex.ttl']
             expect(privateTypeIndexBody).toBeDefined()

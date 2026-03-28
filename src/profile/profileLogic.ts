@@ -81,6 +81,15 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         ].join('\n')
     }
 
+    function publicTypeIndexDocument(): string {
+        return [
+            '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
+            '<>',
+            '    a solid:TypeIndex ;',
+            '    a solid:ListedDocument.'
+        ].join('\n')
+    }
+
     function privateTypeIndexDocument(): string {
         return [
             '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
@@ -88,6 +97,23 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             '    a solid:TypeIndex ;',
             '    a solid:UnlistedDocument.'
         ].join('\n')
+    }
+
+    async function ensureTypeIndexOnCreate(typeIndex: NamedNode, data: string): Promise<boolean> {
+        try {
+            await store.fetcher.load(typeIndex)
+            return false
+        } catch (err) {
+            if (!isNotFoundError(err)) throw err
+        }
+
+        await utilityLogic.loadOrCreateIfNotExists(typeIndex)
+        await store.fetcher.webOperation('PUT', typeIndex.uri, {
+            data,
+            contentType: 'text/turtle'
+        })
+        await store.fetcher.load(typeIndex)
+        return true
     }
 
     async function ensureContainerExists(containerUri: string): Promise<void> {
@@ -144,14 +170,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     }
 
     async function ensurePublicTypeIndexAclOnCreate(user: NamedNode, publicTypeIndex: NamedNode, ensureAcl = false): Promise<void> {
-        let created = false
-        try {
-            await store.fetcher.load(publicTypeIndex)
-        } catch (err) {
-            if (!isNotFoundError(err)) throw err
-            await utilityLogic.loadOrCreateIfNotExists(publicTypeIndex)
-            created = true
-        }
+        const created = await ensureTypeIndexOnCreate(publicTypeIndex, publicTypeIndexDocument())
         if (!created && !ensureAcl) return
 
         let aclDocUri: string | undefined
@@ -180,18 +199,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     }
 
     async function ensurePrivateTypeIndexOnCreate(privateTypeIndex: NamedNode): Promise<void> {
-        try {
-            await store.fetcher.load(privateTypeIndex)
-            return
-        } catch (err) {
-            if (!isNotFoundError(err)) throw err
-        }
-
-        await store.fetcher.webOperation('PUT', privateTypeIndex.uri, {
-            data: privateTypeIndexDocument(),
-            contentType: 'text/turtle'
-        })
-        await store.fetcher.load(privateTypeIndex)
+        await ensureTypeIndexOnCreate(privateTypeIndex, privateTypeIndexDocument())
     }
 
     async function initializePreferencesDefaults(user: NamedNode, preferencesFile: NamedNode): Promise<void> {
@@ -214,6 +222,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         // Keep discovery consistent with typeIndexLogic, which resolves publicTypeIndex from the profile doc.
         const createdProfilePublicTypeIndexLink = !profilePublicTypeIndex
         if (createdProfilePublicTypeIndexLink) {
+            await ensureTypeIndexOnCreate(publicTypeIndex, publicTypeIndexDocument())
             await utilityLogic.followOrCreateLink(user, ns.solid('publicTypeIndex') as NamedNode, publicTypeIndex, profileDoc)
         }
 
