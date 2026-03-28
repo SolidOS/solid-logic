@@ -220,7 +220,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             await store.fetcher.load(preferencesFile)
             return false
         } catch (err) {
-            if (err.response?.status === 404) {
+            if (isNotFoundError(err)) {
                 await utilityLogic.loadOrCreateIfNotExists(preferencesFile)
                 return true
             }
