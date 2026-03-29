@@ -20,7 +20,8 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
         await Promise.all(containerMembers.map((url) => recursiveDelete(url)))
       }
       return store.fetcher._fetch(containerNode.value, { method: 'DELETE' })
-    } catch (_e) {
+    } catch (e) {
+      debug.log(`Please manually remove ${containerNode.value} from your system.`, e)
     }
   }
 
