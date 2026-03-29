@@ -1,12 +1,196 @@
-import { NamedNode } from 'rdflib'
+import { literal, NamedNode, st, sym } from 'rdflib'
+import { ACL_LINK } from '../acl/aclLogic'
 import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from '../logic/CustomError'
 import * as debug from '../util/debug'
 import { ns as namespace } from '../util/ns'
+import { privateTypeIndexDocument, publicTypeIndexDocument } from '../typeIndex/typeIndexDocuments'
+import { publicTypeIndexAclDocument } from '../typeIndex/typeIndexAclDocuments'
+import { preferencesFileDocument } from './profileDocuments'
+import { ownerOnlyContainerAclDocument } from './profileAclDocuments'
+import { createContainerLogic } from '../util/containerLogic'
 import { differentOrigin, suggestPreferencesFile } from '../util/utils'
 import { ProfileLogic } from '../types'
 
 export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     const ns = namespace
+    const containerLogic = createContainerLogic(store)
+    const loadPreferencesInFlight = new Map<string, Promise<NamedNode>>()
+    const cachedPreferencesFileByWebId = new Map<string, NamedNode>()
+
+    function isAbsoluteHttpUri(uri: string | null | undefined): boolean {
+        return !!uri && (uri.startsWith('https://') || uri.startsWith('http://'))
+    }
+
+    function docDirUri(node: NamedNode): string | null {
+        const doc = node.doc()
+        const dir = doc.dir()
+        if (dir?.uri && isAbsoluteHttpUri(dir.uri)) return dir.uri
+        const docUri = doc.uri
+        if (!docUri || !isAbsoluteHttpUri(docUri)) return null
+        const withoutFragment = docUri.split('#')[0]
+        const lastSlash = withoutFragment.lastIndexOf('/')
+        if (lastSlash === -1) return null
+        return withoutFragment.slice(0, lastSlash + 1)
+    }
+
+    function suggestTypeIndexInPreferences(preferencesFile: NamedNode, filename: string): NamedNode {
+        const dirUri = docDirUri(preferencesFile)
+        if (!dirUri) throw new Error(`Cannot derive directory for preferences file ${preferencesFile.uri}`)
+        return sym(dirUri + filename)
+    }
+
+    function isNotFoundError(err: any): boolean {
+        if (err?.response?.status === 404) return true
+        const text = `${err?.message || err || ''}`
+        return text.includes('404') || text.includes('Not Found')
+    }
+
+    async function ensureContainerExists(containerUri: string): Promise<void> {
+        const containerNode = sym(containerUri)
+        try {
+            await store.fetcher.load(containerNode)
+            return
+        } catch (err) {
+            if (!isNotFoundError(err)) throw err
+        }
+        await containerLogic.createContainer(containerUri)
+    }
+
+    async function ensureOwnerOnlyAclForSettings(user: NamedNode, preferencesFile: NamedNode): Promise<void> {
+        const dirUri = docDirUri(preferencesFile)
+        if (!dirUri) throw new Error(`Cannot derive settings directory from ${preferencesFile.uri}`)
+        await ensureContainerExists(dirUri)
+
+        const containerNode = sym(dirUri)
+        let aclDocUri: string | undefined
+        try {
+            await store.fetcher.load(containerNode)
+            aclDocUri = store.any(containerNode, ACL_LINK)?.value
+        } catch (err) {
+            if (!isNotFoundError(err)) throw err
+        }
+        if (!aclDocUri) {
+            // Fallback for servers/tests where rel=acl is not exposed in mocked headers.
+            aclDocUri = `${dirUri}.acl`
+        }
+        const aclDoc = sym(aclDocUri)
+        try {
+            await store.fetcher.load(aclDoc)
+            return
+        } catch (err) {
+            if (!isNotFoundError(err)) throw err
+        }
+
+        await store.fetcher.webOperation('PUT', aclDoc.uri, {
+            data: ownerOnlyContainerAclDocument(user.uri),
+            contentType: 'text/turtle'
+        })
+    }
+
+    async function ensurePublicTypeIndexAclOnCreate(user: NamedNode, publicTypeIndex: NamedNode, ensureAcl = false): Promise<void> {
+        const created = await utilityLogic.loadOrCreateWithContentOnCreate(publicTypeIndex, publicTypeIndexDocument())
+        if (!created && !ensureAcl) return
+
+        let aclDocUri: string | undefined
+        try {
+            await store.fetcher.load(publicTypeIndex)
+            aclDocUri = store.any(publicTypeIndex, ACL_LINK)?.value
+        } catch (err) {
+            if (!isNotFoundError(err)) throw err
+        }
+        if (!aclDocUri) {
+            aclDocUri = `${publicTypeIndex.uri}.acl`
+        }
+
+        const aclDoc = sym(aclDocUri)
+        try {
+            await store.fetcher.webOperation('PUT', aclDoc.uri, {
+                data: publicTypeIndexAclDocument(user.uri, publicTypeIndex.uri),
+                contentType: 'text/turtle',
+                headers: { 'If-None-Match': '*' }
+            })
+        } catch (err: any) {
+            const status = err?.response?.status ?? err?.status
+            if (status !== 412) throw err
+        }
+    }
+
+    async function ensurePrivateTypeIndexOnCreate(privateTypeIndex: NamedNode): Promise<void> {
+        await utilityLogic.loadOrCreateWithContentOnCreate(privateTypeIndex, privateTypeIndexDocument())
+    }
+
+    async function initializePreferencesDefaults(user: NamedNode, preferencesFile: NamedNode): Promise<void> {
+        const preferencesDoc = preferencesFile.doc() as NamedNode
+        const profileDoc = user.doc() as NamedNode
+        await store.fetcher.load(preferencesDoc)
+
+        const profilePublicTypeIndex =
+            (store.any(user, ns.solid('publicTypeIndex'), null, profileDoc) as NamedNode | null)
+        const preferencesPublicTypeIndex =
+            (store.any(user, ns.solid('publicTypeIndex'), null, preferencesDoc) as NamedNode | null)
+        const publicTypeIndex =
+            profilePublicTypeIndex ||
+            preferencesPublicTypeIndex ||
+            suggestTypeIndexInPreferences(preferencesFile, 'publicTypeIndex.ttl')
+        const privateTypeIndex =
+            (store.any(user, ns.solid('privateTypeIndex'), null, preferencesDoc) as NamedNode | null) ||
+            suggestTypeIndexInPreferences(preferencesFile, 'privateTypeIndex.ttl')
+
+        // Keep discovery consistent with typeIndexLogic, which resolves publicTypeIndex from the profile doc.
+        const createdProfilePublicTypeIndexLink = !profilePublicTypeIndex
+        if (createdProfilePublicTypeIndexLink) {
+            await utilityLogic.followOrCreateLinkWithContentOnCreate(
+                user,
+                ns.solid('publicTypeIndex') as NamedNode,
+                publicTypeIndex,
+                profileDoc,
+                publicTypeIndexDocument()
+            )
+        }
+
+        const toInsert: any[] = []
+        if (!store.holds(preferencesDoc, ns.rdf('type'), ns.space('ConfigurationFile'), preferencesDoc)) {
+            toInsert.push(st(preferencesDoc, ns.rdf('type'), ns.space('ConfigurationFile'), preferencesDoc))
+        }
+        if (!store.holds(preferencesDoc, ns.dct('title'), undefined, preferencesDoc)) {
+            toInsert.push(st(preferencesDoc, ns.dct('title'), literal('Preferences file'), preferencesDoc))
+        }
+        if (!store.holds(user, ns.solid('publicTypeIndex'), publicTypeIndex, preferencesDoc)) {
+            toInsert.push(st(user, ns.solid('publicTypeIndex'), publicTypeIndex, preferencesDoc))
+        }
+        if (!store.holds(user, ns.solid('privateTypeIndex'), privateTypeIndex, preferencesDoc)) {
+            toInsert.push(st(user, ns.solid('privateTypeIndex'), privateTypeIndex, preferencesDoc))
+        }
+
+        if (toInsert.length > 0) {
+            await store.updater.update([], toInsert)
+            await store.fetcher.load(preferencesDoc)
+        }
+
+        await ensurePublicTypeIndexAclOnCreate(user, publicTypeIndex, createdProfilePublicTypeIndexLink)
+        await ensurePrivateTypeIndexOnCreate(privateTypeIndex)
+    }
+
+    async function ensurePreferencesDocExists(preferencesFile: NamedNode): Promise<boolean> {
+        try {
+            const created = await utilityLogic.loadOrCreateWithContentOnCreate(preferencesFile, preferencesFileDocument())
+            if (created) {
+                return true
+            }
+            return false
+        } catch (err) {
+            if (err.response?.status === 401) {
+                throw new UnauthorizedError()
+            }
+            if (err.response?.status === 403) {
+                if (differentOrigin(preferencesFile)) {
+                    throw new CrossOriginForbiddenError()
+                }
+                throw new SameOriginForbiddenError()
+            }
+            throw err
+        }
+    }
 
     /**
      * loads the preference without throwing errors - if it can create it it does so.
@@ -29,12 +213,32 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
      * @returns undefined if preferenceFile cannot be an Error or NamedNode if it can find it or create it
      */
     async function loadPreferences (user: NamedNode): Promise <NamedNode> {
+        const cachedPreferencesFile = cachedPreferencesFileByWebId.get(user.uri)
+        if (cachedPreferencesFile) {
+            return cachedPreferencesFile
+        }
+
+        const inFlight = loadPreferencesInFlight.get(user.uri)
+        if (inFlight) {
+            return inFlight
+        }
+
+        const run = (async (): Promise<NamedNode> => {
         await loadProfile(user)
 
         const possiblePreferencesFile = suggestPreferencesFile(user)
         let preferencesFile
         try {
-            preferencesFile = await utilityLogic.followOrCreateLink(user, ns.space('preferencesFile') as NamedNode, possiblePreferencesFile, user.doc())
+            const existingPreferencesFile = store.any(user, ns.space('preferencesFile'), null, user.doc()) as NamedNode | null
+            if (existingPreferencesFile) {
+                preferencesFile = existingPreferencesFile
+            } else {
+                preferencesFile = await utilityLogic.followOrCreateLink(user, ns.space('preferencesFile') as NamedNode, possiblePreferencesFile, user.doc())
+            }
+
+            await ensureOwnerOnlyAclForSettings(user, preferencesFile as NamedNode)
+            await ensurePreferencesDocExists(preferencesFile as NamedNode)
+            await initializePreferencesDefaults(user, preferencesFile as NamedNode)
         } catch (err) {
             const message = `User ${user} has no pointer in profile to preferences file.`
             debug.warn(message)
@@ -52,6 +256,14 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             await store.fetcher.load(preferencesFile as NamedNode)
         } catch (err) { // Maybe a permission problem or origin problem
             const msg = `Unable to load preference of user ${user}: ${err}`
+            if (err.response?.status === 404) {
+                // Self-heal when a stale profile pointer references a missing preferences file.
+                await ensureOwnerOnlyAclForSettings(user, preferencesFile as NamedNode)
+                await ensurePreferencesDocExists(preferencesFile as NamedNode)
+                await initializePreferencesDefaults(user, preferencesFile as NamedNode)
+                await store.fetcher.load(preferencesFile as NamedNode)
+                return preferencesFile as NamedNode
+            }
             debug.warn(msg)
             if (err.response.status === 401) {
                 throw new UnauthorizedError()
@@ -67,7 +279,18 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             }*/
             throw new Error(msg)
         }
+        cachedPreferencesFileByWebId.set(user.uri, preferencesFile as NamedNode)
         return preferencesFile as NamedNode
+        })()
+
+        loadPreferencesInFlight.set(user.uri, run)
+        try {
+            return await run
+        } finally {
+            if (loadPreferencesInFlight.get(user.uri) === run) {
+                loadPreferencesInFlight.delete(user.uri)
+            }
+        }
     }
 
     async function loadProfile (user: NamedNode):Promise <NamedNode> {
