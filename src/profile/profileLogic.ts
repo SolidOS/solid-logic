@@ -4,7 +4,9 @@ import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForb
 import * as debug from '../util/debug'
 import { ns as namespace } from '../util/ns'
 import { privateTypeIndexDocument, publicTypeIndexDocument } from '../typeIndex/typeIndexDocuments'
+import { publicTypeIndexAclDocument } from '../typeIndex/typeIndexAclDocuments'
 import { preferencesFileDocument } from './profileDocuments'
+import { ownerOnlyContainerAclDocument } from './profileAclDocuments'
 import { createContainerLogic } from '../util/containerLogic'
 import { differentOrigin, suggestPreferencesFile } from '../util/utils'
 import { ProfileLogic } from '../types'
@@ -41,50 +43,6 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         if (err?.response?.status === 404) return true
         const text = `${err?.message || err || ''}`
         return text.includes('404') || text.includes('Not Found')
-    }
-
-    function publicTypeIndexAcl(webId: string, publicTypeIndex: NamedNode): string {
-        const fileName = new URL(publicTypeIndex.uri).pathname.split('/').pop() || 'publicTypeIndex.ttl'
-        return [
-            '# ACL resource for the Public Type Index',
-            '',
-            '@prefix acl: <http://www.w3.org/ns/auth/acl#>.',
-            '@prefix foaf: <http://xmlns.com/foaf/0.1/>.',
-            '',
-            '<#owner>',
-            '    a acl:Authorization;',
-            '',
-            '    acl:agent',
-            `        <${webId}>;`,
-            '',
-            `    acl:accessTo <./${fileName}>;`,
-            '',
-            '    acl:mode',
-            '        acl:Read, acl:Write, acl:Control.',
-            '',
-            '# Public-readable',
-            '<#public>',
-            '    a acl:Authorization;',
-            '',
-            '    acl:agentClass foaf:Agent;',
-            '',
-            `    acl:accessTo <./${fileName}>;`,
-            '',
-            '    acl:mode acl:Read.'
-        ].join('\n')
-    }
-
-    function ownerOnlyContainerAcl(webId: string): string {
-        return [
-            '@prefix acl: <http://www.w3.org/ns/auth/acl#>.',
-            '',
-            '<#owner>',
-            'a acl:Authorization;',
-            `acl:agent <${webId}>;`,
-            'acl:accessTo <./>;',
-            'acl:default <./>;',
-            'acl:mode acl:Read, acl:Write, acl:Control.'
-        ].join('\n')
     }
 
     async function ensureContainerExists(containerUri: string): Promise<void> {
@@ -124,7 +82,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         }
 
         await store.fetcher.webOperation('PUT', aclDoc.uri, {
-            data: ownerOnlyContainerAcl(user.uri),
+            data: ownerOnlyContainerAclDocument(user.uri),
             contentType: 'text/turtle'
         })
     }
@@ -147,7 +105,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
         const aclDoc = sym(aclDocUri)
         try {
             await store.fetcher.webOperation('PUT', aclDoc.uri, {
-                data: publicTypeIndexAcl(user.uri, publicTypeIndex),
+                data: publicTypeIndexAclDocument(user.uri, publicTypeIndex.uri),
                 contentType: 'text/turtle',
                 headers: { 'If-None-Match': '*' }
             })

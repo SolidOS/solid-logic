@@ -1,0 +1,30 @@
+export function publicTypeIndexAclDocument(webId: string, publicTypeIndexUri: string): string {
+    const fileName = new URL(publicTypeIndexUri).pathname.split('/').pop() || 'publicTypeIndex.ttl'
+    return [
+        '# ACL resource for the Public Type Index',
+        '',
+        '@prefix acl: <http://www.w3.org/ns/auth/acl#>.',
+        '@prefix foaf: <http://xmlns.com/foaf/0.1/>.',
+        '',
+        '<#owner>',
+        '    a acl:Authorization;',
+        '',
+        '    acl:agent',
+        `        <${webId}>;`,
+        '',
+        `    acl:accessTo <./${fileName}>;`,
+        '',
+        '    acl:mode',
+        '        acl:Read, acl:Write, acl:Control.',
+        '',
+        '# Public-readable',
+        '<#public>',
+        '    a acl:Authorization;',
+        '',
+        '    acl:agentClass foaf:Agent;',
+        '',
+        `    acl:accessTo <./${fileName}>;`,
+        '',
+        '    acl:mode acl:Read.'
+    ].join('\n')
+}
