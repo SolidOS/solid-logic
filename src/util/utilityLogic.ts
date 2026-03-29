@@ -150,7 +150,7 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     } catch (err) {
       const msg = `followOrCreateLinkWithContentOnCreate: Error making link in ${doc} to ${object}: ${err}`
       debug.warn(msg)
-      throw new WebOperationError(err)
+      throw new WebOperationError(msg)
     }
 
     try {
