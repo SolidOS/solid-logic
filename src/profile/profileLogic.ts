@@ -4,6 +4,7 @@ import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForb
 import * as debug from '../util/debug'
 import { ns as namespace } from '../util/ns'
 import { privateTypeIndexDocument, publicTypeIndexDocument } from '../typeIndex/typeIndexDocuments'
+import { preferencesFileDocument } from './profileDocuments'
 import { createContainerLogic } from '../util/containerLogic'
 import { differentOrigin, suggestPreferencesFile } from '../util/utils'
 import { ProfileLogic } from '../types'
@@ -214,7 +215,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
 
     async function ensurePreferencesDocExists(preferencesFile: NamedNode): Promise<boolean> {
         try {
-            const created = await utilityLogic.loadOrCreateWithContentOnCreate(preferencesFile, '')
+            const created = await utilityLogic.loadOrCreateWithContentOnCreate(preferencesFile, preferencesFileDocument())
             if (created) {
                 return true
             }
