@@ -35,6 +35,10 @@ export function createContainerLogic(store) {
             },
             body: ' ', // work around https://github.com/michielbdejong/community-server/issues/4#issuecomment-776222863
         })
+        // Treat 409 as idempotent success: another process/request already created the container.
+        if (result.status === 409) {
+            return
+        }
         if (result.status.toString()[0] !== '2') {
             throw new Error(`Not OK: got ${result.status} response while creating container at ${url}`)
         }
