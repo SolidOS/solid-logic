@@ -95,6 +95,33 @@ describe('utilityLogic', () => {
         })
     })
 
+    describe('loadOrCreateWithContentOnCreate', () => {
+        it('exists', () => {
+            expect(utilityLogic.loadOrCreateWithContentOnCreate).toBeInstanceOf(Function)
+        })
+        it('creates and seeds content when missing', async () => {
+            const suggestion = 'https://bob.example.com/settings/new-index.ttl'
+            const body = [
+                '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
+                '<>',
+                '  a solid:TypeIndex ;',
+                '  a solid:ListedDocument.'
+            ].join('\n')
+            const created = await utilityLogic.loadOrCreateWithContentOnCreate(sym(suggestion), body)
+
+            expect(created).toEqual(true)
+            expect(web[suggestion]).toEqual(body)
+        })
+        it('does not overwrite existing content', async () => {
+            const existing = AlicePrivateTypeIndex.uri
+            const before = web[existing]
+            const created = await utilityLogic.loadOrCreateWithContentOnCreate(sym(existing), 'NEW')
+
+            expect(created).toEqual(false)
+            expect(web[existing]).toEqual(before)
+        })
+    })
+
     describe('followOrCreateLink', () => {
         it('exists', () => {
             expect(utilityLogic.followOrCreateLink).toBeInstanceOf(Function)
@@ -125,6 +152,35 @@ describe('utilityLogic', () => {
         })
 
     })
+
+    describe('followOrCreateLinkWithContentOnCreate', () => {
+        it('exists', () => {
+            expect(utilityLogic.followOrCreateLinkWithContentOnCreate).toBeInstanceOf(Function)
+        })
+        it('does not create target doc when link patch fails', async () => {
+            const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
+            const body = [
+                '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
+                '<>',
+                '  a solid:TypeIndex ;',
+                '  a solid:ListedDocument.'
+            ].join('\n')
+
+            statustoBeReturned = 403 // Make PATCH fail
+            await expect(
+                utilityLogic.followOrCreateLinkWithContentOnCreate(
+                    bob,
+                    ns.space('preferencesFile'),
+                    sym(suggestion),
+                    bob.doc(),
+                    body
+                )
+            ).rejects.toThrow(WebOperationError)
+
+            expect(web[suggestion]).toBeUndefined()
+        })
+    })
+
 describe('setSinglePeerAccess', () => {
 	beforeEach(() => {
 		fetchMock.mockOnceIf(

@@ -22,7 +22,7 @@ const Image = ns.schema('Image')
 //web = loadWebObject()
 const user = alice
 const profile = user.doc()
-const web = {}
+const web: Record<string, string> = {}
 web[profile.uri] = AliceProfile
 web[AlicePreferencesFile.uri] = AlicePreferences
 web[AlicePrivateTypeIndex.uri] = AlicePrivateTypes
@@ -36,10 +36,10 @@ web[ClubPrivateTypeIndex.uri] = ClubPrivateTypes
 web[ClubPublicTypeIndex.uri] = ClubPublicTypes
 let requests: Request[] = []
 let statustoBeReturned = 200
-let typeIndexLogic
+let typeIndexLogic: ReturnType<typeof createTypeIndexLogic>
 
 describe('TypeIndex logic NEW', () => {
-    let store
+    let store: Store
     const authn = {
         currentUser: () => {
             return alice
@@ -51,7 +51,7 @@ describe('TypeIndex logic NEW', () => {
         requests = []
         statustoBeReturned = 200
 
-        fetchMock.mockIf(/^https?.*$/, async req => {
+        fetchMock.mockIf(/^https?.*$/, async (req: Request) => {
 
         if (req.method !== 'GET') {
             requests.push(req)
@@ -206,25 +206,33 @@ describe('TypeIndex logic NEW', () => {
         it('creates new preferenceFile and typeIndex files where they dont exist', async () => {
         await typeIndexLogic.getScopedAppInstances(Tracker, bob)
 
-        expect(requests[0].method).toEqual('PATCH') // Add preferrencesFile link to profile
-        expect(requests[0].url).toEqual('https://bob.example.com/profile/card.ttl')
+        const byUrlAndMethod = (url: string, method: string) =>
+            requests.some(req => req.url === url && req.method === method)
 
-        expect(requests[1].method).toEqual('PUT') // create publiTypeIndex
-        expect(requests[1].url).toEqual('https://bob.example.com/profile/publicTypeIndex.ttl')
+        // Existing behavior that must remain true
+        expect(byUrlAndMethod('https://bob.example.com/profile/card.ttl', 'PATCH')).toEqual(true)
+        expect(byUrlAndMethod('https://bob.example.com/profile/publicTypeIndex.ttl', 'PUT')).toEqual(true)
+        expect(byUrlAndMethod('https://bob.example.com/Settings/prefs.ttl', 'PUT')).toEqual(true)
+        expect(byUrlAndMethod('https://bob.example.com/Settings/prefs.ttl', 'PATCH')).toEqual(true)
+        expect(byUrlAndMethod('https://bob.example.com/Settings/privateTypeIndex.ttl', 'PUT')).toEqual(true)
 
-        expect(requests[2].method).toEqual('PATCH') // Add link of publiTypeIndex to profile
-        expect(requests[2].url).toEqual('https://bob.example.com/profile/card.ttl')
+        const createdPublicTypeIndexBody = web['https://bob.example.com/profile/publicTypeIndex.ttl']
+        expect(createdPublicTypeIndexBody).toBeDefined()
+        expect(createdPublicTypeIndexBody).toContain('@prefix solid: <http://www.w3.org/ns/solid/terms#>.')
+        expect(createdPublicTypeIndexBody).toContain('<>')
+        expect(createdPublicTypeIndexBody).toContain('a solid:TypeIndex ;')
+        expect(createdPublicTypeIndexBody).toContain('a solid:ListedDocument.')
 
-        expect(requests[3].method).toEqual('PUT') // create preferenceFile
-        expect(requests[3].url).toEqual('https://bob.example.com/Settings/Preferences.ttl')
+        const createdPrivateTypeIndexBody = web['https://bob.example.com/Settings/privateTypeIndex.ttl']
+        expect(createdPrivateTypeIndexBody).toBeDefined()
+        expect(createdPrivateTypeIndexBody).toContain('@prefix solid: <http://www.w3.org/ns/solid/terms#>.')
+        expect(createdPrivateTypeIndexBody).toContain('<>')
+        expect(createdPrivateTypeIndexBody).toContain('a solid:TypeIndex ;')
+        expect(createdPrivateTypeIndexBody).toContain('a solid:UnlistedDocument.')
 
-        expect(requests[4].method).toEqual('PATCH') // Add privateTypeIndex link preference file
-        expect(requests[4].url).toEqual('https://bob.example.com/Settings/Preferences.ttl')
-
-        expect(requests[5].method).toEqual('PUT') //create privatTypeIndex
-        expect(requests[5].url).toEqual('https://bob.example.com/Settings/privateTypeIndex.ttl')
-
-        expect(requests.length).toEqual(6)
+        // New ACL/setup behavior
+        expect(byUrlAndMethod('https://bob.example.com/Settings/', 'PUT')).toEqual(true)
+        expect(byUrlAndMethod('https://bob.example.com/Settings/.acl', 'PUT')).toEqual(true)
 
         })
     })
