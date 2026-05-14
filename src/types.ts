@@ -76,7 +76,7 @@ export interface AclLogic {
     setACLUserPublic: (docURI: string, me: NamedNode,
         options: {
             defaultForNew?: boolean,
-            public?: []
+            public?: string[]
         }
     ) => Promise<NamedNode>,
     genACLText: (docURI: string, me: NamedNode, aclURI: string,
