@@ -52,11 +52,17 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
       - name: Enable auto-merge for Dependabot PRs
-        run: gh pr merge --auto --merge "$PR_URL" # Use Github CLI to merge automatically the PR
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr merge --auto --merge "$PR_URL" # Use GitHub CLI to merge automatically the PR
         env:
           PR_URL: ${{github.event.pull_request.html_url}}
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
   npm-publish-dev:
     needs: build
@@ -77,7 +83,7 @@ jobs:
           name: build
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 20 # required for OIDC npm@latest
           registry-url: 'https://registry.npmjs.org'
       - name: Update npm to latest (required for OIDC)
         run: npm install -g npm@latest
@@ -86,3 +92,32 @@ jobs:
       - name: Publish to npm
         if: github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]'
         run: npm publish --tag latest
+
+  github-release:
+    needs: [npm-publish-latest]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Create GitHub release with generated notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v$(node -p 'require("./package.json").version')"
+      
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists. Skipping."
+            exit 0
+          fi
+      
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists on origin. Creating release from existing tag."
+            gh release create "$TAG" --verify-tag --generate-notes
+          else
+            echo "Creating tag and release $TAG from commit $GITHUB_SHA."
+            gh release create "$TAG" --target "$GITHUB_SHA" --generate-notes
+          fi
