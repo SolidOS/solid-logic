@@ -212,9 +212,9 @@ describe('TypeIndex logic NEW', () => {
         // Existing behavior that must remain true
         expect(byUrlAndMethod('https://bob.example.com/profile/card.ttl', 'PATCH')).toEqual(true)
         expect(byUrlAndMethod('https://bob.example.com/profile/publicTypeIndex.ttl', 'PUT')).toEqual(true)
-        expect(byUrlAndMethod('https://bob.example.com/Settings/prefs.ttl', 'PUT')).toEqual(true)
-        expect(byUrlAndMethod('https://bob.example.com/Settings/prefs.ttl', 'PATCH')).toEqual(true)
-        expect(byUrlAndMethod('https://bob.example.com/Settings/privateTypeIndex.ttl', 'PUT')).toEqual(true)
+        expect(byUrlAndMethod('https://bob.example.com/settings/prefs.ttl', 'PUT')).toEqual(true)
+        expect(byUrlAndMethod('https://bob.example.com/settings/prefs.ttl', 'PATCH')).toEqual(true)
+        expect(byUrlAndMethod('https://bob.example.com/settings/privateTypeIndex.ttl', 'PUT')).toEqual(true)
 
         const createdPublicTypeIndexBody = web['https://bob.example.com/profile/publicTypeIndex.ttl']
         expect(createdPublicTypeIndexBody).toBeDefined()
@@ -223,7 +223,7 @@ describe('TypeIndex logic NEW', () => {
         expect(createdPublicTypeIndexBody).toContain('a solid:TypeIndex ;')
         expect(createdPublicTypeIndexBody).toContain('a solid:ListedDocument.')
 
-        const createdPrivateTypeIndexBody = web['https://bob.example.com/Settings/privateTypeIndex.ttl']
+        const createdPrivateTypeIndexBody = web['https://bob.example.com/settings/privateTypeIndex.ttl']
         expect(createdPrivateTypeIndexBody).toBeDefined()
         expect(createdPrivateTypeIndexBody).toContain('@prefix solid: <http://www.w3.org/ns/solid/terms#>.')
         expect(createdPrivateTypeIndexBody).toContain('<>')
@@ -231,8 +231,8 @@ describe('TypeIndex logic NEW', () => {
         expect(createdPrivateTypeIndexBody).toContain('a solid:UnlistedDocument.')
 
         // New ACL/setup behavior
-        expect(byUrlAndMethod('https://bob.example.com/Settings/', 'PUT')).toEqual(true)
-        expect(byUrlAndMethod('https://bob.example.com/Settings/.acl', 'PUT')).toEqual(true)
+        expect(byUrlAndMethod('https://bob.example.com/settings/', 'PUT')).toEqual(true)
+        expect(byUrlAndMethod('https://bob.example.com/settings/.acl', 'PUT')).toEqual(true)
 
         })
     })

@@ -166,44 +166,44 @@ describe('Profile', () => {
                 throw new Error('Expected profile patch request for bob')
             }
             const profilePatchText = await profilePatch.text()
-            expect(profilePatchText).toContain('INSERT DATA { <https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://bob.example.com/Settings/prefs.ttl> .')
+            expect(profilePatchText).toContain('INSERT DATA { <https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://bob.example.com/settings/prefs.ttl> .')
 
-            const preferencesPatch = requests.find(req => req.method === 'PATCH' && req.url === 'https://bob.example.com/Settings/prefs.ttl')
+            const preferencesPatch = requests.find(req => req.method === 'PATCH' && req.url === 'https://bob.example.com/settings/prefs.ttl')
             expect(preferencesPatch).toBeDefined()
             if (!preferencesPatch) {
                 throw new Error('Expected preferences patch request for bob')
             }
             const preferencesPatchText = await preferencesPatch.text()
-            expect(preferencesPatchText).toContain('<https://bob.example.com/Settings/prefs.ttl> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/pim/space#ConfigurationFile> .')
-            expect(preferencesPatchText).toContain('<https://bob.example.com/Settings/prefs.ttl> <http://purl.org/dc/terms/title> "Preferences file" .')
+            expect(preferencesPatchText).toContain('<https://bob.example.com/settings/prefs.ttl> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/pim/space#ConfigurationFile> .')
+            expect(preferencesPatchText).toContain('<https://bob.example.com/settings/prefs.ttl> <http://purl.org/dc/terms/title> "Preferences file" .')
             expect(preferencesPatchText).toContain('<https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/solid/terms#publicTypeIndex>')
             expect(preferencesPatchText).toContain('<https://bob.example.com/profile/card.ttl#me> <http://www.w3.org/ns/solid/terms#privateTypeIndex>')
 
             const putUrls = requests.filter(req => req.method === 'PUT').map(req => req.url)
-            expect(putUrls).toContain('https://bob.example.com/Settings/')
-            expect(putUrls).toContain('https://bob.example.com/Settings/.acl')
-            expect(putUrls).toContain('https://bob.example.com/Settings/prefs.ttl')
-            expect(putUrls).toContain('https://bob.example.com/Settings/publicTypeIndex.ttl')
-            expect(putUrls).toContain('https://bob.example.com/Settings/publicTypeIndex.ttl.acl')
-            expect(putUrls).toContain('https://bob.example.com/Settings/privateTypeIndex.ttl')
+            expect(putUrls).toContain('https://bob.example.com/settings/')
+            expect(putUrls).toContain('https://bob.example.com/settings/.acl')
+            expect(putUrls).toContain('https://bob.example.com/settings/prefs.ttl')
+            expect(putUrls).toContain('https://bob.example.com/settings/publicTypeIndex.ttl')
+            expect(putUrls).toContain('https://bob.example.com/settings/publicTypeIndex.ttl.acl')
+            expect(putUrls).toContain('https://bob.example.com/settings/privateTypeIndex.ttl')
 
-            const publicTypeIndexBody = web['https://bob.example.com/Settings/publicTypeIndex.ttl']
+            const publicTypeIndexBody = web['https://bob.example.com/settings/publicTypeIndex.ttl']
             expect(publicTypeIndexBody).toBeDefined()
             expect(publicTypeIndexBody).toContain('@prefix solid: <http://www.w3.org/ns/solid/terms#>.')
             expect(publicTypeIndexBody).toContain('<>')
             expect(publicTypeIndexBody).toContain('a solid:TypeIndex ;')
             expect(publicTypeIndexBody).toContain('a solid:ListedDocument.')
 
-            const privateTypeIndexBody = web['https://bob.example.com/Settings/privateTypeIndex.ttl']
+            const privateTypeIndexBody = web['https://bob.example.com/settings/privateTypeIndex.ttl']
             expect(privateTypeIndexBody).toBeDefined()
             expect(privateTypeIndexBody).toContain('@prefix solid: <http://www.w3.org/ns/solid/terms#>.')
             expect(privateTypeIndexBody).toContain('<>')
             expect(privateTypeIndexBody).toContain('a solid:TypeIndex ;')
             expect(privateTypeIndexBody).toContain('a solid:UnlistedDocument.')
 
-            const settingsAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://bob.example.com/Settings/.acl')
+            const settingsAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://bob.example.com/settings/.acl')
             expect(settingsAclPut).toBeDefined()
-            const settingsAclBody = web['https://bob.example.com/Settings/.acl']
+            const settingsAclBody = web['https://bob.example.com/settings/.acl']
             expect(settingsAclBody).toBeDefined()
             expect(settingsAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
             expect(settingsAclBody).toContain('<#owner>')
@@ -212,9 +212,9 @@ describe('Profile', () => {
             expect(settingsAclBody).toContain('acl:default <./>;')
             expect(settingsAclBody).toContain('acl:mode acl:Read, acl:Write, acl:Control.')
 
-            const publicTypeIndexAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://bob.example.com/Settings/publicTypeIndex.ttl.acl')
+            const publicTypeIndexAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://bob.example.com/settings/publicTypeIndex.ttl.acl')
             expect(publicTypeIndexAclPut).toBeDefined()
-            const publicTypeIndexAclBody = web['https://bob.example.com/Settings/publicTypeIndex.ttl.acl']
+            const publicTypeIndexAclBody = web['https://bob.example.com/settings/publicTypeIndex.ttl.acl']
             expect(publicTypeIndexAclBody).toBeDefined()
             expect(publicTypeIndexAclBody).not.toEqual('')
             expect(publicTypeIndexAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
@@ -305,44 +305,44 @@ describe('Profile', () => {
                 throw new Error('Expected profile patch request for boby')
             }
             const profilePatchText = await profilePatch.text()
-            expect(profilePatchText).toContain('INSERT DATA { <https://boby.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://boby.example.com/Settings/prefs.ttl> .')
+            expect(profilePatchText).toContain('INSERT DATA { <https://boby.example.com/profile/card.ttl#me> <http://www.w3.org/ns/pim/space#preferencesFile> <https://boby.example.com/settings/prefs.ttl> .')
 
-            const preferencesPatch = requests.find(req => req.method === 'PATCH' && req.url === 'https://boby.example.com/Settings/prefs.ttl')
+            const preferencesPatch = requests.find(req => req.method === 'PATCH' && req.url === 'https://boby.example.com/settings/prefs.ttl')
             expect(preferencesPatch).toBeDefined()
             if (!preferencesPatch) {
                 throw new Error('Expected preferences patch request for boby')
             }
             const preferencesPatchText = await preferencesPatch.text()
-            expect(preferencesPatchText).toContain('<https://boby.example.com/Settings/prefs.ttl> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/pim/space#ConfigurationFile> .')
-            expect(preferencesPatchText).toContain('<https://boby.example.com/Settings/prefs.ttl> <http://purl.org/dc/terms/title> "Preferences file" .')
+            expect(preferencesPatchText).toContain('<https://boby.example.com/settings/prefs.ttl> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/pim/space#ConfigurationFile> .')
+            expect(preferencesPatchText).toContain('<https://boby.example.com/settings/prefs.ttl> <http://purl.org/dc/terms/title> "Preferences file" .')
             expect(preferencesPatchText).toContain('<https://boby.example.com/profile/card.ttl#me> <http://www.w3.org/ns/solid/terms#publicTypeIndex>')
             expect(preferencesPatchText).toContain('<https://boby.example.com/profile/card.ttl#me> <http://www.w3.org/ns/solid/terms#privateTypeIndex>')
 
             const putUrls = requests.filter(req => req.method === 'PUT').map(req => req.url)
-            expect(putUrls).toContain('https://boby.example.com/Settings/')
-            expect(putUrls).toContain('https://boby.example.com/Settings/.acl')
-            expect(putUrls).toContain('https://boby.example.com/Settings/prefs.ttl')
-            expect(putUrls).toContain('https://boby.example.com/Settings/publicTypeIndex.ttl')
-            expect(putUrls).toContain('https://boby.example.com/Settings/publicTypeIndex.ttl.acl')
-            expect(putUrls).toContain('https://boby.example.com/Settings/privateTypeIndex.ttl')
+            expect(putUrls).toContain('https://boby.example.com/settings/')
+            expect(putUrls).toContain('https://boby.example.com/settings/.acl')
+            expect(putUrls).toContain('https://boby.example.com/settings/prefs.ttl')
+            expect(putUrls).toContain('https://boby.example.com/settings/publicTypeIndex.ttl')
+            expect(putUrls).toContain('https://boby.example.com/settings/publicTypeIndex.ttl.acl')
+            expect(putUrls).toContain('https://boby.example.com/settings/privateTypeIndex.ttl')
 
-            const publicTypeIndexBody = web['https://boby.example.com/Settings/publicTypeIndex.ttl']
+            const publicTypeIndexBody = web['https://boby.example.com/settings/publicTypeIndex.ttl']
             expect(publicTypeIndexBody).toBeDefined()
             expect(publicTypeIndexBody).toContain('@prefix solid: <http://www.w3.org/ns/solid/terms#>.')
             expect(publicTypeIndexBody).toContain('<>')
             expect(publicTypeIndexBody).toContain('a solid:TypeIndex ;')
             expect(publicTypeIndexBody).toContain('a solid:ListedDocument.')
 
-            const privateTypeIndexBody = web['https://boby.example.com/Settings/privateTypeIndex.ttl']
+            const privateTypeIndexBody = web['https://boby.example.com/settings/privateTypeIndex.ttl']
             expect(privateTypeIndexBody).toBeDefined()
             expect(privateTypeIndexBody).toContain('@prefix solid: <http://www.w3.org/ns/solid/terms#>.')
             expect(privateTypeIndexBody).toContain('<>')
             expect(privateTypeIndexBody).toContain('a solid:TypeIndex ;')
             expect(privateTypeIndexBody).toContain('a solid:UnlistedDocument.')
 
-            const settingsAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://boby.example.com/Settings/.acl')
+            const settingsAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://boby.example.com/settings/.acl')
             expect(settingsAclPut).toBeDefined()
-            const settingsAclBody = web['https://boby.example.com/Settings/.acl']
+            const settingsAclBody = web['https://boby.example.com/settings/.acl']
             expect(settingsAclBody).toBeDefined()
             expect(settingsAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
             expect(settingsAclBody).toContain('<#owner>')
@@ -351,9 +351,9 @@ describe('Profile', () => {
             expect(settingsAclBody).toContain('acl:default <./>;')
             expect(settingsAclBody).toContain('acl:mode acl:Read, acl:Write, acl:Control.')
 
-            const publicTypeIndexAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://boby.example.com/Settings/publicTypeIndex.ttl.acl')
+            const publicTypeIndexAclPut = requests.find(req => req.method === 'PUT' && req.url === 'https://boby.example.com/settings/publicTypeIndex.ttl.acl')
             expect(publicTypeIndexAclPut).toBeDefined()
-            const publicTypeIndexAclBody = web['https://boby.example.com/Settings/publicTypeIndex.ttl.acl']
+            const publicTypeIndexAclBody = web['https://boby.example.com/settings/publicTypeIndex.ttl.acl']
             expect(publicTypeIndexAclBody).toBeDefined()
             expect(publicTypeIndexAclBody).not.toEqual('')
             expect(publicTypeIndexAclBody).toContain('@prefix acl: <http://www.w3.org/ns/auth/acl#>.')
