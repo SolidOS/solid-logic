@@ -1,7 +1,7 @@
 import { namedNode, NamedNode, sym } from 'rdflib'
 import { appContext, offlineTestID } from './authUtil'
 import * as debug from '../util/debug'
-import { EVENTS, Session } from '@inrupt/solid-client-authn-browser'
+import { EVENTS, Session } from '../authSession/authSession'
 import { AuthenticationContext, AuthnLogic } from '../types'
 
 export class SolidAuthnLogic implements AuthnLogic {

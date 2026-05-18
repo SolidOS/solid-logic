@@ -10,7 +10,13 @@ const externalsBase = {
   '@trust/webcrypto': 'crypto',
   '@xmldom/xmldom': 'window',
   'whatwg-url': 'URL',
-  'rdflib': '$rdf'
+  'rdflib': '$rdf',
+  // Must externalize: uvdsl's SharedWorker URL is constructed via
+  // `new URL('./RefreshWorker.js', import.meta.url)`. If bundled inline here,
+  // webpack bakes a `file://…/solid-logic/dist/…` path that browsers refuse
+  // to load over http:// origin. Leaving it external lets the consumer bundle
+  // (mashlib) resolve the worker URL relative to its own publicPath.
+  '@uvdsl/solid-oidc-client-browser': '@uvdsl/solid-oidc-client-browser'
 }
 
 const externalsESM = {

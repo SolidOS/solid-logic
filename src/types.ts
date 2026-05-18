@@ -1,4 +1,4 @@
-import { Session } from '@inrupt/solid-client-authn-browser'
+import { Session } from './authSession/authSession'
 import { LiveStore, NamedNode, Statement } from 'rdflib'
 
 export type AppDetails = {

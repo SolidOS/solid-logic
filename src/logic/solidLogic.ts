@@ -1,4 +1,4 @@
-import { Session } from '@inrupt/solid-client-authn-browser'
+import { Session } from '../authSession/authSession'
 import * as rdf from 'rdflib'
 import { LiveStore, NamedNode, Statement } from 'rdflib'
 import { createAclLogic } from '../acl/aclLogic'
