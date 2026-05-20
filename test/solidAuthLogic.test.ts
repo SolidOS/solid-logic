@@ -11,18 +11,18 @@ silenceDebugMessages()
 let solidAuthnLogic
 
 jest.mock('../src/authSession/authSession', () => {
-  const EventEmitter = require('events');
+  const EventEmitter = require('events')
   const authSession = {
     events: new EventEmitter(),
     addEventListener: function (event, listener) {
-      this.events.on(event, listener);
+      this.events.on(event, listener)
     },
     removeEventListener: function (event, listener) {
-      this.events.off(event, listener);
+      this.events.off(event, listener)
     },
-  };
-  return { authSession };
-});
+  }
+  return { authSession }
+})
 
 describe('SolidAuthnLogic', () => {
   
