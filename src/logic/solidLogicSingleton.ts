@@ -5,9 +5,17 @@ import { SolidLogic } from '../types'
 
 const _fetch = async (url, requestInit) => {
     const omitCreds = requestInit && requestInit.credentials && requestInit.credentials == 'omit'
-    if (authSession.info.webId && !omitCreds) { // see https://github.com/solidos/solidos/issues/114
+    const sessionAny = authSession as any
+    const sessionWebId = sessionAny?.info?.webId || sessionAny?.webId
+    if (sessionWebId && !omitCreds) { // see https://github.com/solidos/solidos/issues/114
         // In fact fetch should respect credentials omit itself
-        return authSession.fetch(url, requestInit)
+        const authenticatedFetch = (typeof sessionAny.fetch === 'function')
+            ? sessionAny.fetch.bind(sessionAny)
+            : (typeof sessionAny.authFetch === 'function' ? sessionAny.authFetch.bind(sessionAny) : null)
+        if (authenticatedFetch) {
+            return authenticatedFetch(url, requestInit)
+        }
+        return window.fetch(url, requestInit)
     } else {
         return window.fetch(url, requestInit)
     }

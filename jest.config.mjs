@@ -11,6 +11,9 @@ export default {
   transform: {
     '^.+\\.[tj]sx?$': ['babel-jest', { configFile: './babel.config.mjs' }],
   },
+  moduleNameMapper: {
+    '^@uvdsl/solid-oidc-client-browser$': '<rootDir>/test/mocks/solid-oidc-client-browser.ts',
+  },
   setupFilesAfterEnv: ['./test/helpers/setup.ts'],
   testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
   roots: ['<rootDir>/src', '<rootDir>/test'],
