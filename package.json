@@ -72,7 +72,7 @@
     "webpack-cli": "^7.0.2"
   },
   "dependencies": {
-    "@inrupt/solid-client-authn-browser": "^4.0.0",
+    "@uvdsl/solid-oidc-client-browser": "^0.2.2",
     "solid-namespace": "^0.5.4"
   },
   "peerDependencies": {
