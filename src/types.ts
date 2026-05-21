@@ -1,4 +1,4 @@
-import { SessionWithLegacyEvents } from './authSession/authSession'
+import type { SessionWithLegacyEvents } from './authSession/authSession'
 import { LiveStore, NamedNode, Statement } from 'rdflib'
 
 export type AppDetails = {
