@@ -51,3 +51,35 @@ export class Session {
     return globalThis.fetch(input, init)
   }
 }
+
+export class SessionCore extends Session {
+  constructor(_clientDetails?: unknown, _sessionOptions?: unknown) {
+    super()
+  }
+}
+
+export class SessionIDB {
+  async init(): Promise<SessionIDB> {
+    return this
+  }
+
+  async setItem(_id: string, _value: any): Promise<void> {
+    return
+  }
+
+  async getItem(_id: string): Promise<any> {
+    return null
+  }
+
+  async deleteItem(_id: string): Promise<void> {
+    return
+  }
+
+  async clear(): Promise<void> {
+    return
+  }
+
+  close(): void {
+    return
+  }
+}
