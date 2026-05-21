@@ -13,6 +13,7 @@ export default {
   },
   moduleNameMapper: {
     '^@uvdsl/solid-oidc-client-browser$': '<rootDir>/test/mocks/solid-oidc-client-browser.ts',
+    '^@uvdsl/solid-oidc-client-browser/core$': '<rootDir>/test/mocks/solid-oidc-client-browser.ts',
   },
   setupFilesAfterEnv: ['./test/helpers/setup.ts'],
   testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
