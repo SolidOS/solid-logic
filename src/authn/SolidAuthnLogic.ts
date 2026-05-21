@@ -1,8 +1,8 @@
 import { namedNode, NamedNode, sym } from 'rdflib'
 import { appContext, offlineTestID } from './authUtil'
 import * as debug from '../util/debug'
-import { SessionWithLegacyEvents } from '../authSession/authSession'
-import { AuthenticationContext, AuthnLogic } from '../types'
+import type { SessionWithLegacyEvents } from '../authSession/authSession'
+import type { AuthenticationContext, AuthnLogic } from '../types'
 
 export class SolidAuthnLogic implements AuthnLogic {
   private session: SessionWithLegacyEvents
