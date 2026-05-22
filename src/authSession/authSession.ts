@@ -147,31 +147,9 @@ class IndexedDbSessionDatabase implements SessionDatabase {
   }
 }
 
-function resolveWorkerUrl (): string | URL | undefined {
-  if (typeof window === 'undefined') return undefined
-
-  const explicitWorkerUrl = (window as any).__SOLID_LOGIC_WORKER_URL__
-  if (typeof explicitWorkerUrl === 'string' && explicitWorkerUrl.trim().length > 0) {
-    return explicitWorkerUrl
-  }
-  if (explicitWorkerUrl instanceof URL) {
-    return explicitWorkerUrl
-  }
-
-  try {
-    // Default to same-origin sibling asset next to the current page URL.
-    new URL('/RefreshWorker.js', window.location.origin).toString()
-  } catch {
-    return undefined
-  }
-}
-
 function createSession (): OidcSession {
   try {
-    const workerUrl = resolveWorkerUrl()
-    return workerUrl
-      ? new WebSession(undefined, { workerUrl })
-      : new WebSession()
+    return new WebSession()
   } catch (error) {
     // In some deployments, worker URL resolution can become file:// and fail cross-origin.
     // Fall back to SessionCore so auth still works without background refresh worker.
