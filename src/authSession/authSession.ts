@@ -160,7 +160,7 @@ function resolveWorkerUrl (): string | URL | undefined {
 
   try {
     // Default to same-origin sibling asset next to the current page URL.
-    return new URL('./RefreshWorker.js', window.location.href).toString()
+    new URL('/RefreshWorker.js', window.location.origin).toString()
   } catch {
     return undefined
   }
