@@ -113,6 +113,34 @@ import {
 } from 'solid-logic';
 ```
 
+## Worker Asset and Runtime Configuration
+
+solid-logic publishes the OIDC refresh worker as a package export so host apps can serve it from the same origin.
+
+### Worker export
+
+- Package export: `solid-logic/RefreshWorker`
+- Built file: `dist/RefreshWorker.js`
+
+Host applications should copy or serve this file so the browser can load it with a same-origin URL.
+
+### Worker URL override
+
+Before solid-logic initializes, applications can set:
+
+```js
+window.__SOLID_LOGIC_WORKER_URL__ = 'https://app.example.com/RefreshWorker.js'
+```
+
+If this override is not set, solid-logic resolves the worker URL to `./RefreshWorker.js` against `window.location.href`.
+
+### Session fallback behavior
+
+When worker session initialization fails, solid-logic falls back in this order:
+
+1. `SessionCore` with IndexedDB-backed session database
+2. `SessionCore` with in-memory session database
+
 # How to develop
 
 Check the scripts in the `package.json` for build, watch, lint and test.
