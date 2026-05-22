@@ -11,6 +11,10 @@
       "import": "./dist/solid-logic.esm.js",
       "require": "./dist/solid-logic.js",
       "types": "./dist/index.d.ts"
+    },
+    "./RefreshWorker": {
+      "import": "./dist/RefreshWorker.js",
+      "default": "./dist/RefreshWorker.js"
     }
   },
   "sideEffects": false,
@@ -21,10 +25,11 @@
   ],
   "scripts": {
     "clean": "rm -rf dist src/versionInfo.ts",
-    "build": "npm run clean && npm run typecheck && npm run build-version && npm run build-js && npm run build-dist && npm run postbuild-js",
+    "build": "npm run clean && npm run typecheck && npm run build-version && npm run build-js && npm run build-dist && npm run copy-worker && npm run postbuild-js",
     "build-version": "./timestamp.sh > src/versionInfo.ts  && eslint 'src/versionInfo.ts' --fix",
     "build-js": "tsc",
     "build-dist": "webpack --progress",
+    "copy-worker": "node -e \"const fs=require('fs');const path=require('path');const src=path.resolve('node_modules/@uvdsl/solid-oidc-client-browser/dist/esm/web/RefreshWorker.js');const dst=path.resolve('dist/RefreshWorker.js');fs.copyFileSync(src,dst);\"",
     "postbuild-js": "rm -f dist/versionInfo.d.ts dist/versionInfo.d.ts.map",
     "lint": "eslint",
     "lint-fix": "eslint --fix",
