@@ -148,6 +148,14 @@ class IndexedDbSessionDatabase implements SessionDatabase {
 }
 
 function createSession (): OidcSession {
+  const shouldSkipWorkerInLocalDev = typeof window !== 'undefined' &&
+    window.location.protocol === 'http:' &&
+    /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)
+
+  if (shouldSkipWorkerInLocalDev) {
+    return new SessionCore(undefined, { database: new IndexedDbSessionDatabase() })
+  }
+
   try {
     return new WebSession()
   } catch (error) {
