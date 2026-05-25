@@ -175,6 +175,25 @@ function createSession (): OidcSession {
 const _session = createSession()
 const events = new SessionEvents()
 
+const sessionAny = _session as any
+const originalLogin = typeof sessionAny.login === 'function'
+  ? sessionAny.login.bind(_session)
+  : undefined
+
+if (originalLogin) {
+  // Keep compatibility with older call sites that pass an options object.
+  sessionAny.login = async (idpOrOptions: any, redirectUri?: string) => {
+    if (idpOrOptions && typeof idpOrOptions === 'object' && !Array.isArray(idpOrOptions)) {
+      const oidcIssuer = idpOrOptions.oidcIssuer ?? idpOrOptions.idp ?? idpOrOptions.issuer
+      const redirectUrl = idpOrOptions.redirectUrl ?? idpOrOptions.redirect_uri ?? idpOrOptions.redirectUri
+      if (typeof oidcIssuer === 'string' && typeof redirectUrl === 'string') {
+        return originalLogin(oidcIssuer, redirectUrl)
+      }
+    }
+    return originalLogin(idpOrOptions, redirectUri)
+  }
+}
+
 // Emit the legacy 'logout' event when the session transitions from active to inactive.
 // 'login' and 'sessionRestore' are emitted in SolidAuthnLogic.checkUser()
 // because only that call site knows which path activated the session.
