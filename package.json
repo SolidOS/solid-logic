@@ -77,6 +77,6 @@
     "solid-namespace": "^0.5.4"
   },
   "peerDependencies": {
-    "rdflib": "^2.3.7"
+    "rdflib": "^2.3.9"
   }
 }
