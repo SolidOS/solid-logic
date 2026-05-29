@@ -1,9 +1,7 @@
 import {
   Session as WebSession,
 } from '@uvdsl/solid-oidc-client-browser'
-import {
-  SessionCore,
-} from '@uvdsl/solid-oidc-client-browser/core'
+import * as OidcCore from '@uvdsl/solid-oidc-client-browser/core'
 import type { Session as OidcSession, SessionDatabase } from '@uvdsl/solid-oidc-client-browser/core'
 
 type LegacyEventName = 'login' | 'logout' | 'sessionRestore'
@@ -140,20 +138,47 @@ class IndexedDbSessionDatabase implements SessionDatabase {
       const tx = this.db.transaction(this.storeName, mode)
       const store = tx.objectStore(this.storeName)
       const request = op(store)
+      let result: any = null
+
+      tx.onerror = () => reject(tx.error ?? request.error)
+      tx.onabort = () => reject(tx.error ?? request.error ?? new Error('IndexedDB transaction aborted'))
+      tx.oncomplete = () => resolve(result)
 
       request.onerror = () => reject(request.error)
-      request.onsuccess = () => resolve(request.result ?? null)
+      request.onsuccess = () => {
+        result = request.result ?? null
+      }
     })
   }
 }
 
+function getSessionCoreCtor (): (new (...args: any[]) => OidcSession) | null {
+  const coreAny = OidcCore as any
+  const candidate = coreAny.SessionCore ?? coreAny.default?.SessionCore ?? coreAny.default
+
+  if (typeof candidate !== 'function') {
+    return null
+  }
+
+  return candidate as new (...args: any[]) => OidcSession
+}
+
+const SessionCoreCtor = getSessionCoreCtor()
+
 function createSession (): OidcSession {
-  const shouldSkipWorkerInLocalDev = typeof window !== 'undefined' &&
-    window.location.protocol === 'http:' &&
-    /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)
+  const shouldSkipWorkerInLocalDev = typeof window !== 'undefined' && (() => {
+    const host = window.location.hostname
+    // In local NSS setups (including subdomain mode like alice.localhost),
+    // worker-based session storage can be brittle and lose state on reload.
+    // Prefer SessionCore + IndexedDB for deterministic persistence.
+    return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.localhost')
+  })()
 
   if (shouldSkipWorkerInLocalDev) {
-    return new SessionCore(undefined, { database: new IndexedDbSessionDatabase() })
+    if (SessionCoreCtor) {
+      return new SessionCoreCtor(undefined, { database: new IndexedDbSessionDatabase() })
+    }
+    return new WebSession()
   }
 
   try {
@@ -164,10 +189,16 @@ function createSession (): OidcSession {
     // Use IndexedDB to keep refresh-token persistence across page reloads.
     console.warn('solid-logic: falling back to non-worker auth session:', error)
     try {
-      return new SessionCore(undefined, { database: new IndexedDbSessionDatabase() })
+      if (SessionCoreCtor) {
+        return new SessionCoreCtor(undefined, { database: new IndexedDbSessionDatabase() })
+      }
+      return new WebSession()
     } catch (dbError) {
       console.warn('solid-logic: IndexedDB unavailable, using in-memory session database:', dbError)
-      return new SessionCore(undefined, { database: new MemorySessionDatabase() })
+      if (SessionCoreCtor) {
+        return new SessionCoreCtor(undefined, { database: new MemorySessionDatabase() })
+      }
+      return new WebSession()
     }
   }
 }
@@ -180,6 +211,30 @@ const originalLogin = typeof sessionAny.login === 'function'
   ? sessionAny.login.bind(_session)
   : undefined
 
+function normalizeIssuerForLocalhostSubdomain (issuer: string, redirectUrl?: string): string {
+  try {
+    const issuerUrl = new URL(issuer)
+    const issuerHost = issuerUrl.hostname
+    // NSS local mode advertises localhost as issuer even when apps run on pod subdomains.
+    if (!issuerHost.endsWith('.localhost') || issuerHost === 'localhost') {
+      return issuer
+    }
+
+    if (redirectUrl) {
+      const redirectHost = new URL(redirectUrl).hostname
+      // NSS local deployments use a root IdP (localhost) with pod subdomain apps.
+      if (!(redirectHost === 'localhost' || redirectHost.endsWith('.localhost'))) {
+        return issuer
+      }
+    }
+
+    issuerUrl.hostname = 'localhost'
+    return issuerUrl.toString().replace(/\/$/, '')
+  } catch (_err) {
+    return issuer
+  }
+}
+
 if (originalLogin) {
   // Keep compatibility with older call sites that pass an options object.
   sessionAny.login = async (idpOrOptions: any, redirectUri?: string) => {
@@ -187,8 +242,11 @@ if (originalLogin) {
       const oidcIssuer = idpOrOptions.oidcIssuer ?? idpOrOptions.idp ?? idpOrOptions.issuer
       const redirectUrl = idpOrOptions.redirectUrl ?? idpOrOptions.redirect_uri ?? idpOrOptions.redirectUri
       if (typeof oidcIssuer === 'string' && typeof redirectUrl === 'string') {
-        return originalLogin(oidcIssuer, redirectUrl)
+        return originalLogin(normalizeIssuerForLocalhostSubdomain(oidcIssuer, redirectUrl), redirectUrl)
       }
+    }
+    if (typeof idpOrOptions === 'string') {
+      return originalLogin(normalizeIssuerForLocalhostSubdomain(idpOrOptions, redirectUri), redirectUri)
     }
     return originalLogin(idpOrOptions, redirectUri)
   }
