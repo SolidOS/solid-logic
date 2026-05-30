@@ -211,28 +211,34 @@ const originalLogin = typeof sessionAny.login === 'function'
   ? sessionAny.login.bind(_session)
   : undefined
 
-function normalizeIssuerForLocalhostSubdomain (issuer: string, redirectUrl?: string): string {
+async function discoverIssuerFromWellKnown (issuer: string): Promise<string | null> {
   try {
     const issuerUrl = new URL(issuer)
-    const issuerHost = issuerUrl.hostname
-    // NSS local mode advertises localhost as issuer even when apps run on pod subdomains.
-    if (!issuerHost.endsWith('.localhost') || issuerHost === 'localhost') {
-      return issuer
+    const wellKnownUrl = new URL('/.well-known/openid-configuration', issuerUrl.origin)
+    const wellKnownResponse = await fetch(wellKnownUrl.toString(), { credentials: 'include' })
+    if (!wellKnownResponse.ok) {
+      return null
     }
 
-    if (redirectUrl) {
-      const redirectHost = new URL(redirectUrl).hostname
-      // NSS local deployments use a root IdP (localhost) with pod subdomain apps.
-      if (!(redirectHost === 'localhost' || redirectHost.endsWith('.localhost'))) {
-        return issuer
-      }
+    const wellKnownPayload = await wellKnownResponse.json()
+    if (typeof wellKnownPayload?.issuer !== 'string' || !wellKnownPayload.issuer) {
+      return null
     }
 
-    issuerUrl.hostname = 'localhost'
-    return issuerUrl.toString().replace(/\/$/, '')
+    return wellKnownPayload.issuer.replace(/\/$/, '')
   } catch (_err) {
-    return issuer
+    return null
   }
+}
+
+async function resolveIssuerForLogin (issuer: string): Promise<string> {
+  // Prefer the issuer advertised by discovery; if app and issuer hosts still differ,
+  // redirecting to the canonical issuer host is cleaner than rewriting the issuer here.
+  const discoveredIssuer = await discoverIssuerFromWellKnown(issuer)
+  if (discoveredIssuer) {
+    return discoveredIssuer
+  }
+  return issuer
 }
 
 if (originalLogin) {
@@ -242,11 +248,11 @@ if (originalLogin) {
       const oidcIssuer = idpOrOptions.oidcIssuer ?? idpOrOptions.idp ?? idpOrOptions.issuer
       const redirectUrl = idpOrOptions.redirectUrl ?? idpOrOptions.redirect_uri ?? idpOrOptions.redirectUri
       if (typeof oidcIssuer === 'string' && typeof redirectUrl === 'string') {
-        return originalLogin(normalizeIssuerForLocalhostSubdomain(oidcIssuer, redirectUrl), redirectUrl)
+        return originalLogin(await resolveIssuerForLogin(oidcIssuer), redirectUrl)
       }
     }
     if (typeof idpOrOptions === 'string') {
-      return originalLogin(normalizeIssuerForLocalhostSubdomain(idpOrOptions, redirectUri), redirectUri)
+      return originalLogin(await resolveIssuerForLogin(idpOrOptions), redirectUri)
     }
     return originalLogin(idpOrOptions, redirectUri)
   }
