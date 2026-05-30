@@ -48,11 +48,20 @@ export type SessionWithLegacyEvents = OidcSession & SessionCompatibilityShape & 
 class MemorySessionDatabase implements SessionDatabase {
   private readonly map = new Map<string, any>()
 
+  private shouldPreserveExistingRefreshToken(id: string, value: any): boolean {
+    return id === 'refresh_token' && (value == null || value === '') && this.map.has(id)
+  }
+
   async init (): Promise<SessionDatabase> {
     return this
   }
 
   async setItem (id: string, value: any): Promise<void> {
+    // Some Solid IdPs do not include refresh_token on refresh responses.
+    // Keep the previous token instead of overwriting it with null/undefined.
+    if (this.shouldPreserveExistingRefreshToken(id, value)) {
+      return
+    }
     this.map.set(id, value)
   }
 
@@ -79,6 +88,14 @@ class IndexedDbSessionDatabase implements SessionDatabase {
   private readonly storeName = 'session'
   private readonly dbVersion = 1
 
+  private async shouldPreserveExistingRefreshToken(id: string, value: any): Promise<boolean> {
+    if (id !== 'refresh_token' || !(value == null || value === '')) {
+      return false
+    }
+    const existing = await this.getItem(id)
+    return existing != null && existing !== ''
+  }
+
   async init (): Promise<SessionDatabase> {
     if (this.db) return this
 
@@ -103,6 +120,11 @@ class IndexedDbSessionDatabase implements SessionDatabase {
 
   async setItem (id: string, value: any): Promise<void> {
     await this.init()
+    // Some Solid IdPs do not include refresh_token on refresh responses.
+    // Keep the previous token instead of overwriting it with null/undefined.
+    if (await this.shouldPreserveExistingRefreshToken(id, value)) {
+      return
+    }
     await this.withStore('readwrite', store => store.put(value, id))
   }
 
