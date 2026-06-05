@@ -4,6 +4,9 @@ export type ServerLogoutOptions = {
 }
 
 export async function performServerSideLogout (options: ServerLogoutOptions = {}): Promise<boolean> {
+  if (typeof window === 'undefined') {
+    return false
+  }
   const issuer = options.issuer || ''
   const postLogoutRedirectPath = options.postLogoutRedirectPath || '/'
 

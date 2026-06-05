@@ -78,7 +78,7 @@ const events = new SessionEvents()
 // Emit the legacy 'logout' event when the session transitions from active to inactive.
 // 'login' and 'sessionRestore' are emitted in SolidAuthnLogic.checkUser()
 // because only that call site knows which path activated the session.
-let _wasActive = false
+let _wasActive = (_session as any).isActive ?? Boolean((_session as any).webId)
 if (typeof (_session as unknown as EventTarget).addEventListener === 'function') {
   ;(_session as unknown as EventTarget).addEventListener('sessionStateChange', () => {
     const isNowActive = (_session as any).isActive ?? Boolean((_session as any).webId)

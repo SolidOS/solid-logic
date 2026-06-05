@@ -78,6 +78,9 @@ export class IndexedDbSessionDatabase implements SessionDatabase {
 
   async init (): Promise<SessionDatabase> {
     if (this.db) return this
+    if (typeof indexedDB === 'undefined') {
+      throw new Error('IndexedDB is not available in this environment')
+    }
 
     await new Promise<void>((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.dbVersion)
