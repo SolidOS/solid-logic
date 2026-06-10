@@ -1,15 +1,15 @@
-import { Session } from '@inrupt/solid-client-authn-browser'
 import * as rdf from 'rdflib'
 import { LiveStore, NamedNode, Statement } from 'rdflib'
 import { createAclLogic } from '../acl/aclLogic'
 import { SolidAuthnLogic } from '../authn/SolidAuthnLogic'
+import type { SessionWithLegacyEvents } from '../authSession/authSession'
 import { createChatLogic } from '../chat/chatLogic'
 import { createInboxLogic } from '../inbox/inboxLogic'
 import { createProfileLogic } from '../profile/profileLogic'
 import { createTypeIndexLogic } from '../typeIndex/typeIndexLogic'
 import { createContainerLogic } from '../util/containerLogic'
 import { createUtilityLogic } from '../util/utilityLogic'
-import { AuthnLogic, SolidLogic } from '../types'
+import type { AuthnLogic, SolidLogic } from '../types'
 import * as debug from '../util/debug'
 /*
 ** It is important to distinquish `fetch`, a function provided by the browser
@@ -17,7 +17,7 @@ import * as debug from '../util/debug'
 ** into a `ConnectedStore` or a `LiveStore`.  A Fetcher object is
 ** available at store.fetcher, and `fetch` function at `store.fetcher._fetch`,
 */
-export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: any) => any }, session: Session): SolidLogic {
+export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: any) => any }, session: SessionWithLegacyEvents): SolidLogic {
 
     debug.log('SolidLogic: Unique instance created.  There should only be one of these.')
     const store: LiveStore = rdf.graph() as LiveStore
