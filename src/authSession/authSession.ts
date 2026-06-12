@@ -26,7 +26,24 @@ type SessionCompatibilityShape = {
   authFetch?: (input: string | URL | Request, init?: RequestInit, dpopPayload?: any) => Promise<Response>
 }
 
-export type SessionWithLegacyEvents = OidcSession & SessionCompatibilityShape & { events: SessionEvents }
+type LoginOptionsLegacy = {
+  oidcIssuer?: string
+  idp?: string
+  issuer?: string
+  redirectUrl?: string
+  redirect_uri?: string
+  redirectUri?: string
+}
+
+type LoginCompat = {
+  (issuer: string, redirectUrl: string): Promise<unknown>
+  (options: LoginOptionsLegacy): Promise<unknown>
+}
+
+export type SessionWithLegacyEvents = Omit<OidcSession, 'login'> & SessionCompatibilityShape & {
+  login: LoginCompat
+  events: SessionEvents
+}
 
 // ---------------------------------------------------------------------------
 // Login compatibility shim
@@ -54,7 +71,7 @@ const originalLogin = typeof sessionAny.login === 'function'
   : undefined
 
 if (originalLogin) {
-  sessionAny.login = async (idpOrOptions: any, redirectUri?: string) => {
+  const compatLogin = async (idpOrOptions: any, redirectUri?: string): Promise<unknown> => {
     if (idpOrOptions && typeof idpOrOptions === 'object' && !Array.isArray(idpOrOptions)) {
       const oidcIssuer = idpOrOptions.oidcIssuer ?? idpOrOptions.idp ?? idpOrOptions.issuer
       const redirectUrl = idpOrOptions.redirectUrl ?? idpOrOptions.redirect_uri ?? idpOrOptions.redirectUri
@@ -67,6 +84,7 @@ if (originalLogin) {
     }
     return originalLogin(idpOrOptions, redirectUri)
   }
+  sessionAny.login = compatLogin as LoginCompat
 }
 
 // ---------------------------------------------------------------------------
@@ -89,5 +107,8 @@ if (typeof (_session as unknown as EventTarget).addEventListener === 'function')
   })
 }
 
-export const authSession: SessionWithLegacyEvents = Object.assign(_session, { events })
+export const authSession: SessionWithLegacyEvents = Object.assign(
+  _session as Omit<OidcSession, 'login'> & { login: LoginCompat },
+  { events }
+)
   
