@@ -6,5 +6,8 @@ export default {
       }
     }],
     '@babel/preset-typescript'
+  ],
+  plugins: [
+    'babel-plugin-transform-import-meta'
   ]
 }
