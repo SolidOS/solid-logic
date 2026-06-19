@@ -10,19 +10,7 @@ const externalsBase = {
   '@trust/webcrypto': 'crypto',
   '@xmldom/xmldom': 'window',
   'whatwg-url': 'URL',
-  'rdflib': '$rdf',
-  '@uvdsl/solid-oidc-client-browser': {
-    commonjs: '@uvdsl/solid-oidc-client-browser',
-    commonjs2: '@uvdsl/solid-oidc-client-browser',
-    amd: '@uvdsl/solid-oidc-client-browser',
-    root: 'SolidOidcClientBrowser'
-  },
-  '@uvdsl/solid-oidc-client-browser/core': {
-    commonjs: '@uvdsl/solid-oidc-client-browser/core',
-    commonjs2: '@uvdsl/solid-oidc-client-browser/core',
-    amd: '@uvdsl/solid-oidc-client-browser/core',
-    root: 'SolidOidcClientBrowserCore'
-  }
+  'rdflib': '$rdf'
 }
 
 const externalsESM = {
@@ -73,6 +61,7 @@ export default [
     },
     externals: externalsBase,
     optimization: {
+      ...commonConfig.optimization,
       minimize: false
     }
   },
@@ -93,6 +82,7 @@ export default [
     },
     externals: externalsBase,
     optimization: {
+      ...commonConfig.optimization,
       minimize: true,
       minimizer: [new TerserPlugin({ extractComments: false })]
     }
@@ -115,6 +105,7 @@ export default [
       outputModule: true
     },
     optimization: {
+      ...commonConfig.optimization,
       minimize: false
     }
   },
@@ -136,6 +127,7 @@ export default [
       outputModule: true
     },
     optimization: {
+      ...commonConfig.optimization,
       minimize: true,
       minimizer: [new TerserPlugin({ extractComments: false })]
     }
