@@ -10,19 +10,7 @@ const externalsBase = {
   '@trust/webcrypto': 'crypto',
   '@xmldom/xmldom': 'window',
   'whatwg-url': 'URL',
-  'rdflib': '$rdf',
-  '@uvdsl/solid-oidc-client-browser': {
-    commonjs: '@uvdsl/solid-oidc-client-browser',
-    commonjs2: '@uvdsl/solid-oidc-client-browser',
-    amd: '@uvdsl/solid-oidc-client-browser',
-    root: 'SolidOidcClientBrowser'
-  },
-  '@uvdsl/solid-oidc-client-browser/core': {
-    commonjs: '@uvdsl/solid-oidc-client-browser/core',
-    commonjs2: '@uvdsl/solid-oidc-client-browser/core',
-    amd: '@uvdsl/solid-oidc-client-browser/core',
-    root: 'SolidOidcClientBrowserCore'
-  }
+  'rdflib': '$rdf'
 }
 
 const externalsESM = {
