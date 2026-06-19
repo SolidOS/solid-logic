@@ -74,7 +74,7 @@
     "webpack-cli": "^7.0.3"
   },
   "dependencies": {
-    "@uvdsl/solid-oidc-client-browser": "^0.2.2",
+    "@uvdsl/solid-oidc-client-browser": "^0.2.3",
     "solid-namespace": "^0.5.4"
   },
   "peerDependencies": {
