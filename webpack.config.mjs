@@ -61,6 +61,7 @@ export default [
     },
     externals: externalsBase,
     optimization: {
+      ...commonConfig.optimization,
       minimize: false
     }
   },
@@ -81,6 +82,7 @@ export default [
     },
     externals: externalsBase,
     optimization: {
+      ...commonConfig.optimization,
       minimize: true,
       minimizer: [new TerserPlugin({ extractComments: false })]
     }
@@ -103,6 +105,7 @@ export default [
       outputModule: true
     },
     optimization: {
+      ...commonConfig.optimization,
       minimize: false
     }
   },
@@ -124,6 +127,7 @@ export default [
       outputModule: true
     },
     optimization: {
+      ...commonConfig.optimization,
       minimize: true,
       minimizer: [new TerserPlugin({ extractComments: false })]
     }
