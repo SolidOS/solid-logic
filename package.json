@@ -57,7 +57,7 @@
     "@babel/preset-typescript": "^7.28.5",
     "babel-plugin-transform-import-meta": "^2.3.3",
     "@types/jest": "^30.0.0",
-    "@typescript-eslint/parser": "^8.59.3",
+    "@typescript-eslint/parser": "^8.61.1",
     "babel-jest": "^30.4.1",
     "babel-loader": "^10.1.1",
     "eslint": "^9.39.4",
