@@ -57,7 +57,7 @@
     "@babel/preset-typescript": "^7.28.5",
     "babel-plugin-transform-import-meta": "^2.3.3",
     "@types/jest": "^30.0.0",
-    "@typescript-eslint/parser": "^8.59.3",
+    "@typescript-eslint/parser": "^8.61.1",
     "babel-jest": "^30.4.1",
     "babel-loader": "^10.1.1",
     "eslint": "^9.39.4",
@@ -67,14 +67,14 @@
     "jest-environment-jsdom": "^30.4.1",
     "jest-fetch-mock": "^3.0.3",
     "terser-webpack-plugin": "^5.6.0",
-    "ts-loader": "^9.5.7",
+    "ts-loader": "^9.6.1",
     "tslib": "^2.8.1",
     "typescript": "^5.9.3",
     "webpack": "^5.106.2",
     "webpack-cli": "^7.0.3"
   },
   "dependencies": {
-    "@uvdsl/solid-oidc-client-browser": "^0.2.2",
+    "@uvdsl/solid-oidc-client-browser": "^0.2.3",
     "solid-namespace": "^0.5.4"
   },
   "peerDependencies": {
