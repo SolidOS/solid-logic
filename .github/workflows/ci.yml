@@ -72,12 +72,6 @@ jobs:
     with:
       node_version: 22
     
-  npm-publish-staging:
-    needs: build
-    uses: SolidOS/solidos/.github/workflows/publish-prerelease.yml@staging
-    with:
-      node_version: 22
-          
   npm-publish-latest:
     needs: [build]
     runs-on: ubuntu-latest
