@@ -55,17 +55,18 @@
     "@babel/core": "^7.29.0",
     "@babel/preset-env": "^7.29.5",
     "@babel/preset-typescript": "^7.28.5",
-    "babel-plugin-transform-import-meta": "^2.3.3",
     "@types/jest": "^30.0.0",
     "@typescript-eslint/parser": "^8.61.1",
     "babel-jest": "^30.4.1",
     "babel-loader": "^10.1.1",
+    "babel-plugin-transform-import-meta": "^2.3.3",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "jest-fetch-mock": "^3.0.3",
+    "rdflib": "^2.4.0",
     "terser-webpack-plugin": "^5.6.0",
     "ts-loader": "^9.6.1",
     "tslib": "^2.8.1",
@@ -76,8 +77,5 @@
   "dependencies": {
     "@uvdsl/solid-oidc-client-browser": "^0.2.3",
     "solid-namespace": "^0.5.4"
-  },
-  "peerDependencies": {
-    "rdflib": "^2.3.9"
   }
 }
