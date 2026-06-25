@@ -77,5 +77,8 @@
   "dependencies": {
     "@uvdsl/solid-oidc-client-browser": "^0.2.3",
     "solid-namespace": "^0.5.4"
-  }
+  },
+  "solidosDependencies": [
+    "rdflib"
+  ]
 }
