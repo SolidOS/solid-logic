@@ -1,6 +1,7 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { solidLogicSingleton } from '../src/logic/solidLogicSingleton'
 import { authSession } from '../src/authSession/authSession'
-import fetchMock from 'jest-fetch-mock'
+import { fetchMock } from './helpers/fetch-mock'
 import { silenceDebugMessages } from './helpers/debugger'
 
 silenceDebugMessages()
@@ -34,7 +35,6 @@ describe('solidLogicSingleton fetch bridge', () => {
 
   let originalFetch: any
   let originalAuthFetch: any
-  let originalWebId: any
   let originalInfo: any
 
   beforeEach(() => {
@@ -43,10 +43,8 @@ describe('solidLogicSingleton fetch bridge', () => {
     const sessionAny = authSession as any
     originalFetch = sessionAny.fetch
     originalAuthFetch = sessionAny.authFetch
-    originalWebId = sessionAny.webId
     originalInfo = sessionAny.info
 
-    sessionAny.webId = undefined
     sessionAny.info = { isLoggedIn: false }
   })
 
@@ -54,14 +52,13 @@ describe('solidLogicSingleton fetch bridge', () => {
     const sessionAny = authSession as any
     sessionAny.fetch = originalFetch
     sessionAny.authFetch = originalAuthFetch
-    sessionAny.webId = originalWebId
     sessionAny.info = originalInfo
   })
 
   it('uses window.fetch when credentials are omit even if a session exists', async () => {
     const sessionAny = authSession as any
-    sessionAny.webId = 'https://alice.example/profile#me'
-    sessionAny.fetch = jest.fn().mockResolvedValue(new Response('session'))
+    sessionAny.info = { webId: 'https://alice.example/profile#me', isLoggedIn: true }
+    sessionAny.fetch = vi.fn().mockResolvedValue(new Response('session'))
 
     fetchMock.mockResponseOnce('window')
 
@@ -73,9 +70,9 @@ describe('solidLogicSingleton fetch bridge', () => {
 
   it('falls back to authFetch when session.fetch is unavailable', async () => {
     const sessionAny = authSession as any
-    sessionAny.webId = 'https://alice.example/profile#me'
+    sessionAny.info = { webId: 'https://alice.example/profile#me', isLoggedIn: true }
     sessionAny.fetch = undefined
-    sessionAny.authFetch = jest.fn().mockResolvedValue(new Response('auth'))
+    sessionAny.authFetch = vi.fn().mockResolvedValue(new Response('auth'))
 
     await singletonFetch('https://example.com/resource')
 

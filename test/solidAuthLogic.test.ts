@@ -1,33 +1,25 @@
-/**
-* @jest-environment jsdom
-* 
-*/
+import { beforeEach, describe, expect, it } from 'vitest'
 import { SolidAuthnLogic } from '../src/authn/SolidAuthnLogic'
 import { silenceDebugMessages } from './helpers/debugger'
-import { authSession } from '../src/authSession/authSession'
 import { AuthenticationContext } from '../src/types'
+import { EventEmitter } from 'node:events'
 
 silenceDebugMessages()
-let solidAuthnLogic
-
-jest.mock('../src/authSession/authSession', () => {
-  const EventEmitter = require('events')
-  const authSession = {
-    events: new EventEmitter(),
-    addEventListener: function (event, listener) {
-      this.events.on(event, listener)
-    },
-    removeEventListener: function (event, listener) {
-      this.events.off(event, listener)
-    },
-  }
-  return { authSession }
-})
+let solidAuthnLogic: SolidAuthnLogic
+const authSession = {
+  events: new EventEmitter(),
+  addEventListener (event: string | symbol, listener: (...args: any[]) => void) {
+    this.events.on(event, listener)
+  },
+  removeEventListener (event: string | symbol, listener: (...args: any[]) => void) {
+    this.events.off(event, listener)
+  },
+}
 
 describe('SolidAuthnLogic', () => {
   
   beforeEach(() => {
-    solidAuthnLogic = new SolidAuthnLogic(authSession)
+    solidAuthnLogic = new SolidAuthnLogic(authSession as any)
   })
 
   describe('checkUser', () => {

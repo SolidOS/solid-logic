@@ -1,20 +1,18 @@
-/**
-* @jest-environment jsdom
-*
-*/
-import { UpdateManager, Store, Fetcher, sym } from 'rdflib'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { UpdateManager, Store, Fetcher, sym, NamedNode } from 'rdflib'
 import { createAclLogic } from '../src/acl/aclLogic'
 import { createInboxLogic } from '../src/inbox/inboxLogic'
 import { createProfileLogic } from '../src/profile/profileLogic'
 import { createContainerLogic } from '../src/util/containerLogic'
 import { createUtilityLogic } from '../src/util/utilityLogic'
+import { InboxLogic } from '../src/types'
 
 const alice = sym('https://alice.example.com/profile/card#me')
 const bob = sym('https://bob.example.com/profile/card#me')
 
 describe('Inbox logic', () => {
   let store
-  let inboxLogic
+  let inboxLogic: InboxLogic
   beforeEach(() => {
     fetchMock.resetMocks()
     fetchMock.mockResponse('Not Found', {
@@ -37,7 +35,7 @@ describe('Inbox logic', () => {
 
   describe('getNewMessages', () => {
     describe('When inbox is empty', () => {
-      let result
+      let result: NamedNode[]
       beforeEach(async () => {
         bobHasAnInbox()
         inboxIsEmpty()
@@ -48,7 +46,7 @@ describe('Inbox logic', () => {
       })
     })
     describe('When container has some containment triples', () => {
-      let result
+      let result: any[]
       beforeEach(async () => {
         bobHasAnInbox()
         inboxHasSomeContainmentTriples()
@@ -65,16 +63,14 @@ describe('Inbox logic', () => {
   describe('createInboxFor', () => {
     beforeEach(async () => {
       aliceHasValidProfile()
-      // First for the PUT:
       fetchMock.mockOnceIf(
-        'https://alice.example.com/p2p-inboxes/Peer%20Person/',
+        ({ url, method }) => url === 'https://alice.example.com/p2p-inboxes/Peer%20Person/' && method === 'PUT',
         'Created', {
           status: 201
         }
       )
-      // Then for the GET to read the ACL link:
       fetchMock.mockOnceIf(
-        'https://alice.example.com/p2p-inboxes/Peer%20Person/',
+        ({ url, method }) => url === 'https://alice.example.com/p2p-inboxes/Peer%20Person/' && method === 'GET',
         ' ', {
           status: 200,
           headers: {
@@ -189,7 +185,7 @@ describe('Inbox logic', () => {
   function inboxIsEmpty() {
     fetchMock.mockOnceIf(
       'https://container.com/',
-      ' ', // FIXME: https://github.com/jefflau/jest-fetch-mock/issues/189
+      ' ',
       {
         headers: { 'Content-Type': 'text/turtle' },
       }
