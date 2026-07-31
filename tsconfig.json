@@ -3,7 +3,7 @@
     /* Basic Options */
    "target": "ES2019" /* Specify ECMAScript target version - matches your browser support */,
     "module": "ESNext" /* Let bundlers handle module transformation for better tree-shaking */,
-    "moduleResolution": "node", /* Use Node.js-style module resolution for Webpack compatibility. */
+    "moduleResolution": "bundler", /* Use Node.js-style module resolution for Webpack compatibility. */
     "lib": [
       "DOM",
       "ES2019"

@@ -1,7 +1,18 @@
-import fetchMock from 'jest-fetch-mock'
-import { TextEncoder, TextDecoder } from 'util'
+import { TextDecoder, TextEncoder } from 'node:util'
+import { enableFetchMocks, mockFetchIf } from './fetch-mock'
+import { mockFetchFunction } from '../unit/setup'
 
-global.TextEncoder = TextEncoder as any
-global.TextDecoder = TextDecoder as any
+Object.defineProperty(globalThis, 'TextEncoder', {
+  value: TextEncoder,
+  configurable: true,
+  writable: true,
+})
 
-fetchMock.enableMocks()
+Object.defineProperty(globalThis, 'TextDecoder', {
+  value: TextDecoder,
+  configurable: true,
+  writable: true,
+})
+
+enableFetchMocks()
+mockFetchIf(/^https?.*$/, mockFetchFunction)

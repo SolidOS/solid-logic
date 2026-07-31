@@ -1,9 +1,10 @@
+import { beforeAll, describe, expect, it } from 'vitest'
 import { Fetcher, Store, sym, UpdateManager } from 'rdflib'
 import { createAclLogic } from '../src/acl/aclLogic'
 
 describe('setACLUserPublic', () => {
-    let aclLogic
-    let store
+    let aclLogic: any
+    let store: Store
     beforeAll(() => {
         const options = { fetch: fetch }
         store = new Store()

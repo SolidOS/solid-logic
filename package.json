@@ -3,13 +3,13 @@
   "version": "4.0.8-1",
   "description": "Core business logic of SolidOS",
   "type": "module",
-  "main": "dist/solid-logic.js",
-  "module": "dist/solid-logic.esm.js",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/solid-logic.esm.js",
-      "require": "./dist/solid-logic.js",
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.cjs.js",
       "types": "./dist/index.d.ts"
     }
   },
@@ -21,22 +21,20 @@
   ],
   "scripts": {
     "clean": "rm -rf dist src/versionInfo.ts",
-    "build": "npm run clean && npm run typecheck && npm run build-version && npm run build-js && npm run build-dist && npm run postbuild-js",
-    "build-version": "./timestamp.sh > src/versionInfo.ts  && eslint 'src/versionInfo.ts' --fix",
-    "build-js": "tsc --emitDeclarationOnly",
-    "build-dist": "webpack --progress",
+    "build": "npm run clean && npm run typecheck && vite build",
+    "watch": "vite build --watch",
+    "postbuild": "node ./scripts/write-dist-package-json.mjs && npm run postbuild-js",
     "postbuild-js": "rm -f dist/versionInfo.d.ts dist/versionInfo.d.ts.map dist/index.js dist/index.js.map",
     "lint": "eslint",
     "lint-fix": "eslint --fix",
     "typecheck": "tsc --noEmit",
     "typecheck-test": "tsc --noEmit -p tsconfig.test.json",
-    "test": "jest --no-coverage",
-    "test-coverage": "jest --coverage",
-    "test-debug": "node --inspect-brk ./node_modules/.bin/jest -i --env jest-environment-node-debug",
+    "test": "npm run typecheck-test && vitest run",
+    "test-coverage": "vitest run --coverage",
+    "test-debug": "node --inspect-brk ./node_modules/.bin/vitest -i --env vitest-environment-node-debug",
     "prepublishOnly": "npm run build && npm run lint && npm run test",
     "preversion": "npm run lint && npm run typecheck && npm test",
-    "postversion": "git push origin main --follow-tags",
-    "watch": "npm run build-version && tsc --watch"
+    "postversion": "git push origin main --follow-tags"
   },
   "repository": {
     "type": "git",
@@ -52,33 +50,29 @@
     "node": ">=18"
   },
   "devDependencies": {
-    "@babel/core": "^7.29.0",
-    "@babel/preset-env": "^7.29.5",
-    "@babel/preset-typescript": "^7.28.5",
-    "@types/jest": "^30.0.0",
     "@typescript-eslint/parser": "^8.61.1",
-    "babel-jest": "^30.4.1",
-    "babel-loader": "^10.1.1",
-    "babel-plugin-transform-import-meta": "^2.3.3",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
-    "jest": "^30.4.2",
-    "jest-environment-jsdom": "^30.4.1",
-    "jest-fetch-mock": "^3.0.3",
+    "vitest": "^4.1.9",
+    "jsdom": "^21.1.0",
     "rdflib": "^2.4.0",
-    "terser-webpack-plugin": "^5.6.0",
     "ts-loader": "^9.6.1",
     "tslib": "^2.8.1",
     "typescript": "^5.9.3",
-    "webpack": "^5.106.2",
-    "webpack-cli": "^7.0.3"
+    "@vitest/coverage-v8": "^4.1.9",
+    "solidos-toolkit": "dev"
   },
   "dependencies": {
     "@uvdsl/solid-oidc-client-browser": "^0.2.3",
-    "solid-namespace": "^0.5.4"
+    "solid-namespace": "^0.5.4",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
   },
   "solidosDependencies": [
     "rdflib"
-  ]
+  ],
+  "allowScripts": {
+    "fsevents@2.3.3": true
+  }
 }

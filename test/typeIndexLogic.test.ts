@@ -1,7 +1,4 @@
-/**
-* @jest-environment jsdom
-*
-*/
+import { beforeEach, describe, expect, it } from 'vitest'
 import { Fetcher, Store, sym, UpdateManager } from 'rdflib'
 import { createAclLogic } from '../src/acl/aclLogic'
 import { createProfileLogic } from '../src/profile/profileLogic'

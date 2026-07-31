@@ -16,7 +16,7 @@ Core business logic of SolidOS which can be used for any webapp as well.
 npm install solid-logic rdflib
 ```
 
-> **Important**: `rdflib` is a peer dependency - you must install it separately.
+> **Important**: `rdflib` is still required by the published bundles, so install it alongside `solid-logic` in your app.
 
 ### Import in your project (ESM/TypeScript)
 
@@ -121,10 +121,9 @@ Check the scripts in the `package.json` for build, watch, lint and test.
 
 # Used stack
 
-* TypeScript + Babel
-* Jest
+* TypeScript + Vite
+* Vitest
 * ESLint
-* Webpack
 
 # How to release
 
