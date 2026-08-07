@@ -4,6 +4,29 @@ import * as debug from '../util/debug'
 import type { SessionWithLegacyEvents } from '../authSession/authSession'
 import type { AuthenticationContext, AuthnLogic } from '../types'
 
+// Some auth clients (uvdsl worker-backed session) only settle restore() on
+// a worker message; a missing/unreachable RefreshWorker asset makes it hang
+// forever. This caps the wait so the login UI can never spin indefinitely.
+const SESSION_RESTORE_TIMEOUT_MS = 5000
+
+/**
+ * Await a session restore promise, but give up after
+ * SESSION_RESTORE_TIMEOUT_MS and resolve with undefined so callers can
+ * treat a stalled restore as "no previous session".
+ */
+async function withRestoreTimeout<T> (promise: Promise<T> | null): Promise<T | undefined> {
+  if (promise === null) return undefined
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<undefined>(resolve => {
+    timer = setTimeout(() => resolve(undefined), SESSION_RESTORE_TIMEOUT_MS)
+  })
+  try {
+    return await Promise.race([promise, timeout])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
 export class SolidAuthnLogic implements AuthnLogic {
   private session: SessionWithLegacyEvents
   private checkUserInFlight: Promise<NamedNode | null> | null = null
@@ -93,10 +116,19 @@ export class SolidAuthnLogic implements AuthnLogic {
         url: redirectUrl.href
       })
     } else {
+      // uvdsl-style session (no handleIncomingRedirect): restore then handle redirect.
+      //
+      // The worker-backed session (WebWorkerSession) resolves restore() ONLY
+      // when the SharedWorker posts a message back. If the worker asset can't
+      // be fetched — local/dev servers that don't serve the RefreshWorker
+      // chunk at the resolved URL, wrong MIME type, CSP, or a worker that
+      // fails before `onconnect` — the promise never settles and the login
+      // UI would spin forever. Race it against a timeout and treat a stall
+      // as "no previous session" so the page can render the login button.
+      const wasActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
       if (typeof sessionAny?.restore === 'function') {
-        const wasActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
         try {
-          await sessionAny.restore()
+          await withRestoreTimeout(sessionAny.restore())
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           if (!/no session to restore/i.test(message)) {
