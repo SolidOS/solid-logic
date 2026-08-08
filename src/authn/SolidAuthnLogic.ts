@@ -131,10 +131,18 @@ export class SolidAuthnLogic implements AuthnLogic {
           await withRestoreTimeout(sessionAny.restore())
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
-          if (!/no session to restore/i.test(message)) {
+          // A failed restore on an inactive session just means "no usable
+          // session to restore" — whether that's "No session to restore.",
+          // a stale refresh token / dead client_id returning HTTP 400, or a
+          // missing session database. Never let it block the login UI: log
+          // and continue as logged-out so the page renders the login button.
+          // Only re-throw when the session actually became active, which is
+          // an unexpected refresh failure worth surfacing.
+          const isNowActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
+          if (isNowActive && !/no session to restore/i.test(message)) {
             throw error
           }
-          debug.log('No previous session to restore')
+          debug.log(`Session restore failed, continuing logged-out: ${message}`)
         }
         const isNowActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
         if (!wasActive && isNowActive) {
