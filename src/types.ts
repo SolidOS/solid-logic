@@ -93,6 +93,19 @@ export interface InboxLogic {
     markAsRead: (url: string, date: Date) => void
 }
 
+export type ResourceDeleteOptions = {
+    deleteTypeIndexes?: boolean
+    user?: NamedNode | null
+}
+
+export interface ResourceLogic {
+    recursiveDelete: (resource: NamedNode, options?: ResourceDeleteOptions) => Promise<any>
+    deleteResourceAndTypeIndexIfExists: (resource: NamedNode, user?: NamedNode | null) => Promise<void>
+    createContainer: (url: string) => Promise<void>
+    isContainer: (resource: NamedNode) => boolean
+    getContainerMemberCount: (resource: NamedNode) => number
+}
+
 export interface TypeIndexLogic {
     getRegistrations: (instance, theClass) => Node[],
     loadTypeIndexesFor: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
@@ -104,6 +117,7 @@ export interface TypeIndexLogic {
     suggestPrivateTypeIndex: (preferencesFile: NamedNode) => NamedNode,
     registerInTypeIndex: (instance: NamedNode, index: NamedNode, theClass: NamedNode) => Promise<NamedNode | null>,
     deleteTypeIndexRegistration: (item: any) => Promise<void>
+    deleteTypeIndexRegistrationForResource: (resource: NamedNode, user: NamedNode) => Promise<boolean>
     getScopedAppsFromIndex: (scope: TypeIndexScope, theClass: NamedNode | null) => Promise<ScopedApp[]>
 }
 
@@ -111,6 +125,7 @@ export interface SolidLogic {
     store: LiveStore,
     authn: AuthnLogic,
     acl: AclLogic,
+    resource: ResourceLogic,
     profile: ProfileLogic,
     inbox: InboxLogic,
     typeIndex: TypeIndexLogic,

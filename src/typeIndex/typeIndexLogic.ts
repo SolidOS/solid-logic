@@ -225,6 +225,27 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         await store.updater.update(statements, [])
     }
 
+    async function deleteTypeIndexRegistrationForResource(resource: NamedNode, user: NamedNode): Promise<boolean> {
+        const scopes = await loadTypeIndexesFor(user)
+        const registrationsToDelete = scopes.flatMap(scope => {
+            const registrations = store.statementsMatching(null, ns.solid('instance'), resource, scope.index)
+                .concat(store.statementsMatching(null, ns.solid('instanceContainer'), resource, scope.index))
+                .map(st => st.subject)
+
+            return [...new Map(registrations.map(registration => [registration.value, registration] as const)).values()]
+                .flatMap(registration => {
+                    const statements = store.statementsMatching(registration, null, null, scope.index)
+                    return statements.length ? [{ scope, statements }] : []
+                })
+        })
+
+        await Promise.all(
+            registrationsToDelete.map(({ statements }) => store.updater.update(statements, []))
+        )
+
+        return registrationsToDelete.length > 0
+    }
+
     async function getScopedAppsFromIndex(scope: TypeIndexScope, theClass: NamedNode | null): Promise<ScopedApp[]> {
         const index = scope.index
         const results: ScopedApp[] = []
@@ -259,6 +280,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         suggestPublicTypeIndex,
         suggestPrivateTypeIndex,
         deleteTypeIndexRegistration,
+        deleteTypeIndexRegistrationForResource,
         getScopedAppsFromIndex
     }
 }

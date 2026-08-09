@@ -1,4 +1,5 @@
 import { NamedNode, Statement, sym } from 'rdflib'
+import { ns } from './ns'
 
 /**
  * Container-related class
@@ -16,8 +17,16 @@ export function createContainerLogic(store) {
     }
 
     function isContainer(url: NamedNode) {
-        const nodeToString = url.value
-        return nodeToString.charAt(nodeToString.length - 1) === '/'
+        const typeUris = store.findTypeURIs(url)
+        return Boolean(
+            url.value.charAt(url.value.length - 1) === '/' ||
+            typeUris[ns.ldp('Container').uri] ||
+            typeUris[ns.ldp('BasicContainer').uri]
+        )
+    }
+
+    function getContainerMemberCount(containerNode: NamedNode): number {
+        return getContainerElements(containerNode).length
     }
 
     async function createContainer(url: string) {
@@ -52,6 +61,7 @@ export function createContainerLogic(store) {
         isContainer,
         createContainer,
         getContainerElements,
-        getContainerMembers
+        getContainerMembers,
+        getContainerMemberCount
     }
 }

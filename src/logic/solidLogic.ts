@@ -5,6 +5,7 @@ import { SolidAuthnLogic } from '../authn/SolidAuthnLogic'
 import type { SessionWithLegacyEvents } from '../authSession/authSession'
 import { createChatLogic } from '../chat/chatLogic'
 import { createInboxLogic } from '../inbox/inboxLogic'
+import { createResourceLogic } from '../resource/resourceLogic'
 import { createProfileLogic } from '../profile/profileLogic'
 import { createTypeIndexLogic } from '../typeIndex/typeIndexLogic'
 import { createContainerLogic } from '../util/containerLogic'
@@ -34,6 +35,7 @@ export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: 
     const chat = createChatLogic(store, profile)
     const inbox = createInboxLogic(store, profile, utilityLogic, containerLogic, acl)
     const typeIndex = createTypeIndexLogic(store, authn, profile, utilityLogic)
+    const resource = createResourceLogic(store, acl, containerLogic, typeIndex)
     debug.log('SolidAuthnLogic initialized')
 
     function load(doc: NamedNode | NamedNode[] | string) {
@@ -64,6 +66,7 @@ export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: 
         store,
         authn,
         acl,
+        resource,
         inbox,
         chat,
         profile,
