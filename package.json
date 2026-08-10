@@ -1,6 +1,6 @@
 {
   "name": "solid-logic",
-  "version": "4.0.8-3",
+  "version": "4.0.8-4",
   "description": "Core business logic of SolidOS",
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
