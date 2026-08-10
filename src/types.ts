@@ -124,7 +124,6 @@ export interface ResourceLogic {
     deleteResourceAndTypeIndexIfExists: (resource: NamedNode, user?: NamedNode | null) => Promise<void>,
     fetchMetadata: (subject: NamedNode) => Promise<ResourceMetadata>,
     fetchMetadataWithDelete: (subject: NamedNode) => Promise<ResourceMetadataWithDelete>,
-    fetchContentAndMetadata: (subject: NamedNode) => Promise<{ content: string, metadata: ResourceMetadata }>,
     createContainer: (url: string) => Promise<void>,
     isContainer: (resource: NamedNode) => boolean,
     getContainerMemberCount: (resource: NamedNode) => number

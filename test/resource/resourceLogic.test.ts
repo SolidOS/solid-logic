@@ -8,6 +8,10 @@ function buildResourceLogic(overrides: {
   isContainer?: (resource: any) => boolean
   findAclDocUrl?: (resource: any) => Promise<string | undefined>
 } = {}) {
+  const typeIndexLogic = {
+    deleteTypeIndexRegistrationForResource: vi.fn().mockResolvedValue(true)
+  }
+
   const store = {
     fetcher: {
       webOperation: vi.fn(overrides.webOperation ?? (async () => { throw new Error('unexpected webOperation') })),
@@ -40,12 +44,10 @@ function buildResourceLogic(overrides: {
       getContainerMemberCount: vi.fn().mockReturnValue(0),
       getContainerMembers: vi.fn(overrides.getContainerMembers ?? (async () => []))
     } as any,
-    {
-      deleteTypeIndexRegistrationForResource: vi.fn().mockResolvedValue(true)
-    } as any
+    typeIndexLogic as any
   )
 
-  return { resourceLogic, store }
+  return { resourceLogic, store, typeIndexLogic }
 }
 
 describe('createResourceLogic', () => {
@@ -93,6 +95,36 @@ describe('createResourceLogic', () => {
     expect(metadata.contentType).toBe('text/turtle')
     expect(store.fetcher.webOperation).toHaveBeenCalledWith('HEAD', subjectUri)
     expect(store.fetcher.webOperation).toHaveBeenCalledWith('HEAD', containerUri)
+  })
+
+  it('reads access headers even when HEAD omits content-type', async () => {
+    const subjectUri = 'https://example.com/workspace/doc.ttl'
+
+    const { resourceLogic } = buildResourceLogic({
+      webOperation: async (method: string, uri: string) => {
+        if (method === 'HEAD' && uri === subjectUri) {
+          return {
+            ok: true,
+            headers: new Headers({
+              'wac-allow': 'user="read write", public="read"',
+              etag: '"abc"'
+            })
+          }
+        }
+
+        throw new Error(`unexpected request: ${method} ${uri}`)
+      }
+    })
+
+    const metadata = await resourceLogic.fetchMetadataWithDelete(sym(subjectUri))
+
+    expect(metadata.access).toEqual({
+      canEdit: true,
+      isPublic: true,
+      canDelete: false
+    })
+    expect(metadata.contentType).toBeUndefined()
+    expect(metadata.eTag).toBe('"abc"')
   })
 
   it('returns content and metadata for GET responses with responseText', async () => {
@@ -150,7 +182,7 @@ describe('createResourceLogic', () => {
     const rootNode = sym(rootUri)
     const childNode = sym(childUri)
 
-    const { resourceLogic, store } = buildResourceLogic({
+    const { resourceLogic, store, typeIndexLogic } = buildResourceLogic({
       isContainer: (resource: any) => resource?.value === rootUri,
       getContainerMembers: async (resource: any) => resource?.value === rootUri ? [childUri] : [],
       findAclDocUrl: async (resource: any) => `${resource.value}.acl`,
@@ -183,20 +215,38 @@ describe('createResourceLogic', () => {
     expect(store.fetcher._fetch).toHaveBeenCalledWith(childUri, { method: 'DELETE' })
     expect(store.fetcher._fetch).toHaveBeenCalledWith(`${rootUri}.acl`, { method: 'DELETE' })
     expect(store.fetcher._fetch).toHaveBeenCalledWith(rootUri, { method: 'DELETE' })
+    expect(typeIndexLogic.deleteTypeIndexRegistrationForResource).toHaveBeenCalledTimes(0)
     expect(store.removeDocument).toHaveBeenCalledWith(childNode)
     expect(store.removeDocument).toHaveBeenCalledWith(rootNode)
+  })
+
+  it('throws when DELETE resolves to a failed response and does not mutate the store', async () => {
+    const resourceUri = 'https://example.com/workspace/doc.ttl'
+    const resourceNode = sym(resourceUri)
+    const { resourceLogic, store, typeIndexLogic } = buildResourceLogic({
+      webOperation: async () => ({ ok: true, headers: new Headers({ 'content-type': 'text/turtle' }), responseText: 'ok' })
+    })
+
+    store.fetcher._fetch.mockResolvedValue(new Response('', { status: 403 }))
+
+    await expect(resourceLogic.recursiveDelete(resourceNode as any)).rejects.toThrow('HTTP error on DELETE! Status: 403')
+    expect(store.removeDocument).not.toHaveBeenCalled()
+    expect(store.removeMatches).not.toHaveBeenCalled()
+    expect(store.fetcher.unload).not.toHaveBeenCalled()
+    expect(typeIndexLogic.deleteTypeIndexRegistrationForResource).not.toHaveBeenCalled()
   })
 
   it('deletes type-index registrations when requested', async () => {
     const resourceUri = 'https://example.com/workspace/doc.ttl'
     const userNode = sym('https://example.com/profile/card#me')
-    const { resourceLogic, store } = buildResourceLogic({
+    const { resourceLogic, store, typeIndexLogic } = buildResourceLogic({
       webOperation: async () => ({ ok: true, headers: new Headers({ 'content-type': 'text/turtle' }), responseText: 'ok' })
     })
 
     store.fetcher._fetch.mockResolvedValue({ ok: true })
 
     await expect(resourceLogic.deleteResourceAndTypeIndexIfExists(sym(resourceUri), userNode)).resolves.toBeUndefined()
+    expect(typeIndexLogic.deleteTypeIndexRegistrationForResource).toHaveBeenCalledWith(sym(resourceUri), userNode)
     expect(store.fetcher._fetch).toHaveBeenCalledWith(resourceUri, { method: 'DELETE' })
   })
 })

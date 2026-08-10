@@ -1,17 +1,9 @@
 import { NamedNode, sym } from 'rdflib'
 import { ACL_LINK } from '../acl/aclLogic'
 import { ns } from '../util/ns'
+import { assertSuccessfulHttpResponse, isMissingError } from './resourceHttp'
 import { readWacAccessInfo } from './resourceMetadata'
 import { type AclLogic, type ResourceAccess, type ResourceAccessWithDelete, type ResourceDeleteOptions, type ResourceLogic, type ResourceMetadata, type ResourceMetadataWithDelete, type TypeIndexLogic } from '../types'
-
-function assertSuccessfulResponse(response: Response, method: string) {
-  if (response.ok) return
-
-  const message = response.status === 412
-    ? 'Error: File changed by someone else'
-    : `HTTP error on ${method}! Status: ${response.status}`
-  throw new Error(message)
-}
 
 export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, typeIndexLogic: TypeIndexLogic): ResourceLogic {
   function createContainer(url: string) {
@@ -33,15 +25,18 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     let eTag: string | undefined
     let modified: string | undefined
 
-    if (response.headers && response.headers.get('content-type')) {
-      contentType = response.headers.get('content-type')?.split(';')[0] ?? undefined
-      const accessFlags = readWacAccessInfo(response.headers.get('wac-allow'))
+    if (response.headers) {
+      const contentTypeHeader = response.headers.get('content-type')
+      contentType = contentTypeHeader?.split(';')[0] ?? undefined
 
+      const accessFlags = readWacAccessInfo(response.headers.get('wac-allow'))
       canEdit = accessFlags.canEdit
       isPublic = accessFlags.isPublic
       eTag = response.headers.get('etag') ?? undefined
       modified = store.anyValue(subject as any, ns.dct('modified')) || store.anyValue(subject as any, ns.dc('modified')) || undefined
-    } else {
+    }
+
+    if ((!response.headers || !response.headers.get('content-type')) && (!response.headers || !response.headers.get('wac-allow') || !response.headers.get('etag'))) {
       const reqs = store.each(
         null,
         store.sym('http://www.w3.org/2007/ont/link#requestedURI'),
@@ -53,13 +48,19 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
           store.sym('http://www.w3.org/2007/ont/link#response')
         )
         if (responseNode && responseNode.termType === 'NamedNode') {
-          contentType = store.anyValue(responseNode as any, ns.httph('content-type')) || undefined
+          const responseContentType = store.anyValue(responseNode as any, ns.httph('content-type')) || undefined
+          if (contentType === undefined) {
+            contentType = responseContentType
+          }
           const wacAllow = (store.anyValue(responseNode as any, ns.httph('wac-allow')) as string | undefined) ||
             (store.anyValue(responseNode as any, ns.httph('WAC-Allow')) as string | undefined)
           const accessFlags = readWacAccessInfo(wacAllow)
-          canEdit = accessFlags.canEdit
-          isPublic = accessFlags.isPublic
-          eTag = store.anyValue(responseNode as any, ns.httph('etag')) || undefined
+          canEdit = canEdit || accessFlags.canEdit
+          isPublic = isPublic || accessFlags.isPublic
+          const responseETag = store.anyValue(responseNode as any, ns.httph('etag')) || undefined
+          if (eTag === undefined) {
+            eTag = responseETag
+          }
           modified = store.anyValue(subject as any, ns.dct('modified')) || store.anyValue(subject as any, ns.dc('modified')) || undefined
         }
       })
@@ -72,7 +73,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
 
   async function fetchHeadMetadata(subject: NamedNode): Promise<ResourceMetadata> {
     const response = await store.fetcher.webOperation('HEAD', subject.uri)
-    assertSuccessfulResponse(response, 'HEAD')
+    assertSuccessfulHttpResponse(response, 'HEAD')
     return readMetadata(subject, response)
   }
 
@@ -122,26 +123,6 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     return { ...resourceMetadata, access }
   }
 
-  async function fetchContentAndMetadata(subject: NamedNode): Promise<{ content: string, metadata: ResourceMetadata }> {
-    const response = await store.fetcher.webOperation('GET', subject.uri)
-    assertSuccessfulResponse(response, 'GET')
-    const content = (response as Response & { responseText?: string }).responseText
-
-    if (content === undefined) {
-      throw new Error('No text in response object!!')
-    }
-
-    const resourceMetadata = readMetadata(subject, response)
-    return { content, metadata: resourceMetadata }
-  }
-
-  function isNotFoundError(error: any): boolean {
-    const status = error?.response?.status ?? error?.status
-    if (status === 404 || status === 410) return true
-    const text = `${error?.message || error || ''}`
-    return text.includes('404') || text.includes('Not Found')
-  }
-
   async function deleteTypeIndexesForResource(resourceNode: NamedNode, user?: NamedNode | null) {
     if (!user) return
 
@@ -160,10 +141,6 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
       await Promise.all(containerMembers.map((url) => recursiveDelete(sym(url), options)))
     }
 
-    if (options.deleteTypeIndexes) {
-      await deleteTypeIndexesForResource(resourceNode, options.user)
-    }
-
     try {
       const aclDocUrl = await aclLogic.findAclDocUrl(resourceNode)
       if (aclDocUrl) {
@@ -177,10 +154,15 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     let deleted
     try {
       deleted = await store.fetcher._fetch(resourceNode.value, { method: 'DELETE' })
+      assertSuccessfulHttpResponse(deleted, 'DELETE', { allowNotFound: true })
     } catch (error) {
-      if (!isNotFoundError(error)) {
+      if (!isMissingError(error)) {
         throw error
       }
+    }
+
+    if (options.deleteTypeIndexes) {
+      await deleteTypeIndexesForResource(resourceNode, options.user)
     }
 
     if (resourceParent) {
@@ -201,7 +183,6 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     deleteResourceAndTypeIndexIfExists,
     fetchMetadata,
     fetchMetadataWithDelete,
-    fetchContentAndMetadata,
     createContainer,
     isContainer,
     getContainerMemberCount
