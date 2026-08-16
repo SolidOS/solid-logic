@@ -111,4 +111,24 @@ export const authSession: SessionWithLegacyEvents = Object.assign(
   _session as Omit<OidcSession, 'login'> & { login: LoginCompat },
   { events }
 )
+
+// Legacy `info` compatibility shape.
+// The uvdsl session stores state on `webId_`/`isActive_` and exposes them via
+// `webId`/`isActive` getters, but legacy consumers (e.g. solid-ui's
+// `loginStatusBox` widget, `SolidAuthnLogic.currentUser()`'s fallback path)
+// read `authSession.info.webId` / `authSession.info.isLoggedIn`. Expose those
+// as a derived getter so legacy login/logout UI renders the correct state
+// (logout button instead of a mislabelled login button).
+Object.defineProperty(authSession, 'info', {
+  enumerable: true,
+  configurable: true,
+  get (): { webId?: string; isLoggedIn?: boolean } {
+    const sessionAny = _session as any
+    const isActive = sessionAny.isActive === true || Boolean(sessionAny.webId)
+    return {
+      webId: sessionAny.webId,
+      isLoggedIn: isActive
+    }
+  }
+})
   
