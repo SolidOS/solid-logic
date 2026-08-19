@@ -15,6 +15,8 @@ const externalsBase = {
 
 const externalsESM = {
   ...externalsBase,
+  '@uvdsl/solid-oidc-client-browser': '@uvdsl/solid-oidc-client-browser',
+  '@uvdsl/solid-oidc-client-browser/core': '@uvdsl/solid-oidc-client-browser/core',
   'rdflib': 'rdflib'
 }
 
@@ -35,6 +37,10 @@ const commonConfig = {
     extensions: ['.ts', '.js']
   },
   devtool: 'source-map',
+  optimization: {
+    splitChunks: false,
+    runtimeChunk: false
+  }
 };
 
 export default [
@@ -44,6 +50,7 @@ export default [
     output: {
       path: path.resolve(process.cwd(), 'dist'),
       filename: 'solid-logic.js',
+      publicPath: '',
       library: {
         name: 'SolidLogic',
         type: 'umd',
@@ -63,6 +70,7 @@ export default [
     output: {
       path: path.resolve(process.cwd(), 'dist'),
       filename: 'solid-logic.min.js',
+      publicPath: '',
       library: {
         name: 'SolidLogic',
         type: 'umd',
@@ -83,6 +91,7 @@ export default [
     output: {
       path: path.resolve(process.cwd(), 'dist'),
       filename: 'solid-logic.esm.js',
+      publicPath: '',
       library: {
         type: 'module'
       },
@@ -103,6 +112,7 @@ export default [
     output: {
       path: path.resolve(process.cwd(), 'dist'),
       filename: 'solid-logic.esm.min.js',
+      publicPath: '',
       library: {
         type: 'module'
       },

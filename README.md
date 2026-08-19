@@ -29,7 +29,9 @@ console.log('Current user:', authn.currentUser());
 
 ## 🌐 Use directly in a browser
 
-Both UMD and ESM bundles externalize rdflib to keep bundle sizes small and avoid version conflicts.
+The UMD bundles externalize `rdflib` only.
+
+The ESM bundles externalize both `rdflib` and the auth library packages `@uvdsl/solid-oidc-client-browser` / `@uvdsl/solid-oidc-client-browser/core`.
 
 ## Available Files
 

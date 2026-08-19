@@ -27,14 +27,9 @@ export function getSuggestedIssuers (): { name: string, uri: string }[] {
     // Suggest the current host if not already included
     const { host, origin } = new URL(location.href)
     const hosts = issuers.map(({ uri }) => new URL(uri).host)
-    if (!hosts.includes(host) && !hosts.some(existing => isSubdomainOf(host, existing))) {
+    if (!hosts.includes(host)) {
       issuers.unshift({ name: host, uri: origin })
     }
   
     return issuers
   }
-  
-function isSubdomainOf (subdomain: string, domain: string): boolean {
-    const dot = subdomain.length - domain.length - 1
-    return dot > 0 && subdomain[dot] === '.' && subdomain.endsWith(domain)
-}

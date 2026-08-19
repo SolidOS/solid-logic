@@ -1,6 +1,6 @@
 {
   "name": "solid-logic",
-  "version": "4.0.7",
+  "version": "5.0.0",
   "description": "Core business logic of SolidOS",
   "type": "module",
   "main": "dist/solid-logic.js",
@@ -23,10 +23,11 @@
     "clean": "rm -rf dist src/versionInfo.ts",
     "build": "npm run clean && npm run typecheck && npm run build-version && npm run build-js && npm run build-dist && npm run postbuild-js",
     "build-version": "./timestamp.sh > src/versionInfo.ts  && eslint 'src/versionInfo.ts' --fix",
-    "build-js": "tsc",
+    "build-js": "tsc --emitDeclarationOnly",
     "build-dist": "webpack --progress",
-    "postbuild-js": "rm -f dist/versionInfo.d.ts dist/versionInfo.d.ts.map",
+    "postbuild-js": "rm -f dist/versionInfo.d.ts dist/versionInfo.d.ts.map dist/index.js dist/index.js.map",
     "lint": "eslint",
+    "lint-fix": "eslint --fix",
     "typecheck": "tsc --noEmit",
     "typecheck-test": "tsc --noEmit -p tsconfig.test.json",
     "test": "jest --no-coverage",
@@ -58,6 +59,7 @@
     "@typescript-eslint/parser": "^8.59.3",
     "babel-jest": "^30.4.1",
     "babel-loader": "^10.1.1",
+    "babel-plugin-transform-import-meta": "^2.3.3",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
@@ -72,10 +74,10 @@
     "webpack-cli": "^7.0.2"
   },
   "dependencies": {
-    "@inrupt/solid-client-authn-browser": "^4.0.0",
+    "@uvdsl/solid-oidc-client-browser": "^0.2.3",
     "solid-namespace": "^0.5.4"
   },
   "peerDependencies": {
-    "rdflib": "^2.3.7"
+    "rdflib": "^2.4.0"
   }
 }
