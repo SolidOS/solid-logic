@@ -35,7 +35,6 @@ describe('solidLogicSingleton fetch bridge', () => {
   let originalFetch: any
   let originalAuthFetch: any
   let originalWebId: any
-  let originalInfo: any
 
   beforeEach(() => {
     fetchMock.resetMocks()
@@ -44,10 +43,10 @@ describe('solidLogicSingleton fetch bridge', () => {
     originalFetch = sessionAny.fetch
     originalAuthFetch = sessionAny.authFetch
     originalWebId = sessionAny.webId
-    originalInfo = sessionAny.info
 
+    // `info` is a derived read-only property (from webId/isActive), so resetting
+    // webId is sufficient to put the session in the logged-out state.
     sessionAny.webId = undefined
-    sessionAny.info = { isLoggedIn: false }
   })
 
   afterEach(() => {
@@ -55,7 +54,6 @@ describe('solidLogicSingleton fetch bridge', () => {
     sessionAny.fetch = originalFetch
     sessionAny.authFetch = originalAuthFetch
     sessionAny.webId = originalWebId
-    sessionAny.info = originalInfo
   })
 
   it('uses window.fetch when credentials are omit even if a session exists', async () => {
