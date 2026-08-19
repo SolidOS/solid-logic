@@ -1,6 +1,6 @@
 {
   "name": "solid-logic",
-  "version": "4.0.7",
+  "version": "5.0.0",
   "description": "Core business logic of SolidOS",
   "type": "module",
   "main": "dist/solid-logic.js",
