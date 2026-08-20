@@ -11,19 +11,6 @@ import * as debug from '../util/debug'
 import { differentOrigin } from './utils'
 
 export function createUtilityLogic(store, aclLogic, containerLogic) {
-  async function recursiveDelete(containerNode: NamedNode) {
-    try {
-      if (containerLogic.isContainer(containerNode)) {
-        const aclDocUrl = await aclLogic.findAclDocUrl(containerNode)
-        await store.fetcher._fetch(aclDocUrl, { method: 'DELETE' })
-        const containerMembers = await containerLogic.getContainerMembers(containerNode)
-        await Promise.all(containerMembers.map((url) => recursiveDelete(url)))
-      }
-      return store.fetcher._fetch(containerNode.value, { method: 'DELETE' })
-    } catch (e) {
-      debug.log(`Please manually remove ${containerNode.value} from your system.`, e)
-    }
-  }
 
   /**
    * Create a resource if it really does not exist.
@@ -218,7 +205,6 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
   }
 
   return {
-    recursiveDelete,
     setSinglePeerAccess,
     createEmptyRdfDoc,
     followOrCreateLink,
