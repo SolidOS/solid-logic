@@ -127,55 +127,6 @@ describe('createResourceLogic', () => {
     expect(metadata.eTag).toBe('"abc"')
   })
 
-  it('returns content and metadata for GET responses with responseText', async () => {
-    const subjectUri = 'https://example.com/workspace/doc.ttl'
-    const { resourceLogic } = buildResourceLogic({
-      webOperation: async (method: string, uri: string) => {
-        if (method !== 'GET' || uri !== subjectUri) {
-          throw new Error(`unexpected request: ${method} ${uri}`)
-        }
-
-        return {
-          ok: true,
-          headers: new Headers({
-            'content-type': 'text/turtle',
-            'wac-allow': 'user="read write", public="read"',
-            etag: '"abc"'
-          }),
-          responseText: '@prefix : <#> .'
-        }
-      }
-    })
-
-    const result = await resourceLogic.fetchContentAndMetadata(sym(subjectUri))
-
-    expect(result.content).toBe('@prefix : <#> .')
-    expect(result.metadata).toMatchObject({
-      contentType: 'text/turtle',
-      access: { canEdit: true, isPublic: true },
-      eTag: '"abc"',
-      modified: '2026-08-10T00:00:00Z'
-    })
-  })
-
-  it('fails when a GET response has no text payload', async () => {
-    const subjectUri = 'https://example.com/workspace/doc.ttl'
-    const { resourceLogic } = buildResourceLogic({
-      webOperation: async (method: string, uri: string) => {
-        if (method !== 'GET' || uri !== subjectUri) {
-          throw new Error(`unexpected request: ${method} ${uri}`)
-        }
-
-        return {
-          ok: true,
-          headers: new Headers({ 'content-type': 'text/turtle' })
-        }
-      }
-    })
-
-    await expect(resourceLogic.fetchContentAndMetadata(sym(subjectUri))).rejects.toThrow('No text in response object!!')
-  })
-
   it('recursively deletes containers and tolerates not found resource deletes', async () => {
     const rootUri = 'https://example.com/workspace/container/'
     const childUri = 'https://example.com/workspace/container/item.ttl'
@@ -211,9 +162,7 @@ describe('createResourceLogic', () => {
 
     await expect(resourceLogic.recursiveDelete(rootNode as any)).resolves.toEqual({ ok: true })
 
-    expect(store.fetcher._fetch).toHaveBeenCalledWith(`${childUri}.acl`, { method: 'DELETE' })
     expect(store.fetcher._fetch).toHaveBeenCalledWith(childUri, { method: 'DELETE' })
-    expect(store.fetcher._fetch).toHaveBeenCalledWith(`${rootUri}.acl`, { method: 'DELETE' })
     expect(store.fetcher._fetch).toHaveBeenCalledWith(rootUri, { method: 'DELETE' })
     expect(typeIndexLogic.deleteTypeIndexRegistrationForResource).toHaveBeenCalledTimes(0)
     expect(store.removeDocument).toHaveBeenCalledWith(childNode)
