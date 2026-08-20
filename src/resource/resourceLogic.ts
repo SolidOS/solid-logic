@@ -141,16 +141,6 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
       await Promise.all(containerMembers.map((url) => recursiveDelete(sym(url), options)))
     }
 
-    try {
-      const aclDocUrl = await aclLogic.findAclDocUrl(resourceNode)
-      if (aclDocUrl) {
-        await store.fetcher._fetch(aclDocUrl, { method: 'DELETE' })
-        store.fetcher.unload(sym(aclDocUrl))
-      }
-    } catch (_error) {
-      store.fetcher.unload(resourceNode.doc())
-    }
-
     let deleted
     try {
       deleted = await store.fetcher._fetch(resourceNode.value, { method: 'DELETE' })
