@@ -111,10 +111,12 @@ export class SolidAuthnLogic implements AuthnLogic {
     const redirectUrl = new URL(window.location.href)
     redirectUrl.hash = ''
     if (typeof sessionAny?.handleIncomingRedirect === 'function') {
+      const wasActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
       await sessionAny.handleIncomingRedirect({
         restorePreviousSession: true,
         url: redirectUrl.href
       })
+      this.emitSessionActivatedIfActivated(sessionAny, wasActive, 'login')
     } else {
       // uvdsl-style session (no handleIncomingRedirect): restore then handle redirect.
       //
@@ -125,10 +127,12 @@ export class SolidAuthnLogic implements AuthnLogic {
       // fails before `onconnect` — the promise never settles and the login
       // UI would spin forever. Race it against a timeout and treat a stall
       // as "no previous session" so the page can render the login button.
-      const wasActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
       if (typeof sessionAny?.restore === 'function') {
+        let restorePromise: Promise<unknown> | null = null
+        const wasActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
         try {
-          await withRestoreTimeout(sessionAny.restore())
+          restorePromise = sessionAny.restore()
+          await withRestoreTimeout(restorePromise)
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           // A failed restore on an inactive session just means "no usable
@@ -144,18 +148,20 @@ export class SolidAuthnLogic implements AuthnLogic {
           }
           debug.log(`Session restore failed, continuing logged-out: ${message}`)
         }
-        const isNowActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
-        if (!wasActive && isNowActive) {
-          sessionAny.events?.emit('sessionRestore', window.location.href)
+        if (!this.emitSessionActivatedIfActivated(sessionAny, wasActive, 'sessionRestore') && restorePromise) {
+          // The restore promise can still settle after the timeout race above,
+          // e.g. when a slow worker replies late. Emit then as well, so the
+          // store invalidation and UI listeners see the session activate
+          // instead of the page silently keeping stale anonymous metadata.
+          Promise.resolve(restorePromise).then(() => {
+            this.emitSessionActivatedIfActivated(sessionAny, wasActive, 'sessionRestore')
+          }).catch(() => {
+            // Late rejections are already handled by the timeout path above.
+          })
         }
       }
       if (typeof sessionAny?.handleRedirectFromLogin === 'function') {
-        const wasActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
         await sessionAny.handleRedirectFromLogin()
-        const isNowActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
-        if (!wasActive && isNowActive) {
-          sessionAny.events?.emit('login')
-        }
       }
     }
 
@@ -205,6 +211,20 @@ export class SolidAuthnLogic implements AuthnLogic {
     }
 
     return me
+  }
+
+  private emitSessionActivatedIfActivated (
+    sessionAny: any,
+    wasActive: boolean,
+    eventName: 'login' | 'sessionRestore'
+  ): boolean {
+    const isNowActive = sessionAny?.isActive ??
+      Boolean(sessionAny?.webId ?? sessionAny?.info?.webId)
+    if (!wasActive && isNowActive) {
+      sessionAny.events?.emit(eventName, window.location.href)
+      return true
+    }
+    return false
   }
 
   private async probeNssCookieBackedWebId (): Promise<string | null> {

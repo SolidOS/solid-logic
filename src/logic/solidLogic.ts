@@ -62,6 +62,38 @@ export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: 
         store.statements.slice().forEach(store.remove.bind(store))
     }
 
+    // A session usually activates after documents have already been fetched
+    // anonymously. Those cached responses carry no write metadata, and rdflib will
+    // not re-request a document it has already marked done, so `editable()` stays
+    // unknown and every PATCH is refused. Dropping both lets the next load record
+    // authenticated headers, so rdflib's own reload path recovers on its own.
+    function invalidateAnonymousFetches() {
+        const updater = store.updater as any
+        if (typeof updater?.flagAuthorizationMetadata !== 'function') {
+            return
+        }
+
+        updater.flagAuthorizationMetadata(store)
+
+        const fetcher = store.fetcher as any
+        const requested = fetcher?.requested as Record<string, unknown> | undefined
+        if (!requested) {
+            return
+        }
+
+        Object.entries(requested).forEach(([uri, state]) => {
+            // rdflib stores in-flight requests as `true`; completed ones as
+            // 'done', 'redirected', or a numeric status such as 403. Every
+            // completed entry holds pre-auth metadata, so drop them all.
+            if (state !== true) {
+                delete requested[uri]
+            }
+        })
+    }
+
+    session.events?.on('login', invalidateAnonymousFetches)
+    session.events?.on('sessionRestore', invalidateAnonymousFetches)
+
     return {
         store,
         authn,
