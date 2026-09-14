@@ -103,4 +103,21 @@ describe('resourceLogic', () => {
     await expect(resourceLogic.recursiveDelete(resource)).resolves.toBeUndefined()
     expect(store.removeDocument).toHaveBeenCalledWith(resource)
   })
+
+  it('refreshes a resource when editability is stale and returns the refreshed editability', async () => {
+    const resourceLogic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    const resource = sym('https://example.com/profile/card')
+    const editable = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true)
+    const refresh = vi.fn().mockResolvedValue(undefined)
+
+    store.updater = {
+      editable
+    } as unknown as LiveStore['updater']
+    store.fetcher.refresh = refresh as unknown as Fetcher['refresh']
+
+    await expect(resourceLogic.checkAndRefreshEditable(resource)).resolves.toBe(true)
+    expect(editable).toHaveBeenNthCalledWith(1, resource.uri, store)
+    expect(refresh).toHaveBeenCalledWith(resource)
+    expect(editable).toHaveBeenNthCalledWith(2, resource.uri, store)
+  })
 })

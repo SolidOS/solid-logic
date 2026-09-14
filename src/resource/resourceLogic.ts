@@ -1,11 +1,11 @@
-import { NamedNode, sym } from 'rdflib'
+import { NamedNode, sym, LiveStore } from 'rdflib'
 import { ACL_LINK } from '../acl/aclLogic'
 import { ns } from '../util/ns'
 import { assertSuccessfulHttpResponse, isMissingError } from './resourceHttp'
 import { readWacAccessInfo } from './resourceMetadata'
 import { type AclLogic, type ResourceAccess, type ResourceAccessWithDelete, type ResourceDeleteOptions, type ResourceLogic, type ResourceMetadata, type ResourceMetadataWithDelete, type TypeIndexLogic } from '../types'
 
-export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, typeIndexLogic: TypeIndexLogic): ResourceLogic {
+export function createResourceLogic(store: LiveStore, aclLogic: AclLogic, containerLogic, typeIndexLogic: TypeIndexLogic): ResourceLogic {
   function createContainer(url: string) {
     return containerLogic.createContainer(url)
   }
@@ -168,11 +168,33 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     await recursiveDelete(resourceNode, { deleteTypeIndexes: true, user })
   }
 
+  async function checkAndRefreshEditable(resourceNode: NamedNode | null | undefined): Promise<boolean> {
+    if (!resourceNode || !store.updater || !store.fetcher || typeof store.fetcher.refresh !== 'function') return false
+
+    const resourceUri = resourceNode.uri || resourceNode.value || ''
+    if (!resourceUri) return false
+
+    const editable = store.updater.editable(resourceUri, store)
+    if (editable !== false && editable !== undefined) {
+      return true
+    }
+
+    try {
+      await store.fetcher.refresh(resourceNode)
+    } catch (error) {
+      throw error instanceof Error ? error : new Error(`Failed to refresh <${resourceUri}>`)
+    }
+
+    const editableAfterRefresh = store.updater.editable(resourceUri, store)
+    return editableAfterRefresh !== false && editableAfterRefresh !== undefined
+  }
+
   return {
     recursiveDelete,
     deleteResourceAndTypeIndexIfExists,
     fetchMetadata,
     fetchMetadataWithDelete,
+    checkAndRefreshEditable,
     createContainer,
     isContainer,
     getContainerMemberCount
