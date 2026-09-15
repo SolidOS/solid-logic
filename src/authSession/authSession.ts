@@ -14,6 +14,7 @@ import type { Session as OidcSession } from '@uvdsl/solid-oidc-client-browser/co
 import { _session } from './session'
 import { resolveIssuerForLogin } from './issuer'
 import { SessionEvents } from './events'
+import { watchSessionTransitions, type SessionLike } from './transitions'
 
 type SessionCompatibilityShape = {
   webId?: string
@@ -93,19 +94,14 @@ if (originalLogin) {
 
 const events = new SessionEvents()
 
-// Emit the legacy 'logout' event when the session transitions from active to inactive.
 // 'login' and 'sessionRestore' are emitted in SolidAuthnLogic.checkUser()
-// because only that call site knows which path activated the session.
-let _wasActive = (_session as any).isActive ?? Boolean((_session as any).webId)
-if (typeof (_session as unknown as EventTarget).addEventListener === 'function') {
-  ;(_session as unknown as EventTarget).addEventListener('sessionStateChange', () => {
-    const isNowActive = (_session as any).isActive ?? Boolean((_session as any).webId)
-    if (_wasActive && !isNowActive) {
-      events.emit('logout')
-    }
-    _wasActive = isNowActive
-  })
-}
+// because only that call site knows which path activated the session. Every
+// other identity transition is reported from here: 'logout' when the session
+// goes inactive, and 'sessionChange' when the identity changes some other way
+// — including a login/logout made in another tab, which the uvdsl
+// SharedWorker does not broadcast as a state change and which is noticed when
+// this tab is refocused.
+watchSessionTransitions(_session as unknown as SessionLike, (event) => events.emit(event))
 
 export const authSession: SessionWithLegacyEvents = Object.assign(
   _session as Omit<OidcSession, 'login'> & { login: LoginCompat },
