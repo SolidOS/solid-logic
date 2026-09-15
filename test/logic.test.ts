@@ -35,7 +35,18 @@ describe('solidLogicSingleton fetch bridge', () => {
 
   let originalFetch: any
   let originalAuthFetch: any
-  let originalInfo: any
+  let originalInfoDescriptor: PropertyDescriptor | undefined
+
+  // `info` is derived and getter-only (see authSession.ts), so it cannot be
+  // assigned in a test — redefine the property, and put the module's own
+  // descriptor back afterwards.
+  const setInfo = (value: any): void => {
+    Object.defineProperty(authSession, 'info', {
+      configurable: true,
+      enumerable: true,
+      get: () => value
+    })
+  }
 
   beforeEach(() => {
     fetchMock.resetMocks()
@@ -43,21 +54,21 @@ describe('solidLogicSingleton fetch bridge', () => {
     const sessionAny = authSession as any
     originalFetch = sessionAny.fetch
     originalAuthFetch = sessionAny.authFetch
-    originalInfo = sessionAny.info
+    originalInfoDescriptor = Object.getOwnPropertyDescriptor(authSession, 'info')
 
-    sessionAny.info = { isLoggedIn: false }
+    setInfo({ isLoggedIn: false })
   })
 
   afterEach(() => {
     const sessionAny = authSession as any
     sessionAny.fetch = originalFetch
     sessionAny.authFetch = originalAuthFetch
-    sessionAny.info = originalInfo
+    if (originalInfoDescriptor) Object.defineProperty(authSession, 'info', originalInfoDescriptor)
   })
 
   it('uses window.fetch when credentials are omit even if a session exists', async () => {
     const sessionAny = authSession as any
-    sessionAny.info = { webId: 'https://alice.example/profile#me', isLoggedIn: true }
+    setInfo({ webId: 'https://alice.example/profile#me', isLoggedIn: true })
     sessionAny.fetch = vi.fn().mockResolvedValue(new Response('session'))
 
     fetchMock.mockResponseOnce('window')
@@ -70,7 +81,7 @@ describe('solidLogicSingleton fetch bridge', () => {
 
   it('falls back to authFetch when session.fetch is unavailable', async () => {
     const sessionAny = authSession as any
-    sessionAny.info = { webId: 'https://alice.example/profile#me', isLoggedIn: true }
+    setInfo({ webId: 'https://alice.example/profile#me', isLoggedIn: true })
     sessionAny.fetch = undefined
     sessionAny.authFetch = vi.fn().mockResolvedValue(new Response('auth'))
 
