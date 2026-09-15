@@ -111,4 +111,31 @@ export const authSession: SessionWithLegacyEvents = Object.assign(
   _session as Omit<OidcSession, 'login'> & { login: LoginCompat },
   { events }
 )
+
+// Legacy `info` compatibility shape.
+// The uvdsl session stores state on `webId_`/`isActive_` and exposes them via
+// `webId`/`isActive` getters, but legacy consumers (e.g. solid-ui's
+// `loginStatusBox` widget, `SolidAuthnLogic.currentUser()`'s fallback path)
+// read `authSession.info.webId` / `authSession.info.isLoggedIn`. Expose those
+// as a derived value — and keep the property assignable. Legacy code (and the
+// tests) own an `info` object and assign it; the assignment wins until it is
+// cleared back to `undefined`, when the derived value takes over again.
+let infoOverride: { webId?: string; isLoggedIn?: boolean } | undefined
+
+Object.defineProperty(authSession, 'info', {
+  enumerable: true,
+  configurable: true,
+  get (): { webId?: string; isLoggedIn?: boolean } {
+    if (infoOverride !== undefined) return infoOverride
+    const sessionAny = _session as any
+    const isActive = sessionAny.isActive === true || Boolean(sessionAny.webId)
+    return {
+      webId: sessionAny.webId,
+      isLoggedIn: isActive
+    }
+  },
+  set (value: { webId?: string; isLoggedIn?: boolean } | undefined): void {
+    infoOverride = value
+  }
+})
   
