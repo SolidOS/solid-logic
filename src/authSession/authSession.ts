@@ -113,16 +113,16 @@ export const authSession: SessionWithLegacyEvents = Object.assign(
 // `webId`/`isActive` getters, but legacy consumers (e.g. solid-ui's
 // `loginStatusBox` widget, `SolidAuthnLogic.currentUser()`'s fallback path)
 // read `authSession.info.webId` / `authSession.info.isLoggedIn`. Expose those
-// as a derived value — and keep the property assignable. Legacy code (and the
-// tests) own an `info` object and assign it; the assignment wins until it is
-// cleared back to `undefined`, when the derived value takes over again.
-let infoOverride: { webId?: string; isLoggedIn?: boolean } | undefined
-
+// as a derived value — and keep it derived: `SolidAuthnLogic.webIdFromSession()`
+// and the fetch bridge prefer `info.webId` when present, so a retained
+// snapshot (callers snapshot and restore `info`) must never answer for the
+// session. A sticky value would report the previous identity after a
+// login/logout. Assignment is accepted and ignored so ordinary property
+// writes cannot throw; a test that needs to fake `info` redefines it.
 Object.defineProperty(authSession, 'info', {
   enumerable: true,
   configurable: true,
   get (): { webId?: string; isLoggedIn?: boolean } {
-    if (infoOverride !== undefined) return infoOverride
     const sessionAny = _session as any
     const isActive = sessionAny.isActive === true || Boolean(sessionAny.webId)
     return {
@@ -130,8 +130,8 @@ Object.defineProperty(authSession, 'info', {
       isLoggedIn: isActive
     }
   },
-  set (value: { webId?: string; isLoggedIn?: boolean } | undefined): void {
-    infoOverride = value
+  set (_value: { webId?: string; isLoggedIn?: boolean } | undefined): void {
+    // Accepted for legacy code that assigns snapshots; reads stay derived.
   }
 })
   

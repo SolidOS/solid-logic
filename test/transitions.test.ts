@@ -32,10 +32,15 @@ describe('classifySessionTransition', () => {
   })
 })
 
-// A session stand-in: a real EventTarget the test can poke.
+// A session stand-in: a real EventTarget the test can poke. setTokenDetails
+// mirrors the uvdsl method every token update goes through.
 class FakeSession extends EventTarget {
   isActive = false
   webId: string | undefined
+
+  async setTokenDetails (details: { webId?: string }): Promise<void> {
+    this.webId = details.webId
+  }
 }
 
 describe('watchSessionTransitions', () => {
@@ -53,6 +58,20 @@ describe('watchSessionTransitions', () => {
     session.webId = undefined
     session.dispatchEvent(new Event('sessionStateChange'))
     expect(emitted).toEqual(['sessionChange', 'logout'])
+  })
+
+  it('notices a WebID change while the session stays active (token update)', async () => {
+    const session = new FakeSession()
+    session.isActive = true
+    session.webId = 'https://a.example/#me'
+    const emitted: string[] = []
+    watchSessionTransitions(session as unknown as SessionLike, (event) => emitted.push(event), undefined)
+
+    // uvdsl dispatches sessionStateChange only when isActive changes; the
+    // token update itself is the evidence of an A -> B switch.
+    await session.setTokenDetails({ webId: 'https://b.example/#me' })
+
+    expect(emitted).toEqual(['sessionChange'])
   })
 
   it('notices a change made elsewhere when the tab is refocused', () => {
