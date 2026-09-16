@@ -57,7 +57,12 @@ export function classifySessionTransition (
  */
 export function identityReplaced (prev: SessionSnapshot, next: SessionSnapshot): boolean {
   if (prev.webId === undefined) return false
-  return next.webId !== prev.webId || !next.isActive
+  if (next.webId !== prev.webId) return true
+  // The same WebID can be retained through a partial logout ({ isActive: false,
+  // webId: A }): only the transition OUT of an active session is a
+  // replacement, so a steady partial-logout snapshot does not report one —
+  // and repeat one — on every refocus.
+  return prev.isActive && !next.isActive
 }
 
 /**

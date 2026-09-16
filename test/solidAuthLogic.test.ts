@@ -104,6 +104,50 @@ describe('SolidAuthnLogic', () => {
     })
   })
 
+  describe('cookie-backed fallback identity changes', () => {
+    it('reports a replacement when an established cookie identity is cleared', () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const authn = new SolidAuthnLogic({ events } as any)
+      ;(authn as any).fallbackWebId = null
+      ;(authn as any).cookieBackedFallback = false
+
+      ;(authn as any).reportFallbackIdentityChange('https://alice.localhost/profile/card#me')
+
+      expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+    })
+
+    it('reports an anonymous-to-cookie transition without a replacement', () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const authn = new SolidAuthnLogic({ events } as any)
+      ;(authn as any).fallbackWebId = 'https://alice.localhost/profile/card#me'
+      ;(authn as any).cookieBackedFallback = true
+
+      ;(authn as any).reportFallbackIdentityChange(null)
+
+      // Nothing of a previous identity was cached, so no replacement.
+      expect(emitted).toEqual(['sessionChange'])
+    })
+
+    it('stays silent when the fallback identity is unchanged', () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const authn = new SolidAuthnLogic({ events } as any)
+      ;(authn as any).fallbackWebId = 'https://alice.localhost/profile/card#me'
+
+      ;(authn as any).reportFallbackIdentityChange('https://alice.localhost/profile/card#me')
+
+      expect(emitted).toEqual([])
+    })
+  })
+
   describe('saveUser', () => {
     it('exists', () => {
       expect(solidAuthnLogic.saveUser).toBeInstanceOf(Function)

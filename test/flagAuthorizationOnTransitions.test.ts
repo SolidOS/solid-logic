@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SessionEvents } from '../src/authSession/events'
-import { SESSION_TRANSITIONS, ensureDocumentAuthorization, flagAuthorizationOnSessionTransitions, refreshDocumentAuthorization } from '../src/authSession/flagAuthorizationOnTransitions'
+import { SESSION_TRANSITIONS, ensureDocumentAuthorization, flagAuthorizationOnSessionTransitions, loadAuthorizedDocument, refreshDocumentAuthorization } from '../src/authSession/flagAuthorizationOnTransitions'
 import { silenceDebugMessages } from './helpers/debugger'
 
 silenceDebugMessages()
@@ -295,5 +295,71 @@ describe('ensureDocumentAuthorization', () => {
 
     // No refresh capability: the caller must not consume cached triples.
     await expect(ensureDocumentAuthorization(store, 'https://a.example/')).resolves.toBe(false)
+  })
+})
+
+describe('loadAuthorizedDocument', () => {
+  it('loads and answers without a refresh when nothing overtook the load', async () => {
+    let loads = 0
+    let refreshes = 0
+    const store: any = {
+      fetcher: {
+        load: async (): Promise<void> => { loads += 1 },
+        refresh: (_doc: unknown, done?: () => void): void => {
+          refreshes += 1
+          done?.()
+        }
+      },
+      updater: { editable: (): string => 'N3PATCH' }
+    }
+
+    await expect(loadAuthorizedDocument(store, 'https://a.example/')).resolves.toBe(true)
+    expect(loads).toBe(1)
+    expect(refreshes).toBe(0)
+  })
+
+  it('forces a refresh when a transition overtook the load', async () => {
+    const session = { events: new SessionEvents() }
+    let loads = 0
+    let refreshes = 0
+    const store: any = {
+      fetcher: {
+        // The response lands after the transition, so its metadata is never
+        // flagged — it still belongs to the previous identity.
+        load: async (): Promise<void> => {
+          loads += 1
+          session.events.emit('sessionChange')
+        },
+        refresh: (_doc: unknown, done?: () => void): void => {
+          refreshes += 1
+          done?.()
+        }
+      },
+      updater: {
+        flagAuthorizationMetadata: (): void => {},
+        editable: (): string => 'N3PATCH'
+      }
+    }
+    flagAuthorizationOnSessionTransitions(store, session)
+
+    await expect(loadAuthorizedDocument(store, 'https://a.example/')).resolves.toBe(true)
+    expect(loads).toBe(1)
+    expect(refreshes).toBe(1)
+  })
+
+  it('reports false when an overtaken load cannot be repaired', async () => {
+    const session = { events: new SessionEvents() }
+    const store: any = {
+      fetcher: {
+        load: async (): Promise<void> => { session.events.emit('sessionChange') }
+      },
+      updater: {
+        flagAuthorizationMetadata: (): void => {},
+        editable: (): string => 'N3PATCH'
+      }
+    }
+    flagAuthorizationOnSessionTransitions(store, session)
+
+    await expect(loadAuthorizedDocument(store, 'https://a.example/')).resolves.toBe(false)
   })
 })

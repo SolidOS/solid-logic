@@ -200,6 +200,7 @@ export class SolidAuthnLogic implements AuthnLogic {
       return me
     }
 
+    const previousFallback = this.fallbackWebId
     let webId = this.webIdFromSession(sessionAny?.info, sessionAny)
     let cookieBacked = false
     if (!webId) {
@@ -215,6 +216,8 @@ export class SolidAuthnLogic implements AuthnLogic {
       this.fallbackWebId = null
       this.cookieBackedFallback = false
     }
+
+    this.reportFallbackIdentityChange(previousFallback)
 
     if (webId) {
       me = this.saveUser(webId)
@@ -282,6 +285,28 @@ export class SolidAuthnLogic implements AuthnLogic {
       return me
     }
     return null
+  }
+
+  /**
+   * The NSS cookie fallback is a second identity source: the OIDC session
+   * stays inactive and WebID-less, so the transition watcher cannot observe
+   * anonymous -> cookie-user, cookie-user A -> B, or a cookie logout. Report
+   * those changes like a session transition so invalidation and reload
+   * consumers still react.
+   */
+  private reportFallbackIdentityChange (previousFallback: string | null): void {
+    if (previousFallback === this.fallbackWebId) return
+    const events = (this.session as any)?.events
+    if (typeof events?.emit !== 'function') return
+    if (previousFallback !== null) {
+      // An established cookie-backed identity was replaced or cleared.
+      events.emit('sessionChange')
+      events.emit('identityReplaced')
+    } else if (this.fallbackWebId !== null) {
+      // Anonymous -> cookie-backed identity: the recorded answers must be
+      // invalidated, but there is no previous identity's data to discard.
+      events.emit('sessionChange')
+    }
   }
 
   /**

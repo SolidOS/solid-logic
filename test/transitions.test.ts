@@ -58,6 +58,15 @@ describe('identityReplaced', () => {
       { isActive: true, webId: 'https://a.example/#me' }
     )).toBe(false)
   })
+
+  it('ignores a steady partial-logout state (the same WebID retained while inactive)', () => {
+    // Otherwise every refocus would report a replacement again and a reload
+    // consumer would loop.
+    expect(identityReplaced(
+      { isActive: false, webId: 'https://a.example/#me' },
+      { isActive: false, webId: 'https://a.example/#me' }
+    )).toBe(false)
+  })
 })
 
 describe('reloadOnIdentityReplaced', () => {
@@ -160,6 +169,23 @@ describe('watchSessionTransitions', () => {
     session.dispatchEvent(new Event('sessionStateChange'))
 
     expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+  })
+
+  it('does not repeat identityReplaced for a steady partial-logout state on refocus', () => {
+    const session = new FakeSession()
+    session.isActive = false
+    session.webId = 'https://a.example/#me' // retained, as during a partial logout
+    const emitted: string[] = []
+    const handlers: Record<string, () => void> = {}
+    const doc: DocumentLike = {
+      visibilityState: 'visible',
+      addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+    }
+    watchSessionTransitions(session as unknown as SessionLike, (event) => emitted.push(event), doc)
+
+    handlers.visibilitychange()
+    handlers.visibilitychange()
+    expect(emitted).toEqual([])
   })
 
   it('notices a change made elsewhere when the tab is refocused', () => {

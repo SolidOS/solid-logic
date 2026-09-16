@@ -80,7 +80,10 @@ export function flagAuthorizationOnSessionTransitions (
 }
 
 export type RefreshableStore = {
-  fetcher?: { refresh?: (doc: unknown, callback?: (...args: unknown[]) => void) => unknown }
+  fetcher?: {
+    refresh?: (doc: unknown, callback?: (...args: unknown[]) => void) => unknown
+    load?: (doc: unknown) => unknown
+  }
   updater?: { editable?: (uri: unknown) => string | boolean | undefined }
 }
 
@@ -168,6 +171,32 @@ export async function ensureDocumentAuthorization (
     return true
   }
   return (await refreshDocumentAuthorization(store, doc)) !== undefined
+}
+
+/**
+ * Load a document and make sure its cached triples can be read under the
+ * current identity. The load itself is generation-checked: a response begun
+ * under the previous identity can be recorded AFTER
+ * `flagAuthorizationMetadata()` ran (the flag only marks response nodes that
+ * already existed), which leaves a definitive-looking answer from the old
+ * identity behind — so an overtaken load is force-refreshed instead of being
+ * trusted.
+ *
+ * Returns whether the document can be consumed (see
+ * ensureDocumentAuthorization). Load errors propagate, as a plain `load()`
+ * would.
+ */
+export async function loadAuthorizedDocument (
+  store: RefreshableStore,
+  doc: unknown
+): Promise<boolean> {
+  const state = storeState(store)
+  const generation = state.generation
+  await store.fetcher?.load?.(doc)
+  if (generation !== state.generation) {
+    return (await refreshDocumentAuthorization(store, doc)) !== undefined
+  }
+  return ensureDocumentAuthorization(store, doc)
 }
 
 /**
