@@ -54,6 +54,21 @@ export type SessionLike = {
 export const sessionIsActive = (session: SessionLike): boolean =>
   session.isActive === true || (session.isActive === undefined && Boolean(session.webId))
 
+/**
+ * Whether the session explicitly reports itself inactive. An explicit `false`
+ * — `isActive` on the session or `isLoggedIn` on the legacy `info` shape —
+ * wins over a retained WebID: a partial logout that has not cleared the
+ * cached WebID must not keep identifying the previous user. Consumers that
+ * would otherwise act on the WebID alone (authenticated fetch, currentUser)
+ * use this to stand down.
+ */
+export function sessionExplicitlyInactive (session: {
+  isActive?: boolean
+  info?: { isLoggedIn?: boolean }
+}): boolean {
+  return session?.isActive === false || session?.info?.isLoggedIn === false
+}
+
 export type DocumentLike = {
   visibilityState?: string
   addEventListener?: (type: string, listener: () => void) => void

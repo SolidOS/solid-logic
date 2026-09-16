@@ -1,4 +1,5 @@
 import { NamedNode, st, sym } from 'rdflib'
+import { refreshDocumentAuthorization } from '../authSession/flagAuthorizationOnTransitions'
 import {
   CrossOriginForbiddenError,
   FetchError,
@@ -93,7 +94,12 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     const result = store.any(subject, predicate, null, doc)
 
     if (result) return result as NamedNode
-    if (!store.updater.editable(doc)) {
+    // A session transition since this document was recorded leaves the store
+    // answering "unknown" (undefined) for its editability: force a fresh
+    // response before deciding. See flagAuthorizationOnTransitions.ts.
+    const editable = store.updater.editable(doc) ??
+      await refreshDocumentAuthorization(store, doc)
+    if (!editable) {
       const msg = `followOrCreateLink: cannot edit ${doc.value}`
       debug.warn(msg)
       throw new NotEditableError(msg)
@@ -127,7 +133,9 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     const result = store.any(subject, predicate, null, doc)
 
     if (result) return result as NamedNode
-    if (!store.updater.editable(doc)) {
+    const editable = store.updater.editable(doc) ??
+      await refreshDocumentAuthorization(store, doc)
+    if (!editable) {
       const msg = `followOrCreateLinkWithContentOnCreate: cannot edit ${doc.value}`
       debug.warn(msg)
       throw new NotEditableError(msg)

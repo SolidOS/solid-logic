@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SessionEvents } from '../src/authSession/events'
 import { SESSION_TRANSITIONS, flagAuthorizationOnSessionTransitions, refreshDocumentAuthorization } from '../src/authSession/flagAuthorizationOnTransitions'
+import { silenceDebugMessages } from './helpers/debugger'
+
+silenceDebugMessages()
 
 describe('flagAuthorizationOnSessionTransitions', () => {
   it('marks the store metadata stale on every identity transition', () => {
@@ -39,7 +42,11 @@ describe('refreshDocumentAuthorization', () => {
     const order: string[] = []
     const store = {
       fetcher: {
-        refresh: async (doc: unknown): Promise<void> => { order.push(`refresh:${String(doc)}`) }
+        // rdflib's real signature: callback completion, no useful return value.
+        refresh: (doc: unknown, done?: () => void): void => {
+          order.push(`refresh:${String(doc)}`)
+          done?.()
+        }
       },
       updater: {
         editable: (doc: unknown): string | boolean | undefined => {
@@ -51,6 +58,51 @@ describe('refreshDocumentAuthorization', () => {
 
     await expect(refreshDocumentAuthorization(store, 'https://a.example/')).resolves.toBe('N3PATCH')
     expect(order).toEqual(['refresh:https://a.example/', 'editable:https://a.example/'])
+  })
+
+  it('waits for the refresh callback before reading editability', async () => {
+    const order: string[] = []
+    const store = {
+      fetcher: {
+        refresh: (_doc: unknown, done?: () => void): void => {
+          // The fresh response lands after the refresh call has returned.
+          setTimeout(() => {
+            order.push('refreshed')
+            done?.()
+          }, 0)
+        }
+      },
+      updater: {
+        editable: (): string => {
+          order.push('editable')
+          return 'N3PATCH'
+        }
+      }
+    }
+
+    await refreshDocumentAuthorization(store, 'https://a.example/')
+    expect(order).toEqual(['refreshed', 'editable'])
+  })
+
+  it('still awaits a promise-returning refresh wrapper', async () => {
+    const order: string[] = []
+    const store = {
+      fetcher: {
+        refresh: async (): Promise<void> => {
+          await Promise.resolve()
+          order.push('refreshed')
+        }
+      },
+      updater: {
+        editable: (): boolean => {
+          order.push('editable')
+          return true
+        }
+      }
+    }
+
+    await refreshDocumentAuthorization(store, 'https://a.example/')
+    expect(order).toEqual(['refreshed', 'editable'])
   })
 
   it('answers editability even when the store cannot refresh', async () => {

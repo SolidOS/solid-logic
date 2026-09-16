@@ -1,6 +1,7 @@
 import { namedNode, NamedNode, sym } from 'rdflib'
 import { appContext, offlineTestID } from './authUtil'
 import * as debug from '../util/debug'
+import { sessionExplicitlyInactive } from '../authSession/transitions'
 import type { SessionWithLegacyEvents } from '../authSession/authSession'
 import type { AuthenticationContext, AuthnLogic } from '../types'
 
@@ -46,6 +47,12 @@ export class SolidAuthnLogic implements AuthnLogic {
       return sym(app.webId)
     }
     const sessionAny = this.session as any
+    if (sessionExplicitlyInactive(sessionAny)) {
+      // A logout that leaves the WebID cached must not keep answering for the
+      // previous user: drop the remembered fallback and report logged out.
+      this.fallbackWebId = null
+      return offlineTestID() // null unless testing
+    }
     const infoWebId = sessionAny?.info?.webId
     const sessionWebId = sessionAny?.webId
     const webId = infoWebId || sessionWebId || this.fallbackWebId
@@ -281,7 +288,10 @@ export class SolidAuthnLogic implements AuthnLogic {
     if (infoLoggedIn === true || rootLoggedIn === true || rootActive === true) {
       return webId
     }
-    if (infoLoggedIn === false && rootLoggedIn === false && rootActive === false) {
+    // An explicit inactive/not-logged-in flag wins even when the other
+    // sources are absent: the session root has no `isLoggedIn` property, so
+    // requiring it to be false kept a cached WebID alive across a logout.
+    if (infoLoggedIn === false || rootLoggedIn === false || rootActive === false) {
       return null
     }
     return webId

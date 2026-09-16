@@ -38,6 +38,51 @@ describe('SolidAuthnLogic', () => {
     it('runs', async () => {
       expect(await solidAuthnLogic.currentUser()).toEqual(null)
     })
+    it('reports logged out when the session explicitly went inactive, even with a cached WebID and a remembered fallback', () => {
+      const authn = new SolidAuthnLogic({
+        isActive: false,
+        webId: 'https://alice.example/profile#me',
+        info: { webId: 'https://alice.example/profile#me', isLoggedIn: false }
+      } as any)
+      // checkUser() had cached the identity before the logout.
+      ;(authn as any).fallbackWebId = 'https://alice.example/profile#me'
+
+      expect(authn.currentUser()).toBeNull()
+      // The fallback must not survive the logout and resurrect the identity.
+      expect((authn as any).fallbackWebId).toBeNull()
+    })
+    it('returns the WebID while the session is active', () => {
+      const authn = new SolidAuthnLogic({
+        isActive: true,
+        webId: 'https://alice.example/profile#me',
+        info: { webId: 'https://alice.example/profile#me', isLoggedIn: true }
+      } as any)
+
+      expect(authn.currentUser()?.uri).toBe('https://alice.example/profile#me')
+    })
+  })
+
+  describe('webIdFromSession', () => {
+    it('returns null when the info reports logged out, even though the session root has no isLoggedIn', () => {
+      // Regression: requiring every source to be explicitly false let the
+      // cached WebID survive a logout (the root has no `isLoggedIn` property).
+      expect(solidAuthnLogic.webIdFromSession(
+        { webId: 'https://alice.example/profile#me', isLoggedIn: false },
+        { webId: 'https://alice.example/profile#me', isActive: false }
+      )).toBeNull()
+    })
+    it('returns the WebID while the session is active', () => {
+      expect(solidAuthnLogic.webIdFromSession(
+        { webId: 'https://alice.example/profile#me', isLoggedIn: true },
+        { webId: 'https://alice.example/profile#me' }
+      )).toBe('https://alice.example/profile#me')
+    })
+    it('falls back to the WebID for legacy sessions that report no state at all', () => {
+      expect(solidAuthnLogic.webIdFromSession(
+        { webId: 'https://alice.example/profile#me' },
+        { webId: 'https://alice.example/profile#me' }
+      )).toBe('https://alice.example/profile#me')
+    })
   })
 
   describe('saveUser', () => {

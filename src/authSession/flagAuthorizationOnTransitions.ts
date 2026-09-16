@@ -28,6 +28,8 @@
  * identity change is known, store-wide.
  */
 
+import * as debug from '../util/debug'
+
 // Every transition that can change whose credentials a request would carry.
 // 'login'/'sessionRestore' are emitted by SolidAuthnLogic; 'logout' and
 // 'sessionChange' by the transition watcher in authSession.ts.
@@ -49,9 +51,12 @@ export function flagAuthorizationOnSessionTransitions (
   const flag = (): void => {
     try {
       store.updater?.flagAuthorizationMetadata?.()
-    } catch {
-      // A store that cannot be reached must not take the session handling
-      // with it — the next load still re-fetches.
+    } catch (error) {
+      // A store that cannot flag must not take the session handling with it —
+      // but the failure is not swallowed either: the recorded answers stay
+      // definitive for the previous identity until a decision point forces a
+      // fresh response (refreshDocumentAuthorization below), so surface it.
+      debug.warn(`Could not flag authorization metadata after a session transition: ${error}`)
     }
   }
   const events = session?.events
@@ -62,7 +67,7 @@ export function flagAuthorizationOnSessionTransitions (
 }
 
 export type RefreshableStore = {
-  fetcher?: { refresh?: (doc: unknown) => unknown }
+  fetcher?: { refresh?: (doc: unknown, callback?: (...args: unknown[]) => void) => unknown }
   updater?: { editable?: (uri: unknown) => string | boolean | undefined }
 }
 
@@ -75,13 +80,40 @@ export async function refreshDocumentAuthorization (
   store: RefreshableStore,
   doc: unknown
 ): Promise<string | boolean | undefined> {
-  const refresh = store.fetcher?.refresh
-  if (typeof refresh === 'function') {
-    try {
-      await refresh(doc)
-    } catch {
-      // A failed refresh leaves the answer unknown; the caller decides.
-    }
-  }
+  await forceRefresh(store, doc)
   return store.updater?.editable?.(doc)
+}
+
+/**
+ * rdflib's `refresh(term, callback)` is callback-based and returns void —
+ * it delegates to `nowOrWhenFetched(term, { force: true, clearPreviousData:
+ * true }, callback)` and the callback is the completion signal. Awaiting the
+ * call itself would read `editable()` before the fresh response is recorded,
+ * so wait for the callback (a promise-returning wrapper is awaited too). A
+ * failed refresh resolves anyway, with a warning: the answer stays unknown
+ * and the caller decides.
+ */
+async function forceRefresh (store: RefreshableStore, doc: unknown): Promise<void> {
+  const refresh = store.fetcher?.refresh
+  if (typeof refresh !== 'function') return
+  await new Promise<void>((resolve) => {
+    let settled = false
+    const done = (ok?: unknown, message?: unknown): void => {
+      if (ok === false) {
+        debug.warn(`Could not refresh ${String(doc)}: ${String(message)}`)
+      }
+      if (settled) return
+      settled = true
+      resolve()
+    }
+    try {
+      const result = refresh.call(store.fetcher, doc, done)
+      if (result && typeof (result as Promise<unknown>).then === 'function') {
+        void (result as Promise<unknown>).then(() => done(), (error) => done(false, error))
+      }
+    } catch (error) {
+      debug.warn(`Could not refresh ${String(doc)}: ${String(error)}`)
+      done()
+    }
+  })
 }

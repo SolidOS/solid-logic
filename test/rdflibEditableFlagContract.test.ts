@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fetcher, graph, lit, sym, UpdateManager } from 'rdflib'
+import { refreshDocumentAuthorization } from '../src/authSession/flagAuthorizationOnTransitions'
 
 const LINK = (name: string) => sym(`http://www.w3.org/2007/ont/link#${name}`)
 const HTTPH = (name: string) => sym(`http://www.w3.org/2007/ont/httph#${name}`)
@@ -70,9 +71,9 @@ describe('rdflib authorization metadata contract', () => {
     expect(calls).toBe(1)
     expect(store.updater.editable(doc)).toBeUndefined()
 
-    // refresh() forces the fetch and records a fresh response.
-    await new Promise<void>((resolve) => { store.fetcher.refresh(sym(doc), () => resolve()) })
+    // refreshDocumentAuthorization() forces the fetch, awaiting the fetcher's
+    // completion callback, and only then answers from the fresh response.
+    await expect(refreshDocumentAuthorization(store, doc)).resolves.toBe('N3PATCH')
     expect(calls).toBe(2)
-    expect(store.updater.editable(doc)).toBe('N3PATCH')
   })
 })
