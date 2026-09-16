@@ -209,6 +209,30 @@ describe('watchSessionTransitions', () => {
     expect(emitted).toEqual(['sessionChange'])
   })
 
+  it('re-reads the session on refocus when it cannot receive pushed changes', async () => {
+    const session = new FakeSession()
+    session.isActive = true
+    session.webId = 'https://a.example/#me'
+    const emitted: string[] = []
+    const handlers: Record<string, () => void> = {}
+    const doc: DocumentLike = {
+      visibilityState: 'visible',
+      addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+    }
+    watchSessionTransitions(
+      session as unknown as SessionLike,
+      (event) => emitted.push(event),
+      doc,
+      // SessionCore cannot hear the other tab: re-reading pulls the change in.
+      () => { session.webId = 'https://b.example/#me' }
+    )
+
+    handlers.visibilitychange()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+  })
+
   it('checks nothing while the tab is hidden', () => {
     const session = new FakeSession()
     const emitted: string[] = []

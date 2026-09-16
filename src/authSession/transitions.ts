@@ -161,7 +161,8 @@ function watchTokenUpdates (session: SessionLike, note: () => void): void {
 export function watchSessionTransitions (
   session: SessionLike,
   emit: (event: 'logout' | 'sessionChange' | 'identityReplaced') => void,
-  doc: DocumentLike | undefined = typeof document === 'undefined' ? undefined : document
+  doc: DocumentLike | undefined = typeof document === 'undefined' ? undefined : document,
+  resync?: () => unknown
 ): void {
   let previous = snapshotOf(session)
   const note = (): void => {
@@ -172,13 +173,26 @@ export function watchSessionTransitions (
     if (event) emit(event)
     if (replaced) emit('identityReplaced')
   }
+  // A session that cannot receive another tab's change as a pushed event has
+  // to be re-read before the snapshots are compared, or the change is simply
+  // invisible here. Workers push it, so no resync is passed for them.
+  const syncThenNote = async (): Promise<void> => {
+    if (typeof resync === 'function') {
+      try {
+        await resync()
+      } catch {
+        // A session that cannot be re-read is compared as it stands.
+      }
+    }
+    note()
+  }
   if (typeof session.addEventListener === 'function') {
     session.addEventListener('sessionStateChange', note)
   }
   watchTokenUpdates(session, note)
   if (doc && typeof doc.addEventListener === 'function') {
     doc.addEventListener('visibilitychange', () => {
-      if (doc.visibilityState === 'visible') note()
+      if (doc.visibilityState === 'visible') void syncThenNote()
     })
   }
 }

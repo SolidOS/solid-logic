@@ -201,6 +201,7 @@ export class SolidAuthnLogic implements AuthnLogic {
     }
 
     const previousFallback = this.fallbackWebId
+    const previousCookieBacked = this.cookieBackedFallback
     let webId = this.webIdFromSession(sessionAny?.info, sessionAny)
     let cookieBacked = false
     if (!webId) {
@@ -217,7 +218,7 @@ export class SolidAuthnLogic implements AuthnLogic {
       this.cookieBackedFallback = false
     }
 
-    this.reportFallbackIdentityChange(previousFallback)
+    this.reportFallbackIdentityChange(previousFallback, previousCookieBacked)
 
     if (webId) {
       me = this.saveUser(webId)
@@ -293,9 +294,14 @@ export class SolidAuthnLogic implements AuthnLogic {
    * anonymous -> cookie-user, cookie-user A -> B, or a cookie logout. Report
    * those changes like a session transition so invalidation and reload
    * consumers still react.
+   *
+   * Only cookie-backed changes are reported here: an OIDC identity change is
+   * already emitted by the watcher (with `identityReplaced`), and reporting it
+   * again would duplicate the events — a reload consumer would reload twice.
    */
-  private reportFallbackIdentityChange (previousFallback: string | null): void {
+  private reportFallbackIdentityChange (previousFallback: string | null, previousCookieBacked: boolean): void {
     if (previousFallback === this.fallbackWebId) return
+    if (!previousCookieBacked && !this.cookieBackedFallback) return
     const events = (this.session as any)?.events
     if (typeof events?.emit !== 'function') return
     if (previousFallback !== null) {

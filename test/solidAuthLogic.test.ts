@@ -114,9 +114,37 @@ describe('SolidAuthnLogic', () => {
       ;(authn as any).fallbackWebId = null
       ;(authn as any).cookieBackedFallback = false
 
-      ;(authn as any).reportFallbackIdentityChange('https://alice.localhost/profile/card#me')
+      ;(authn as any).reportFallbackIdentityChange('https://alice.localhost/profile/card#me', true)
 
       expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+    })
+
+    it('reports when a cookie-backed identity is replaced by an OIDC one', () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const authn = new SolidAuthnLogic({ events } as any)
+      ;(authn as any).fallbackWebId = 'https://bob.example/profile#me'
+      ;(authn as any).cookieBackedFallback = false
+
+      ;(authn as any).reportFallbackIdentityChange('https://alice.localhost/profile/card#me', true)
+
+      expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+    })
+
+    it('does not duplicate OIDC-sourced changes (the watcher already reports them)', () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const authn = new SolidAuthnLogic({ events } as any)
+      ;(authn as any).fallbackWebId = 'https://bob.example/profile#me'
+      ;(authn as any).cookieBackedFallback = false
+
+      ;(authn as any).reportFallbackIdentityChange('https://alice.example/profile#me', false)
+
+      expect(emitted).toEqual([])
     })
 
     it('reports an anonymous-to-cookie transition without a replacement', () => {
@@ -128,7 +156,7 @@ describe('SolidAuthnLogic', () => {
       ;(authn as any).fallbackWebId = 'https://alice.localhost/profile/card#me'
       ;(authn as any).cookieBackedFallback = true
 
-      ;(authn as any).reportFallbackIdentityChange(null)
+      ;(authn as any).reportFallbackIdentityChange(null, false)
 
       // Nothing of a previous identity was cached, so no replacement.
       expect(emitted).toEqual(['sessionChange'])
@@ -142,7 +170,7 @@ describe('SolidAuthnLogic', () => {
       const authn = new SolidAuthnLogic({ events } as any)
       ;(authn as any).fallbackWebId = 'https://alice.localhost/profile/card#me'
 
-      ;(authn as any).reportFallbackIdentityChange('https://alice.localhost/profile/card#me')
+      ;(authn as any).reportFallbackIdentityChange('https://alice.localhost/profile/card#me', true)
 
       expect(emitted).toEqual([])
     })

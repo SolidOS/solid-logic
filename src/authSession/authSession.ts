@@ -11,7 +11,7 @@
  */
 
 import type { Session as OidcSession } from '@uvdsl/solid-oidc-client-browser/core'
-import { _session } from './session'
+import { _session, sessionHasCrossTabPush } from './session'
 import { resolveIssuerForLogin } from './issuer'
 import { SessionEvents } from './events'
 import { sessionIsActive, watchSessionTransitions, type SessionLike } from './transitions'
@@ -101,7 +101,17 @@ const events = new SessionEvents()
 // — including a login/logout made in another tab, which the uvdsl
 // SharedWorker does not broadcast as a state change and which is noticed when
 // this tab is refocused.
-watchSessionTransitions(_session as unknown as SessionLike, (event) => events.emit(event))
+// A worker-backed session pushes another tab's change to this one; the
+// SessionCore + IndexedDB session used where the worker is skipped or
+// unavailable does not, so re-read it on refocus before snapshots are
+// compared — otherwise a cross-tab login/logout stays invisible here.
+const resyncSession = sessionHasCrossTabPush()
+  ? undefined
+  : () => {
+      const restore = (_session as any)?.restore
+      return typeof restore === 'function' ? restore.call(_session) : undefined
+    }
+watchSessionTransitions(_session as unknown as SessionLike, (event) => events.emit(event), undefined, resyncSession)
 
 export const authSession: SessionWithLegacyEvents = Object.assign(
   _session as Omit<OidcSession, 'login'> & { login: LoginCompat },
