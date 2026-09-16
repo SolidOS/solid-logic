@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifySessionTransition, watchSessionTransitions, type DocumentLike, type SessionLike } from '../src/authSession/transitions'
+import { classifySessionTransition, sessionIsActive, watchSessionTransitions, type DocumentLike, type SessionLike } from '../src/authSession/transitions'
 
 describe('classifySessionTransition', () => {
   it('reports a logout when the session goes inactive', () => {
@@ -43,6 +43,21 @@ class FakeSession extends EventTarget {
   }
 }
 
+describe('sessionIsActive', () => {
+  it('treats an explicit isActive:false as inactive even with a cached WebID', () => {
+    expect(sessionIsActive({ isActive: false, webId: 'https://a.example/#me' })).toBe(false)
+  })
+
+  it('falls back to the WebID only when isActive is undefined', () => {
+    expect(sessionIsActive({ webId: 'https://a.example/#me' })).toBe(true)
+    expect(sessionIsActive({})).toBe(false)
+  })
+
+  it('is active when isActive is true', () => {
+    expect(sessionIsActive({ isActive: true })).toBe(true)
+  })
+})
+
 describe('watchSessionTransitions', () => {
   it('emits on the session state event', () => {
     const session = new FakeSession()
@@ -72,6 +87,19 @@ describe('watchSessionTransitions', () => {
     await session.setTokenDetails({ webId: 'https://b.example/#me' })
 
     expect(emitted).toEqual(['sessionChange'])
+  })
+
+  it('emits logout when isActive flips false while a WebID is still cached', () => {
+    const session = new FakeSession()
+    session.isActive = true
+    session.webId = 'https://a.example/#me'
+    const emitted: string[] = []
+    watchSessionTransitions(session as unknown as SessionLike, (event) => emitted.push(event), undefined)
+
+    session.isActive = false // webId retained, as during a partial logout
+    session.dispatchEvent(new Event('sessionStateChange'))
+
+    expect(emitted).toEqual(['logout'])
   })
 
   it('notices a change made elsewhere when the tab is refocused', () => {

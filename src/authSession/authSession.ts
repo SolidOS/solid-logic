@@ -14,7 +14,7 @@ import type { Session as OidcSession } from '@uvdsl/solid-oidc-client-browser/co
 import { _session } from './session'
 import { resolveIssuerForLogin } from './issuer'
 import { SessionEvents } from './events'
-import { watchSessionTransitions, type SessionLike } from './transitions'
+import { sessionIsActive, watchSessionTransitions, type SessionLike } from './transitions'
 
 type SessionCompatibilityShape = {
   webId?: string
@@ -119,16 +119,22 @@ export const authSession: SessionWithLegacyEvents = Object.assign(
 // session. A sticky value would report the previous identity after a
 // login/logout. Assignment is accepted and ignored so ordinary property
 // writes cannot throw; a test that needs to fake `info` redefines it.
+//
+// `isLoggedIn` follows `sessionIsActive`: an explicit `isActive: false`
+// reports logged out even when a WebID is still cached, or the fetch bridge
+// would keep routing anonymous requests through the authenticated fetch.
+export function legacySessionInfo (session: SessionLike): { webId?: string; isLoggedIn?: boolean } {
+  return {
+    webId: session.webId,
+    isLoggedIn: sessionIsActive(session)
+  }
+}
+
 Object.defineProperty(authSession, 'info', {
   enumerable: true,
   configurable: true,
   get (): { webId?: string; isLoggedIn?: boolean } {
-    const sessionAny = _session as any
-    const isActive = sessionAny.isActive === true || Boolean(sessionAny.webId)
-    return {
-      webId: sessionAny.webId,
-      isLoggedIn: isActive
-    }
+    return legacySessionInfo(_session as unknown as SessionLike)
   },
   set (_value: { webId?: string; isLoggedIn?: boolean } | undefined): void {
     // Accepted for legacy code that assigns snapshots; reads stay derived.

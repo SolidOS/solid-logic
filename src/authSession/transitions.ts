@@ -45,13 +45,22 @@ export type SessionLike = {
   setTokenDetails?: (...args: unknown[]) => unknown
 }
 
+/**
+ * Whether the session counts as active. `isActive` is authoritative — an
+ * explicit `false` wins even when a WebID is still cached (a logout that has
+ * not cleared it yet); the WebID only fills in an undefined state. Every
+ * identity snapshot and the legacy `info` shape use this one rule.
+ */
+export const sessionIsActive = (session: SessionLike): boolean =>
+  session.isActive === true || (session.isActive === undefined && Boolean(session.webId))
+
 export type DocumentLike = {
   visibilityState?: string
   addEventListener?: (type: string, listener: () => void) => void
 }
 
 const snapshotOf = (session: SessionLike): SessionSnapshot => ({
-  isActive: session.isActive === true || Boolean(session.webId),
+  isActive: sessionIsActive(session),
   webId: session.webId
 })
 

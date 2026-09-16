@@ -10,10 +10,19 @@
  * logout.
  *
  * `UpdateManager.flagAuthorizationMetadata()` marks every recorded response
- * out-of-date. `fetcher.load()` clears the mark for a document and re-fetches
- * it with the current credentials, so editability answers definitively again
- * on the next load. Call sites that need the answer immediately use the async
- * `UpdateManager.checkEditable()` instead.
+ * out-of-date, so `editable()` answers "unknown" instead of the previous
+ * identity's access.
+ *
+ * A document is repaired by a FORCE refresh, not by a plain load: on rdflib
+ * 2.4.0 `fetcher.load()` looks recorded requests up with a NamedNode
+ * (`kb.sym(docuri)`) while the fetcher records them as a string literal
+ * (linkeddata/rdflib.js#427), finds nothing, keeps the out-of-date mark and
+ * returns the cached copy — so neither `load()` nor the `checkEditable()`
+ * that wraps it re-answers for an already-loaded document. `fetcher.refresh()`
+ * sets `force: true, clearPreviousData: true` and records a fresh response;
+ * `refreshDocumentAuthorization()` below wraps that for call sites that need
+ * the answer immediately. (Once rdflib's `load` matches the literal form,
+ * `checkEditable()` heals too.)
  *
  * Wired here rather than in UI code so the invalidation happens where the
  * identity change is known, store-wide.
@@ -50,4 +59,29 @@ export function flagAuthorizationOnSessionTransitions (
   for (const transition of SESSION_TRANSITIONS) {
     events.on(transition, flag)
   }
+}
+
+export type RefreshableStore = {
+  fetcher?: { refresh?: (doc: unknown) => unknown }
+  updater?: { editable?: (uri: unknown) => string | boolean | undefined }
+}
+
+/**
+ * Force-refresh one document and answer its editability under the current
+ * identity — the repair path for a flagged store (see above). It costs a
+ * round-trip; decision points that need an immediate, correct answer use it.
+ */
+export async function refreshDocumentAuthorization (
+  store: RefreshableStore,
+  doc: unknown
+): Promise<string | boolean | undefined> {
+  const refresh = store.fetcher?.refresh
+  if (typeof refresh === 'function') {
+    try {
+      await refresh(doc)
+    } catch {
+      // A failed refresh leaves the answer unknown; the caller decides.
+    }
+  }
+  return store.updater?.editable?.(doc)
 }

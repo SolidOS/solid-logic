@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { graph, lit, sym, UpdateManager } from 'rdflib'
+import { fetcher, graph, lit, sym, UpdateManager } from 'rdflib'
 
 const LINK = (name: string) => sym(`http://www.w3.org/2007/ont/link#${name}`)
 const HTTPH = (name: string) => sym(`http://www.w3.org/2007/ont/httph#${name}`)
@@ -40,5 +40,39 @@ describe('rdflib authorization metadata contract', () => {
     store.add(fresh.response, HTTPH('wac-allow'), lit('user="read write"'), meta)
     store.add(fresh.response, HTTPH('accept-patch'), lit('text/n3'), meta)
     expect(updater.editable(doc)).toBe('N3PATCH')
+  })
+
+  it('does not repair a flagged, already-loaded document via load(), but refresh() repairs it', async () => {
+    const store: any = graph()
+    const doc = 'https://example.org/repair'
+    let calls = 0
+    const fakeFetch = async (): Promise<Response> => {
+      calls += 1
+      const headers = calls === 1
+        ? { 'content-type': 'text/turtle', 'wac-allow': 'user="read"' }
+        : { 'content-type': 'text/turtle', 'wac-allow': 'user="read write"', 'accept-patch': 'text/n3' }
+      return new Response('', { status: 200, headers })
+    }
+    fetcher(store, { fetch: fakeFetch })
+    store.updater = new UpdateManager(store)
+
+    await store.fetcher.load(doc)
+    expect(calls).toBe(1)
+    expect(store.updater.editable(doc)).toBe(false)
+
+    store.updater.flagAuthorizationMetadata()
+    expect(store.updater.editable(doc)).toBeUndefined()
+
+    // rdflib 2.4.0: load() looks the recorded request up as a NamedNode while
+    // the fetcher stored a literal, finds nothing, keeps the mark and answers
+    // from the cache — no refetch, still unknown.
+    await store.fetcher.load(doc)
+    expect(calls).toBe(1)
+    expect(store.updater.editable(doc)).toBeUndefined()
+
+    // refresh() forces the fetch and records a fresh response.
+    await new Promise<void>((resolve) => { store.fetcher.refresh(sym(doc), () => resolve()) })
+    expect(calls).toBe(2)
+    expect(store.updater.editable(doc)).toBe('N3PATCH')
   })
 })
