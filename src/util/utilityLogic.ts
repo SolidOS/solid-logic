@@ -92,10 +92,14 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
   ): Promise<NamedNode | null> {
     await store.fetcher.load(doc)
     // On rdflib 2.4.0 a plain load() does not refetch a flagged document, so
-    // the cached graph can still hold the previous identity's link and answer
-    // its editability: repair before consuming either (see
+    // the cached graph can still hold the previous identity's link: establish
+    // the current identity's answer before reading anything (see
     // flagAuthorizationOnTransitions.ts).
-    await ensureDocumentAuthorization(store, doc)
+    if (!(await ensureDocumentAuthorization(store, doc))) {
+      const msg = `followOrCreateLink: cannot establish the authorization of ${doc.value}`
+      debug.warn(msg)
+      throw new NotEditableError(msg)
+    }
     const result = store.any(subject, predicate, null, doc)
 
     if (result) return result as NamedNode
@@ -130,7 +134,11 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     data: string
   ): Promise<NamedNode | null> {
     await store.fetcher.load(doc)
-    await ensureDocumentAuthorization(store, doc)
+    if (!(await ensureDocumentAuthorization(store, doc))) {
+      const msg = `followOrCreateLinkWithContentOnCreate: cannot establish the authorization of ${doc.value}`
+      debug.warn(msg)
+      throw new NotEditableError(msg)
+    }
     const result = store.any(subject, predicate, null, doc)
 
     if (result) return result as NamedNode

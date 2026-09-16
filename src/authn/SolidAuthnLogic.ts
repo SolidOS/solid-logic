@@ -33,6 +33,10 @@ export class SolidAuthnLogic implements AuthnLogic {
   private checkUserInFlight: Promise<NamedNode | null> | null = null
   private sessionRestoreHookAttached = false
   private fallbackWebId: string | null = null
+  // Set when `fallbackWebId` came from the NSS cookie probe rather than from
+  // the OIDC session: an inactive OIDC session is exactly why that identity
+  // was probed, so it must survive `currentUser()`'s stand-down below.
+  private cookieBackedFallback = false
 
   constructor(solidAuthSession: SessionWithLegacyEvents) {
     this.session = solidAuthSession
@@ -49,7 +53,12 @@ export class SolidAuthnLogic implements AuthnLogic {
     const sessionAny = this.session as any
     if (sessionExplicitlyInactive(sessionAny)) {
       // A logout that leaves the WebID cached must not keep answering for the
-      // previous user: drop the remembered fallback and report logged out.
+      // previous user: drop the remembered session fallback and report logged
+      // out. A cookie-backed fallback is different — it was probed precisely
+      // because the OIDC session is inactive, so it stays usable.
+      if (this.cookieBackedFallback && this.fallbackWebId) {
+        return sym(this.fallbackWebId)
+      }
       this.fallbackWebId = null
       return offlineTestID() // null unless testing
     }
@@ -192,15 +201,19 @@ export class SolidAuthnLogic implements AuthnLogic {
     }
 
     let webId = this.webIdFromSession(sessionAny?.info, sessionAny)
+    let cookieBacked = false
     if (!webId) {
       // NSS-specific fallback: recover WebID from NSS cookie session when client restore is empty.
       webId = await this.probeNssCookieBackedWebId()
+      cookieBacked = webId !== null
     }
 
     if (webId) {
       this.fallbackWebId = webId
+      this.cookieBackedFallback = cookieBacked
     } else {
       this.fallbackWebId = null
+      this.cookieBackedFallback = false
     }
 
     if (webId) {

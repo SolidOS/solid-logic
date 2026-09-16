@@ -105,9 +105,11 @@ describe('refreshDocumentAuthorization', () => {
     expect(order).toEqual(['refreshed', 'editable'])
   })
 
-  it('answers editability even when the store cannot refresh', async () => {
+  it('stays unknown when the store cannot refresh (no capability)', async () => {
     const store = { updater: { editable: (): boolean => false } }
-    await expect(refreshDocumentAuthorization(store, 'https://a.example/')).resolves.toBe(false)
+    // Without a refresh capability the previous identity's answer must not be
+    // handed back as if it were current.
+    await expect(refreshDocumentAuthorization(store, 'https://a.example/')).resolves.toBeUndefined()
   })
 
   it('refreshes again when the identity changed while the refresh was in flight', async () => {
@@ -196,7 +198,7 @@ describe('ensureDocumentAuthorization', () => {
       updater: { editable: (): string => 'N3PATCH' }
     }
 
-    await ensureDocumentAuthorization(store, 'https://a.example/')
+    await expect(ensureDocumentAuthorization(store, 'https://a.example/')).resolves.toBe(true)
     expect(calls).toBe(0)
   })
 
@@ -214,7 +216,25 @@ describe('ensureDocumentAuthorization', () => {
       updater: { editable: (): string | undefined => (flagged ? undefined : 'N3PATCH') }
     }
 
-    await ensureDocumentAuthorization(store, 'https://a.example/')
+    await expect(ensureDocumentAuthorization(store, 'https://a.example/')).resolves.toBe(true)
+    expect(calls).toBe(1)
+  })
+
+  it('keeps a definitive read-only answer readable (false is not a failure)', async () => {
+    let calls = 0
+    let flagged = true
+    const store: any = {
+      fetcher: {
+        refresh: (_doc: unknown, done?: () => void): void => {
+          calls += 1
+          flagged = false
+          done?.()
+        }
+      },
+      updater: { editable: (): boolean | undefined => (flagged ? undefined : false) }
+    }
+
+    await expect(ensureDocumentAuthorization(store, 'https://a.example/')).resolves.toBe(true)
     expect(calls).toBe(1)
   })
 
@@ -238,7 +258,42 @@ describe('ensureDocumentAuthorization', () => {
     flagAuthorizationOnSessionTransitions(store, session)
     session.events.emit('sessionChange')
 
-    await ensureDocumentAuthorization(store, 'https://a.example/')
+    await expect(ensureDocumentAuthorization(store, 'https://a.example/')).resolves.toBe(true)
     expect(calls).toBe(1)
+  })
+
+  it('treats a missing flag API as a failed invalidation', async () => {
+    const session = { events: new SessionEvents() }
+    let calls = 0
+    const store: any = {
+      fetcher: {
+        refresh: (_doc: unknown, done?: () => void): void => {
+          calls += 1
+          done?.()
+        }
+      },
+      // No flagAuthorizationMetadata: the store cannot be invalidated.
+      updater: { editable: (): string => 'N3PATCH' }
+    }
+    flagAuthorizationOnSessionTransitions(store, session)
+    session.events.emit('sessionChange')
+
+    await expect(ensureDocumentAuthorization(store, 'https://a.example/')).resolves.toBe(true)
+    expect(calls).toBe(1)
+  })
+
+  it('reports false when the needed repair cannot complete', async () => {
+    const session = { events: new SessionEvents() }
+    const store: any = {
+      updater: {
+        flagAuthorizationMetadata: (): void => { throw new Error('store gone') },
+        editable: (): string => 'N3PATCH'
+      }
+    }
+    flagAuthorizationOnSessionTransitions(store, session)
+    session.events.emit('sessionChange')
+
+    // No refresh capability: the caller must not consume cached triples.
+    await expect(ensureDocumentAuthorization(store, 'https://a.example/')).resolves.toBe(false)
   })
 })

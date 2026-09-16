@@ -52,7 +52,13 @@ export function flagAuthorizationOnSessionTransitions (
     const state = storeState(store)
     state.generation += 1
     try {
-      store.updater?.flagAuthorizationMetadata?.()
+      const invalidate = store.updater?.flagAuthorizationMetadata
+      if (typeof invalidate !== 'function') {
+        // A store without the API cannot be invalidated — that is a failure,
+        // not a success: the decision points must not trust its answers.
+        throw new Error('flagAuthorizationMetadata is unavailable')
+      }
+      invalidate.call(store.updater)
       // Every recorded response is invalidated; decision points see that as
       // "unknown" and repair from there.
       state.refreshRequired = false
@@ -115,6 +121,12 @@ const REFRESH_ATTEMPTS = 3
  * authorization. Each attempt is stamped with the store's transition
  * generation and repeated under the new identity when it was overtaken; if
  * the identity keeps changing the answer stays "unknown" rather than stale.
+ *
+ * Returns `undefined` whenever the answer cannot be established under the
+ * current identity: no refresh capability, a failed refresh, or an identity
+ * that changed throughout every attempt. A failed refresh must NOT fall back
+ * to the recorded answer — when the store could not be invalidated that
+ * answer belongs to the previous identity.
  */
 export async function refreshDocumentAuthorization (
   store: RefreshableStore,
@@ -123,7 +135,8 @@ export async function refreshDocumentAuthorization (
   const state = storeState(store)
   for (let attempt = 0; attempt < REFRESH_ATTEMPTS; attempt++) {
     const generation = state.generation
-    await forceRefresh(store, doc)
+    const refreshed = await forceRefresh(store, doc)
+    if (!refreshed) return undefined
     // The read below is synchronous, so a generation that still matches means
     // no transition slipped in between the response and the answer.
     if (generation === state.generation) {
@@ -140,15 +153,21 @@ export async function refreshDocumentAuthorization (
  * still answers definitively for the previous identity, so it is repaired
  * too (and keeps being repaired until a later transition flags successfully,
  * since the failure says nothing about which other documents are stale).
+ *
+ * Returns whether the answer was established. `false` means a repair was
+ * needed and could not complete (no refresh capability, a failed refresh, or
+ * an identity that changed throughout): the caller must not consume cached
+ * triples from that document and must not offer a write on it.
  */
 export async function ensureDocumentAuthorization (
   store: RefreshableStore,
   doc: unknown
-): Promise<void> {
+): Promise<boolean> {
   const state = storeState(store)
-  if (state.refreshRequired || store.updater?.editable?.(doc) === undefined) {
-    await refreshDocumentAuthorization(store, doc)
+  if (!state.refreshRequired && store.updater?.editable?.(doc) !== undefined) {
+    return true
   }
+  return (await refreshDocumentAuthorization(store, doc)) !== undefined
 }
 
 /**
@@ -156,22 +175,27 @@ export async function ensureDocumentAuthorization (
  * it delegates to `nowOrWhenFetched(term, { force: true, clearPreviousData:
  * true }, callback)` and the callback is the completion signal. Awaiting the
  * call itself would read `editable()` before the fresh response is recorded,
- * so wait for the callback (a promise-returning wrapper is awaited too). A
- * failed refresh resolves anyway, with a warning: the answer stays unknown
- * and the caller decides.
+ * so wait for the callback (a promise-returning wrapper is awaited too).
+ *
+ * Resolves `true` only when a refresh actually completed; a missing refresh
+ * capability, a callback that reports failure, a rejected promise or a
+ * synchronous throw all resolve `false`, with a warning — the caller must not
+ * read the recorded answer in that case.
  */
-async function forceRefresh (store: RefreshableStore, doc: unknown): Promise<void> {
+async function forceRefresh (store: RefreshableStore, doc: unknown): Promise<boolean> {
   const refresh = store.fetcher?.refresh
-  if (typeof refresh !== 'function') return
-  await new Promise<void>((resolve) => {
+  if (typeof refresh !== 'function') return false
+  return await new Promise<boolean>((resolve) => {
     let settled = false
     const done = (ok?: unknown, message?: unknown): void => {
-      if (ok === false) {
-        debug.warn(`Could not refresh ${String(doc)}: ${String(message)}`)
-      }
       if (settled) return
       settled = true
-      resolve()
+      if (ok === false) {
+        debug.warn(`Could not refresh ${String(doc)}: ${String(message)}`)
+        resolve(false)
+      } else {
+        resolve(true)
+      }
     }
     try {
       const result = refresh.call(store.fetcher, doc, done)
@@ -180,7 +204,7 @@ async function forceRefresh (store: RefreshableStore, doc: unknown): Promise<voi
       }
     } catch (error) {
       debug.warn(`Could not refresh ${String(doc)}: ${String(error)}`)
-      done()
+      done(false)
     }
   })
 }

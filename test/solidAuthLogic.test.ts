@@ -60,6 +60,19 @@ describe('SolidAuthnLogic', () => {
 
       expect(authn.currentUser()?.uri).toBe('https://alice.example/profile#me')
     })
+
+    it('keeps a cookie-backed fallback usable while the OIDC session is inactive', () => {
+      // The NSS cookie probe is precisely the case where the OIDC session has
+      // no active client state; that identity is not the "previous user".
+      const authn = new SolidAuthnLogic({
+        isActive: false,
+        info: { isLoggedIn: false }
+      } as any)
+      ;(authn as any).fallbackWebId = 'https://alice.localhost/profile/card#me'
+      ;(authn as any).cookieBackedFallback = true
+
+      expect(authn.currentUser()?.uri).toBe('https://alice.localhost/profile/card#me')
+    })
   })
 
   describe('webIdFromSession', () => {
