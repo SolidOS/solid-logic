@@ -156,7 +156,8 @@ function watchTokenUpdates (session: SessionLike, note: () => void): void {
  * Watch a session for identity transitions and report them through `emit`.
  * Attaches the in-tab state listener when the session supports it, and a
  * visibility listener (when a document exists) so a transition made in
- * another tab is caught on refocus.
+ * another tab is caught on refocus — re-reading the session through `resync`
+ * first, since the session may not push another tab's change.
  */
 export function watchSessionTransitions (
   session: SessionLike,
@@ -173,18 +174,34 @@ export function watchSessionTransitions (
     if (event) emit(event)
     if (replaced) emit('identityReplaced')
   }
+  // The backing store has no session while this tab still believes it is
+  // signed in: report the logout and the replacement, then treat the session
+  // as cleared so later comparisons do not repeat it.
+  const reportCleared = (): void => {
+    const wasActive = previous.isActive
+    const wasEstablished = previous.webId !== undefined
+    previous = { isActive: false, webId: undefined }
+    if (wasActive) emit('logout')
+    if (wasActive && wasEstablished) emit('identityReplaced')
+  }
   // A session that cannot receive another tab's change as a pushed event has
   // to be re-read before the snapshots are compared, or the change is simply
-  // invisible here. Workers push it, so no resync is passed for them.
+  // invisible here. The resync may resolve with 'cleared' when the backing
+  // store no longer holds a session at all (a cross-tab logout).
   const syncThenNote = async (): Promise<void> => {
+    let outcome: unknown
     if (typeof resync === 'function') {
       try {
-        await resync()
+        outcome = await resync()
       } catch {
         // A session that cannot be re-read is compared as it stands.
       }
     }
-    note()
+    if (outcome === 'cleared') {
+      reportCleared()
+    } else {
+      note()
+    }
   }
   if (typeof session.addEventListener === 'function') {
     session.addEventListener('sessionStateChange', note)

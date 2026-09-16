@@ -301,17 +301,24 @@ export class SolidAuthnLogic implements AuthnLogic {
    */
   private reportFallbackIdentityChange (previousFallback: string | null, previousCookieBacked: boolean): void {
     if (previousFallback === this.fallbackWebId) return
+    // Only the cookie probe is invisible to the transition watcher: an OIDC
+    // identity change is already emitted from there.
     if (!previousCookieBacked && !this.cookieBackedFallback) return
     const events = (this.session as any)?.events
     if (typeof events?.emit !== 'function') return
-    if (previousFallback !== null) {
-      // An established cookie-backed identity was replaced or cleared.
+
+    // Invalidate when the raw session is not active: an active one means the
+    // watcher has already emitted `sessionChange` for its own transition.
+    const sessionActive = Boolean((this.session as any)?.isActive)
+    if (!sessionActive) {
       events.emit('sessionChange')
+    }
+    // The replacement is owed whenever the identity being REPLACED was
+    // cookie-backed — the watcher could not see it. An OIDC identity that a
+    // cookie one succeeds has already been reported by the watcher when it
+    // went inactive, so no second replacement is emitted.
+    if (previousCookieBacked && previousFallback !== null) {
       events.emit('identityReplaced')
-    } else if (this.fallbackWebId !== null) {
-      // Anonymous -> cookie-backed identity: the recorded answers must be
-      // invalidated, but there is no previous identity's data to discard.
-      events.emit('sessionChange')
     }
   }
 

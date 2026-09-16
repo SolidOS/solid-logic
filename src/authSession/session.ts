@@ -174,16 +174,6 @@ function getSessionCoreCtor (): (new (...args: any[]) => OidcSession) | null {
 
 const SessionCoreCtor = getSessionCoreCtor()
 
-// Whether the chosen session receives another tab's identity change as a
-// pushed event (WebSession + SharedWorker) or must be re-read on refocus
-// (SessionCore + IndexedDB). See watchSessionTransitions().
-let crossTabPush = true
-
-/** For consumers that must re-read the session when a tab regains focus. */
-export function sessionHasCrossTabPush (): boolean {
-  return crossTabPush
-}
-
 function createSession (): OidcSession {
   const shouldSkipWorkerInLocalDev = typeof window !== 'undefined' && (() => {
     const host = window.location.hostname
@@ -195,7 +185,6 @@ function createSession (): OidcSession {
 
   if (shouldSkipWorkerInLocalDev) {
     if (SessionCoreCtor) {
-      crossTabPush = false
       return new SessionCoreCtor(undefined, { database: new IndexedDbSessionDatabase() })
     }
     return new WebSession()
@@ -210,14 +199,12 @@ function createSession (): OidcSession {
     console.warn('solid-logic: falling back to non-worker auth session:', error)
     try {
       if (SessionCoreCtor) {
-        crossTabPush = false
         return new SessionCoreCtor(undefined, { database: new IndexedDbSessionDatabase() })
       }
       return new WebSession()
     } catch (dbError) {
       console.warn('solid-logic: IndexedDB unavailable, using in-memory session database:', dbError)
       if (SessionCoreCtor) {
-        crossTabPush = false
         return new SessionCoreCtor(undefined, { database: new MemorySessionDatabase() })
       }
       return new WebSession()

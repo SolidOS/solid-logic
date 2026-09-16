@@ -124,13 +124,32 @@ describe('SolidAuthnLogic', () => {
       const emitted: string[] = []
       events.on('sessionChange', () => emitted.push('sessionChange'))
       events.on('identityReplaced', () => emitted.push('identityReplaced'))
-      const authn = new SolidAuthnLogic({ events } as any)
+      // The OIDC session is active: the watcher has already emitted
+      // `sessionChange` for it going active, so only the replacement is owed
+      // (the watcher could not see the cookie identity it replaces).
+      const authn = new SolidAuthnLogic({ events, isActive: true } as any)
       ;(authn as any).fallbackWebId = 'https://bob.example/profile#me'
       ;(authn as any).cookieBackedFallback = false
 
       ;(authn as any).reportFallbackIdentityChange('https://alice.localhost/profile/card#me', true)
 
-      expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+      expect(emitted).toEqual(['identityReplaced'])
+    })
+
+    it('does not repeat the replacement the watcher already emitted for the OIDC identity', () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const authn = new SolidAuthnLogic({ events, isActive: false } as any)
+      ;(authn as any).fallbackWebId = 'https://alice.localhost/profile/card#me'
+      ;(authn as any).cookieBackedFallback = true
+
+      // OIDC B logged out (the watcher reported B -> inactive, replacement
+      // included) and the cookie probe then found A.
+      ;(authn as any).reportFallbackIdentityChange('https://bob.example/profile#me', false)
+
+      expect(emitted).toEqual(['sessionChange'])
     })
 
     it('does not duplicate OIDC-sourced changes (the watcher already reports them)', () => {

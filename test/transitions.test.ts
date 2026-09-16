@@ -233,6 +233,55 @@ describe('watchSessionTransitions', () => {
     expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
   })
 
+  it('reports the logout when the resync finds the backing session cleared', async () => {
+    const session = new FakeSession()
+    session.isActive = true
+    session.webId = 'https://a.example/#me'
+    const emitted: string[] = []
+    const handlers: Record<string, () => void> = {}
+    const doc: DocumentLike = {
+      visibilityState: 'visible',
+      addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+    }
+    watchSessionTransitions(
+      session as unknown as SessionLike,
+      (event) => emitted.push(event),
+      doc,
+      // Another tab logged out: restore() rejected with "No session to
+      // restore." and left the local session state untouched.
+      () => 'cleared'
+    )
+
+    handlers.visibilitychange()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(emitted).toEqual(['logout', 'identityReplaced'])
+  })
+
+  it('compares as it stands when the resync fails transiently', async () => {
+    const session = new FakeSession()
+    session.isActive = true
+    session.webId = 'https://a.example/#me'
+    const emitted: string[] = []
+    const handlers: Record<string, () => void> = {}
+    const doc: DocumentLike = {
+      visibilityState: 'visible',
+      addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+    }
+    watchSessionTransitions(
+      session as unknown as SessionLike,
+      (event) => emitted.push(event),
+      doc,
+      () => { throw new Error('HTTP 400 on refresh') }
+    )
+
+    handlers.visibilitychange()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    // A transient refresh failure is not a logout.
+    expect(emitted).toEqual([])
+  })
+
   it('checks nothing while the tab is hidden', () => {
     const session = new FakeSession()
     const emitted: string[] = []

@@ -11,7 +11,7 @@
  */
 
 import type { Session as OidcSession } from '@uvdsl/solid-oidc-client-browser/core'
-import { _session, sessionHasCrossTabPush } from './session'
+import { _session } from './session'
 import { resolveIssuerForLogin } from './issuer'
 import { SessionEvents } from './events'
 import { sessionIsActive, watchSessionTransitions, type SessionLike } from './transitions'
@@ -101,16 +101,29 @@ const events = new SessionEvents()
 // — including a login/logout made in another tab, which the uvdsl
 // SharedWorker does not broadcast as a state change and which is noticed when
 // this tab is refocused.
-// A worker-backed session pushes another tab's change to this one; the
-// SessionCore + IndexedDB session used where the worker is skipped or
-// unavailable does not, so re-read it on refocus before snapshots are
-// compared — otherwise a cross-tab login/logout stays invisible here.
-const resyncSession = sessionHasCrossTabPush()
-  ? undefined
-  : () => {
-      const restore = (_session as any)?.restore
-      return typeof restore === 'function' ? restore.call(_session) : undefined
-    }
+// A worker-backed session pushes another tab's change here, but a worker can
+// also be constructed and then never answer — so "the worker exists" is not
+// proof that a cross-tab change will be pushed, and the resync is always
+// wired. It is bounded: a hung session cannot delay the comparison for long,
+// and a backing store that no longer holds a session (a cross-tab logout)
+// reports 'cleared' rather than being compared as if nothing happened.
+const RESYNC_TIMEOUT_MS = 2000
+const resyncSession = (): unknown => {
+  const restore = (_session as any)?.restore
+  if (typeof restore !== 'function') return undefined
+  const restored = Promise.resolve()
+    .then(() => restore.call(_session))
+    .then(() => 'changed', (error: unknown) => {
+      // A transient refresh/network failure is compared as it stands; a store
+      // that has no session to restore means this tab's identity is gone.
+      const message = error instanceof Error ? error.message : String(error)
+      return /no session to restore/i.test(message) ? 'cleared' : 'changed'
+    })
+  return Promise.race([
+    restored,
+    new Promise<'changed'>((resolve) => setTimeout(() => resolve('changed'), RESYNC_TIMEOUT_MS))
+  ])
+}
 watchSessionTransitions(_session as unknown as SessionLike, (event) => events.emit(event), undefined, resyncSession)
 
 export const authSession: SessionWithLegacyEvents = Object.assign(
