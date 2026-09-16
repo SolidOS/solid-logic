@@ -27,8 +27,10 @@ export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: 
     store.updater = new rdf.UpdateManager(store) // Add real-time live updates store.updater
     store.features = [] // disable automatic node merging on store load
     // Whose credentials a request would carry changed: mark every recorded
-    // response out-of-date so editability re-answers per document on its next
-    // load instead of reporting the previous identity's access. See
+    // response out-of-date so editability answers "unknown" instead of the
+    // previous identity's access. Decision points repair with
+    // ensureDocumentAuthorization() — a plain load() does not refetch a
+    // flagged, already-loaded document on rdflib 2.4.0. See
     // flagAuthorizationOnTransitions.ts.
     flagAuthorizationOnSessionTransitions(store, session)
 

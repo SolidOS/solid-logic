@@ -1,5 +1,5 @@
 import { NamedNode, st, sym } from 'rdflib'
-import { refreshDocumentAuthorization } from '../authSession/flagAuthorizationOnTransitions'
+import { ensureDocumentAuthorization } from '../authSession/flagAuthorizationOnTransitions'
 import {
   CrossOriginForbiddenError,
   FetchError,
@@ -91,15 +91,15 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     doc: NamedNode
   ): Promise<NamedNode | null> {
     await store.fetcher.load(doc)
+    // On rdflib 2.4.0 a plain load() does not refetch a flagged document, so
+    // the cached graph can still hold the previous identity's link and answer
+    // its editability: repair before consuming either (see
+    // flagAuthorizationOnTransitions.ts).
+    await ensureDocumentAuthorization(store, doc)
     const result = store.any(subject, predicate, null, doc)
 
     if (result) return result as NamedNode
-    // A session transition since this document was recorded leaves the store
-    // answering "unknown" (undefined) for its editability: force a fresh
-    // response before deciding. See flagAuthorizationOnTransitions.ts.
-    const editable = store.updater.editable(doc) ??
-      await refreshDocumentAuthorization(store, doc)
-    if (!editable) {
+    if (!store.updater.editable(doc)) {
       const msg = `followOrCreateLink: cannot edit ${doc.value}`
       debug.warn(msg)
       throw new NotEditableError(msg)
@@ -130,12 +130,11 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     data: string
   ): Promise<NamedNode | null> {
     await store.fetcher.load(doc)
+    await ensureDocumentAuthorization(store, doc)
     const result = store.any(subject, predicate, null, doc)
 
     if (result) return result as NamedNode
-    const editable = store.updater.editable(doc) ??
-      await refreshDocumentAuthorization(store, doc)
-    if (!editable) {
+    if (!store.updater.editable(doc)) {
       const msg = `followOrCreateLinkWithContentOnCreate: cannot edit ${doc.value}`
       debug.warn(msg)
       throw new NotEditableError(msg)

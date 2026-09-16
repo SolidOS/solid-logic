@@ -49,14 +49,20 @@ export function flagAuthorizationOnSessionTransitions (
   session: TransitionSession
 ): void {
   const flag = (): void => {
-    authorizationGeneration += 1
+    const state = storeState(store)
+    state.generation += 1
     try {
       store.updater?.flagAuthorizationMetadata?.()
+      // Every recorded response is invalidated; decision points see that as
+      // "unknown" and repair from there.
+      state.refreshRequired = false
     } catch (error) {
-      // A store that cannot flag must not take the session handling with it —
-      // but the failure is not swallowed either: the recorded answers stay
-      // definitive for the previous identity until a decision point forces a
-      // fresh response (refreshDocumentAuthorization below), so surface it.
+      // The store could not invalidate its metadata, so its answers stay
+      // definitive for the previous identity. Do not take the session
+      // handling down with it, but do not treat the warning as recovery
+      // either: record that a fresh response is required and have the
+      // decision points honour it (ensureDocumentAuthorization below).
+      state.refreshRequired = true
       debug.warn(`Could not flag authorization metadata after a session transition: ${error}`)
     }
   }
@@ -72,11 +78,28 @@ export type RefreshableStore = {
   updater?: { editable?: (uri: unknown) => string | boolean | undefined }
 }
 
-// Every observed identity transition is counted, so an in-flight
-// authorization refresh can tell whether the response it recorded still
-// belongs to the identity that asked for it — see
-// refreshDocumentAuthorization().
-let authorizationGeneration = 0
+type StoreAuthorizationState = {
+  /** Identity transitions observed for this store. */
+  generation: number
+  /** The store could not invalidate its metadata — do not trust its answers. */
+  refreshRequired: boolean
+}
+
+// Scoped per store: two `createSolidLogic` instances with different sessions
+// must not overtake each other's refreshes, and a failed invalidation in one
+// store says nothing about another.
+const storeStates = new WeakMap<object, StoreAuthorizationState>()
+const sharedState: StoreAuthorizationState = { generation: 0, refreshRequired: false }
+
+function storeState (store: unknown): StoreAuthorizationState {
+  if (store === null || typeof store !== 'object') return sharedState
+  let state = storeStates.get(store)
+  if (!state) {
+    state = { generation: 0, refreshRequired: false }
+    storeStates.set(store, state)
+  }
+  return state
+}
 
 /** How many times a refresh is repeated when the identity keeps changing. */
 const REFRESH_ATTEMPTS = 3
@@ -89,24 +112,43 @@ const REFRESH_ATTEMPTS = 3
  * The identity can change while the refresh is in flight; the response then
  * belongs to the previous identity and must not answer for the current one,
  * or a caller could write under the new identity on the old identity's
- * authorization. Each attempt is stamped with the transition generation and
- * repeated under the new identity when it was overtaken; if the identity
- * keeps changing the answer stays "unknown" rather than stale.
+ * authorization. Each attempt is stamped with the store's transition
+ * generation and repeated under the new identity when it was overtaken; if
+ * the identity keeps changing the answer stays "unknown" rather than stale.
  */
 export async function refreshDocumentAuthorization (
   store: RefreshableStore,
   doc: unknown
 ): Promise<string | boolean | undefined> {
+  const state = storeState(store)
   for (let attempt = 0; attempt < REFRESH_ATTEMPTS; attempt++) {
-    const generation = authorizationGeneration
+    const generation = state.generation
     await forceRefresh(store, doc)
     // The read below is synchronous, so a generation that still matches means
     // no transition slipped in between the response and the answer.
-    if (generation === authorizationGeneration) {
+    if (generation === state.generation) {
       return store.updater?.editable?.(doc)
     }
   }
   return undefined
+}
+
+/**
+ * Make the store able to answer for `doc` under the current identity before
+ * its cached triples are read or its editability gates a write. A flagged
+ * store answers `undefined` and is repaired here; a store whose flag FAILED
+ * still answers definitively for the previous identity, so it is repaired
+ * too (and keeps being repaired until a later transition flags successfully,
+ * since the failure says nothing about which other documents are stale).
+ */
+export async function ensureDocumentAuthorization (
+  store: RefreshableStore,
+  doc: unknown
+): Promise<void> {
+  const state = storeState(store)
+  if (state.refreshRequired || store.updater?.editable?.(doc) === undefined) {
+    await refreshDocumentAuthorization(store, doc)
+  }
 }
 
 /**
