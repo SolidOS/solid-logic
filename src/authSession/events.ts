@@ -14,7 +14,8 @@ type LegacyEventHandler = (...args: unknown[]) => void
  * continue working without modification.
  *
  * Events are emitted by SolidAuthnLogic.checkUser() (login/sessionRestore)
- * and by the transition watcher in authSession.ts (logout, sessionChange).
+ * and by the transition watcher in authSession.ts (logout, sessionChange,
+ * identityReplaced — the event the reload helper subscribes to).
  */
 export class SessionEvents {
   private readonly listeners: Map<string, Set<LegacyEventHandler>> = new Map()

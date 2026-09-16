@@ -40,6 +40,35 @@ export class SolidAuthnLogic implements AuthnLogic {
 
   constructor(solidAuthSession: SessionWithLegacyEvents) {
     this.session = solidAuthSession
+    this.watchCookieBackedFallbackRefocus()
+  }
+
+  /**
+   * The cookie-backed identity is invisible to the transition watcher (the
+   * OIDC session stays inactive and WebID-less), so re-probe it when the tab
+   * regains focus: another tab may have logged out or switched identity while
+   * this one was backgrounded. Only meaningful where the probe applies
+   * (*.localhost NSS setups).
+   */
+  private watchCookieBackedFallbackRefocus (): void {
+    if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return
+      void this.refreshCookieBackedFallback()
+    })
+  }
+
+  /** Re-probe the NSS cookie-backed identity and report a change, if any. */
+  async refreshCookieBackedFallback (): Promise<void> {
+    // While the OIDC session is active it owns the identity.
+    if (Boolean((this.session as any)?.isActive)) return
+    const previousFallback = this.fallbackWebId
+    const previousCookieBacked = this.cookieBackedFallback
+    const webId = await this.probeNssCookieBackedWebId()
+    if (webId === null && !previousCookieBacked) return
+    this.fallbackWebId = webId
+    this.cookieBackedFallback = webId !== null
+    this.reportFallbackIdentityChange(previousFallback, previousCookieBacked)
   }
 
   // we created authSession getter because we want to access it as authn.authSession externally

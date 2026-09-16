@@ -193,6 +193,39 @@ describe('SolidAuthnLogic', () => {
 
       expect(emitted).toEqual([])
     })
+
+    it('revalidates a cookie-backed identity on refocus and reports it when it is gone', async () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const authn = new SolidAuthnLogic({ events, isActive: false } as any)
+      ;(authn as any).fallbackWebId = 'https://alice.localhost/profile/card#me'
+      ;(authn as any).cookieBackedFallback = true
+
+      // jsdom's hostname is not a *.localhost pod, so the probe finds nothing:
+      // another tab logged the cookie session out.
+      await authn.refreshCookieBackedFallback()
+
+      expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+      expect((authn as any).fallbackWebId).toBeNull()
+      expect((authn as any).cookieBackedFallback).toBe(false)
+    })
+
+    it('does not touch the fallback while the OIDC session is active', async () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const authn = new SolidAuthnLogic({ events, isActive: true } as any)
+      ;(authn as any).fallbackWebId = 'https://bob.example/profile#me'
+      ;(authn as any).cookieBackedFallback = false
+
+      await authn.refreshCookieBackedFallback()
+
+      expect(emitted).toEqual([])
+      expect((authn as any).fallbackWebId).toBe('https://bob.example/profile#me')
+    })
   })
 
   describe('saveUser', () => {

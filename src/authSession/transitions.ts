@@ -57,12 +57,12 @@ export function classifySessionTransition (
  */
 export function identityReplaced (prev: SessionSnapshot, next: SessionSnapshot): boolean {
   if (prev.webId === undefined) return false
-  if (next.webId !== prev.webId) return true
-  // The same WebID can be retained through a partial logout ({ isActive: false,
-  // webId: A }): only the transition OUT of an active session is a
-  // replacement, so a steady partial-logout snapshot does not report one —
-  // and repeat one — on every refocus.
-  return prev.isActive && !next.isActive
+  // Only the transition OUT of an ACTIVELY established identity is a
+  // replacement: once the session has gone inactive (webId possibly retained),
+  // the replacement was already reported — clearing the WebID afterwards or
+  // logging in as someone else is not a second replacement.
+  if (!prev.isActive) return false
+  return next.webId !== prev.webId || !next.isActive
 }
 
 /**
@@ -119,6 +119,9 @@ export type DocumentLike = {
   addEventListener?: (type: string, listener: () => void) => void
 }
 
+/** How long a refocus resync may delay the snapshot comparison. */
+const RESYNC_TIMEOUT_MS = 2000
+
 const snapshotOf = (session: SessionLike): SessionSnapshot => ({
   isActive: sessionIsActive(session),
   webId: session.webId
@@ -166,42 +169,63 @@ export function watchSessionTransitions (
   resync?: () => unknown
 ): void {
   let previous = snapshotOf(session)
+  let clearedReported = false
   const note = (): void => {
     const next = snapshotOf(session)
     const event = classifySessionTransition(previous, next)
     const replaced = identityReplaced(previous, next)
+    const moved = event !== null || replaced
     previous = next
+    // The session moved on again: a later 'cleared' resync is a new fact.
+    if (moved) clearedReported = false
     if (event) emit(event)
     if (replaced) emit('identityReplaced')
   }
   // The backing store has no session while this tab still believes it is
-  // signed in: report the logout and the replacement, then treat the session
-  // as cleared so later comparisons do not repeat it.
+  // signed in: report the logout and the replacement for the identity that was
+  // active. Reported once per session state — a later refocus that still finds
+  // no session must not repeat it.
   const reportCleared = (): void => {
+    if (clearedReported) return
+    clearedReported = true
     const wasActive = previous.isActive
     const wasEstablished = previous.webId !== undefined
-    previous = { isActive: false, webId: undefined }
+    previous = snapshotOf(session)
     if (wasActive) emit('logout')
     if (wasActive && wasEstablished) emit('identityReplaced')
   }
   // A session that cannot receive another tab's change as a pushed event has
   // to be re-read before the snapshots are compared, or the change is simply
-  // invisible here. The resync may resolve with 'cleared' when the backing
-  // store no longer holds a session at all (a cross-tab logout).
+  // invisible here. The wait is bounded so a hung session cannot stall the
+  // comparison — but the outcome is kept: a restore that only finishes later
+  // can still report the session gone, and dropping it would leave this tab on
+  // the old identity until some other visibility event.
   const syncThenNote = async (): Promise<void> => {
-    let outcome: unknown
-    if (typeof resync === 'function') {
-      try {
-        outcome = await resync()
-      } catch {
-        // A session that cannot be re-read is compared as it stands.
-      }
-    }
-    if (outcome === 'cleared') {
-      reportCleared()
-    } else {
+    if (typeof resync !== 'function') {
       note()
+      return
     }
+    let outcome: unknown
+    let done = false
+    const attempt = Promise.resolve()
+      .then(() => resync())
+      .then(
+        (value) => { outcome = value; done = true },
+        () => { done = true } // compared as it stands
+      )
+    await Promise.race([
+      attempt,
+      new Promise<void>((resolve) => setTimeout(resolve, RESYNC_TIMEOUT_MS))
+    ])
+    if (done) {
+      if (outcome === 'cleared') reportCleared()
+      else note()
+      return
+    }
+    note()
+    void attempt.then(() => {
+      if (outcome === 'cleared') reportCleared()
+    })
   }
   if (typeof session.addEventListener === 'function') {
     session.addEventListener('sessionStateChange', note)

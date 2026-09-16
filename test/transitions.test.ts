@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { classifySessionTransition, identityReplaced, reloadOnIdentityReplaced, sessionIsActive, watchSessionTransitions, type DocumentLike, type SessionLike } from '../src/authSession/transitions'
 
 describe('classifySessionTransition', () => {
@@ -65,6 +65,19 @@ describe('identityReplaced', () => {
     expect(identityReplaced(
       { isActive: false, webId: 'https://a.example/#me' },
       { isActive: false, webId: 'https://a.example/#me' }
+    )).toBe(false)
+  })
+
+  it('does not repeat the replacement after a partial logout', () => {
+    // The replacement was reported when A went inactive: clearing the retained
+    // WebID, or a later login as someone else, is not a second replacement.
+    expect(identityReplaced(
+      { isActive: false, webId: 'https://a.example/#me' },
+      { isActive: false }
+    )).toBe(false)
+    expect(identityReplaced(
+      { isActive: false, webId: 'https://a.example/#me' },
+      { isActive: true, webId: 'https://b.example/#me' }
     )).toBe(false)
   })
 })
@@ -280,6 +293,39 @@ describe('watchSessionTransitions', () => {
 
     // A transient refresh failure is not a logout.
     expect(emitted).toEqual([])
+  })
+
+  it('reports a cleared session that only answers after the resync timeout', async () => {
+    vi.useFakeTimers()
+    try {
+      const session = new FakeSession()
+      session.isActive = true
+      session.webId = 'https://a.example/#me'
+      const emitted: string[] = []
+      const handlers: Record<string, () => void> = {}
+      const doc: DocumentLike = {
+        visibilityState: 'visible',
+        addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+      }
+      watchSessionTransitions(
+        session as unknown as SessionLike,
+        (event) => emitted.push(event),
+        doc,
+        // A slow cross-tab logout: the answer arrives long after the timeout.
+        () => new Promise((resolve) => setTimeout(() => resolve('cleared'), 5000))
+      )
+
+      handlers.visibilitychange()
+      await vi.advanceTimersByTimeAsync(2500)
+      // Timed out: the comparison ran as it stood, nothing reported yet.
+      expect(emitted).toEqual([])
+
+      await vi.advanceTimersByTimeAsync(3000)
+      // The outcome was kept, not discarded.
+      expect(emitted).toEqual(['logout', 'identityReplaced'])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('checks nothing while the tab is hidden', () => {

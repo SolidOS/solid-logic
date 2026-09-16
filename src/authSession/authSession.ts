@@ -104,14 +104,12 @@ const events = new SessionEvents()
 // A worker-backed session pushes another tab's change here, but a worker can
 // also be constructed and then never answer — so "the worker exists" is not
 // proof that a cross-tab change will be pushed, and the resync is always
-// wired. It is bounded: a hung session cannot delay the comparison for long,
-// and a backing store that no longer holds a session (a cross-tab logout)
-// reports 'cleared' rather than being compared as if nothing happened.
-const RESYNC_TIMEOUT_MS = 2000
+// wired. It maps a backing store that no longer holds a session (a cross-tab
+// logout) to 'cleared'; watchSessionTransitions() bounds the wait.
 const resyncSession = (): unknown => {
   const restore = (_session as any)?.restore
   if (typeof restore !== 'function') return undefined
-  const restored = Promise.resolve()
+  return Promise.resolve()
     .then(() => restore.call(_session))
     .then(() => 'changed', (error: unknown) => {
       // A transient refresh/network failure is compared as it stands; a store
@@ -119,10 +117,6 @@ const resyncSession = (): unknown => {
       const message = error instanceof Error ? error.message : String(error)
       return /no session to restore/i.test(message) ? 'cleared' : 'changed'
     })
-  return Promise.race([
-    restored,
-    new Promise<'changed'>((resolve) => setTimeout(() => resolve('changed'), RESYNC_TIMEOUT_MS))
-  ])
 }
 watchSessionTransitions(_session as unknown as SessionLike, (event) => events.emit(event), undefined, resyncSession)
 
