@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifySessionTransition, sessionIsActive, watchSessionTransitions, type DocumentLike, type SessionLike } from '../src/authSession/transitions'
+import { classifySessionTransition, identityReplaced, reloadOnIdentityReplaced, sessionIsActive, watchSessionTransitions, type DocumentLike, type SessionLike } from '../src/authSession/transitions'
 
 describe('classifySessionTransition', () => {
   it('reports a logout when the session goes inactive', () => {
@@ -29,6 +29,53 @@ describe('classifySessionTransition', () => {
       { isActive: true, webId: 'https://a.example/#me' }
     )).toBeNull()
     expect(classifySessionTransition({ isActive: false }, { isActive: false })).toBeNull()
+  })
+})
+
+describe('identityReplaced', () => {
+  it('reports a replacement when an established WebID changes (A -> B)', () => {
+    expect(identityReplaced(
+      { isActive: true, webId: 'https://a.example/#me' },
+      { isActive: true, webId: 'https://b.example/#me' }
+    )).toBe(true)
+  })
+
+  it('reports a replacement when an established identity is cleared (A -> logged out)', () => {
+    expect(identityReplaced(
+      { isActive: true, webId: 'https://a.example/#me' },
+      { isActive: false, webId: 'https://a.example/#me' }
+    )).toBe(true)
+    expect(identityReplaced(
+      { isActive: true, webId: 'https://a.example/#me' },
+      { isActive: false }
+    )).toBe(true)
+  })
+
+  it('ignores start-up (no identity -> A) and a same-identity token refresh', () => {
+    expect(identityReplaced({ isActive: false }, { isActive: true, webId: 'https://a.example/#me' })).toBe(false)
+    expect(identityReplaced(
+      { isActive: true, webId: 'https://a.example/#me' },
+      { isActive: true, webId: 'https://a.example/#me' }
+    )).toBe(false)
+  })
+})
+
+describe('reloadOnIdentityReplaced', () => {
+  it('subscribes the reload action to identityReplaced', () => {
+    const handlers: Record<string, () => void> = {}
+    const events = {
+      on: (event: string, handler: () => void): void => { handlers[event] = handler }
+    }
+    let reloads = 0
+    reloadOnIdentityReplaced(events, () => { reloads += 1 })
+
+    expect(handlers.identityReplaced).toBeInstanceOf(Function)
+    handlers.identityReplaced()
+    expect(reloads).toBe(1)
+  })
+
+  it('does nothing without an event layer', () => {
+    expect(() => reloadOnIdentityReplaced(undefined)).not.toThrow()
   })
 })
 
@@ -72,7 +119,7 @@ describe('watchSessionTransitions', () => {
     session.isActive = false
     session.webId = undefined
     session.dispatchEvent(new Event('sessionStateChange'))
-    expect(emitted).toEqual(['sessionChange', 'logout'])
+    expect(emitted).toEqual(['sessionChange', 'logout', 'identityReplaced'])
   })
 
   it('notices a WebID change while the session stays active (token update)', async () => {
@@ -86,7 +133,7 @@ describe('watchSessionTransitions', () => {
     // token update itself is the evidence of an A -> B switch.
     await session.setTokenDetails({ webId: 'https://b.example/#me' })
 
-    expect(emitted).toEqual(['sessionChange'])
+    expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
   })
 
   it('emits logout when isActive flips false while a WebID is still cached', () => {
@@ -99,7 +146,20 @@ describe('watchSessionTransitions', () => {
     session.isActive = false // webId retained, as during a partial logout
     session.dispatchEvent(new Event('sessionStateChange'))
 
-    expect(emitted).toEqual(['logout'])
+    expect(emitted).toEqual(['logout', 'identityReplaced'])
+  })
+
+  it('emits identityReplaced when an established identity is replaced', () => {
+    const session = new FakeSession()
+    session.isActive = true
+    session.webId = 'https://a.example/#me'
+    const emitted: string[] = []
+    watchSessionTransitions(session as unknown as SessionLike, (event) => emitted.push(event), undefined)
+
+    session.webId = 'https://b.example/#me'
+    session.dispatchEvent(new Event('sessionStateChange'))
+
+    expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
   })
 
   it('notices a change made elsewhere when the tab is refocused', () => {
@@ -155,6 +215,6 @@ describe('watchSessionTransitions', () => {
 
     session.webId = 'https://b.example/#me'
     handlers.visibilitychange()
-    expect(emitted).toEqual(['sessionChange'])
+    expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
   })
 })

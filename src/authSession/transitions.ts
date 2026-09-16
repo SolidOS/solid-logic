@@ -15,6 +15,13 @@
  *     window) is caught by comparing the identity around `setTokenDetails`,
  *     the single entry point for token updates.
  *
+ * It also reports `identityReplaced` when a session that HAD a WebID no longer
+ * reports the same one, or no longer reports being active: that is the signal
+ * for a consumer holding data fetched under the previous identity — it cannot
+ * be re-validated document by document, so it should discard its cache
+ * (reloading the page is the pragmatic form, see `reloadOnIdentityReplaced`).
+ * Start-up and same-identity token refreshes are deliberately not replacements.
+ *
  * Consumers invalidate identity-derived state on these events — see
  * flagAuthorizationOnTransitions.ts.
  */
@@ -36,6 +43,39 @@ export function classifySessionTransition (
 ): 'logout' | 'sessionChange' | null {
   if (prev.isActive !== next.isActive) return next.isActive ? 'sessionChange' : 'logout'
   return next.webId !== prev.webId ? 'sessionChange' : null
+}
+
+/**
+ * Whether an established identity was replaced or cleared — a session that had
+ * a WebID no longer reports the same one (A -> B), or no longer reports being
+ * active (A -> logged out, A -> none). Data fetched under the previous
+ * identity cannot be re-validated document by document, so this is the signal
+ * to discard it.
+ *
+ * Start-up (no identity -> A) and a token refresh for the same identity are
+ * not replacements: there is nothing of a previous user to drop.
+ */
+export function identityReplaced (prev: SessionSnapshot, next: SessionSnapshot): boolean {
+  if (prev.webId === undefined) return false
+  return next.webId !== prev.webId || !next.isActive
+}
+
+/**
+ * Reload the page when the identity that was active in this tab is replaced or
+ * cleared — the pragmatic way to drop everything fetched under the previous
+ * identity (store, panes, editability), instead of repairing every read path.
+ *
+ * Consumer-side on purpose: navigation is an application decision (solid-ui,
+ * mashlib), and tests inject their own action.
+ */
+export function reloadOnIdentityReplaced (
+  events: { on?: (event: 'identityReplaced', handler: () => void) => void } | undefined,
+  reload: () => void = () => {
+    if (typeof window !== 'undefined') window.location.reload()
+  }
+): void {
+  if (!events || typeof events.on !== 'function') return
+  events.on('identityReplaced', reload)
 }
 
 export type SessionLike = {
@@ -115,15 +155,17 @@ function watchTokenUpdates (session: SessionLike, note: () => void): void {
  */
 export function watchSessionTransitions (
   session: SessionLike,
-  emit: (event: 'logout' | 'sessionChange') => void,
+  emit: (event: 'logout' | 'sessionChange' | 'identityReplaced') => void,
   doc: DocumentLike | undefined = typeof document === 'undefined' ? undefined : document
 ): void {
   let previous = snapshotOf(session)
   const note = (): void => {
     const next = snapshotOf(session)
     const event = classifySessionTransition(previous, next)
+    const replaced = identityReplaced(previous, next)
     previous = next
     if (event) emit(event)
+    if (replaced) emit('identityReplaced')
   }
   if (typeof session.addEventListener === 'function') {
     session.addEventListener('sessionStateChange', note)

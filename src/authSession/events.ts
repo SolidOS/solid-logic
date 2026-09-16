@@ -5,7 +5,7 @@
  * Wired into the auth session by authSession.ts.
  */
 
-export type LegacyEventName = 'login' | 'logout' | 'sessionChange' | 'sessionRestore'
+export type LegacyEventName = 'identityReplaced' | 'login' | 'logout' | 'sessionChange' | 'sessionRestore'
 type LegacyEventHandler = (...args: unknown[]) => void
 
 /**
