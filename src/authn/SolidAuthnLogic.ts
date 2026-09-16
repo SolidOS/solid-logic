@@ -285,15 +285,16 @@ export class SolidAuthnLogic implements AuthnLogic {
     const infoLoggedIn = sessionInfo?.isLoggedIn
     const rootLoggedIn = sessionRoot?.isLoggedIn
     const rootActive = sessionRoot?.isActive
-    if (infoLoggedIn === true || rootLoggedIn === true || rootActive === true) {
-      return webId
-    }
-    // An explicit inactive/not-logged-in flag wins even when the other
-    // sources are absent: the session root has no `isLoggedIn` property, so
-    // requiring it to be false kept a cached WebID alive across a logout.
+    // An explicit inactive/not-logged-in flag wins over a cached WebID and
+    // over a positive flag in another source — the same rule as
+    // sessionExplicitlyInactive() in transitions.ts. The session root has no
+    // `isLoggedIn` property, so requiring every source to be false kept a
+    // cached WebID alive across a logout; a mixed snapshot must not resurrect
+    // one either.
     if (infoLoggedIn === false || rootLoggedIn === false || rootActive === false) {
       return null
     }
+    // Active, or a legacy session that reports no state at all.
     return webId
   }
 

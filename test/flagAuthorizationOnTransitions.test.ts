@@ -109,4 +109,55 @@ describe('refreshDocumentAuthorization', () => {
     const store = { updater: { editable: (): boolean => false } }
     await expect(refreshDocumentAuthorization(store, 'https://a.example/')).resolves.toBe(false)
   })
+
+  it('refreshes again when the identity changed while the refresh was in flight', async () => {
+    const store: any = { updater: { flagAuthorizationMetadata: (): void => {} } }
+    const session = { events: new SessionEvents() }
+    flagAuthorizationOnSessionTransitions(store, session)
+
+    let calls = 0
+    let editableReads = 0
+    const flaky = {
+      fetcher: {
+        refresh: (_doc: unknown, done?: () => void): void => {
+          calls += 1
+          // The identity changes mid-flight on the first refresh only.
+          if (calls === 1) session.events.emit('sessionChange')
+          done?.()
+        }
+      },
+      updater: {
+        editable: (): string => {
+          editableReads += 1
+          return 'N3PATCH'
+        }
+      }
+    }
+
+    await expect(refreshDocumentAuthorization(flaky, 'https://a.example/')).resolves.toBe('N3PATCH')
+    expect(calls).toBe(2)
+    // The overtaken response is never read as the answer.
+    expect(editableReads).toBe(1)
+  })
+
+  it('fails closed (unknown) when the identity keeps changing', async () => {
+    const store: any = { updater: { flagAuthorizationMetadata: (): void => {} } }
+    const session = { events: new SessionEvents() }
+    flagAuthorizationOnSessionTransitions(store, session)
+
+    let calls = 0
+    const alwaysOvertaken = {
+      fetcher: {
+        refresh: (_doc: unknown, done?: () => void): void => {
+          calls += 1
+          session.events.emit('sessionChange')
+          done?.()
+        }
+      },
+      updater: { editable: (): string => 'N3PATCH' }
+    }
+
+    await expect(refreshDocumentAuthorization(alwaysOvertaken, 'https://a.example/')).resolves.toBeUndefined()
+    expect(calls).toBe(3)
+  })
 })

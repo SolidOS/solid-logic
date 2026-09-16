@@ -83,6 +83,12 @@ describe('SolidAuthnLogic', () => {
         { webId: 'https://alice.example/profile#me' }
       )).toBe('https://alice.example/profile#me')
     })
+    it('treats a mixed snapshot as logged out when any source reports inactive', () => {
+      expect(solidAuthnLogic.webIdFromSession(
+        { webId: 'https://alice.example/profile#me', isLoggedIn: true },
+        { webId: 'https://alice.example/profile#me', isActive: false }
+      )).toBeNull()
+    })
   })
 
   describe('saveUser', () => {

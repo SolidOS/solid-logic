@@ -49,6 +49,7 @@ export function flagAuthorizationOnSessionTransitions (
   session: TransitionSession
 ): void {
   const flag = (): void => {
+    authorizationGeneration += 1
     try {
       store.updater?.flagAuthorizationMetadata?.()
     } catch (error) {
@@ -71,17 +72,41 @@ export type RefreshableStore = {
   updater?: { editable?: (uri: unknown) => string | boolean | undefined }
 }
 
+// Every observed identity transition is counted, so an in-flight
+// authorization refresh can tell whether the response it recorded still
+// belongs to the identity that asked for it — see
+// refreshDocumentAuthorization().
+let authorizationGeneration = 0
+
+/** How many times a refresh is repeated when the identity keeps changing. */
+const REFRESH_ATTEMPTS = 3
+
 /**
  * Force-refresh one document and answer its editability under the current
  * identity — the repair path for a flagged store (see above). It costs a
  * round-trip; decision points that need an immediate, correct answer use it.
+ *
+ * The identity can change while the refresh is in flight; the response then
+ * belongs to the previous identity and must not answer for the current one,
+ * or a caller could write under the new identity on the old identity's
+ * authorization. Each attempt is stamped with the transition generation and
+ * repeated under the new identity when it was overtaken; if the identity
+ * keeps changing the answer stays "unknown" rather than stale.
  */
 export async function refreshDocumentAuthorization (
   store: RefreshableStore,
   doc: unknown
 ): Promise<string | boolean | undefined> {
-  await forceRefresh(store, doc)
-  return store.updater?.editable?.(doc)
+  for (let attempt = 0; attempt < REFRESH_ATTEMPTS; attempt++) {
+    const generation = authorizationGeneration
+    await forceRefresh(store, doc)
+    // The read below is synchronous, so a generation that still matches means
+    // no transition slipped in between the response and the answer.
+    if (generation === authorizationGeneration) {
+      return store.updater?.editable?.(doc)
+    }
+  }
+  return undefined
 }
 
 /**
