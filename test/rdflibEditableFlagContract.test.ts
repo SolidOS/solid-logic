@@ -48,7 +48,7 @@ describe('rdflib authorization metadata contract', () => {
     let calls = 0
     const fakeFetch = async (): Promise<Response> => {
       calls += 1
-      const headers = calls === 1
+      const headers: Record<string, string> = calls === 1
         ? { 'content-type': 'text/turtle', 'wac-allow': 'user="read"' }
         : { 'content-type': 'text/turtle', 'wac-allow': 'user="read write"', 'accept-patch': 'text/n3' }
       return new Response('', { status: 200, headers })
