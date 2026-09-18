@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { classifySessionTransition, identityReplaced, reloadOnIdentityReplaced, sessionExplicitlyInactive, sessionIsActive, sessionWasCleared, watchSessionTransitions, type DocumentLike, type SessionLike } from '../src/authSession/transitions'
+import { classifySessionTransition, identityReplaced, reloadOnIdentityReplaced, restoreSession, sessionExplicitlyInactive, sessionIsActive, sessionWasCleared, watchSessionTransitions, type DocumentLike, type SessionLike } from '../src/authSession/transitions'
 
 describe('classifySessionTransition', () => {
   it('reports a logout when the session goes inactive', () => {
@@ -124,6 +124,41 @@ describe('sessionIsActive', () => {
 
   it('is active when isActive is true', () => {
     expect(sessionIsActive({ isActive: true })).toBe(true)
+  })
+})
+
+describe('restoreSession', () => {
+  it('shares a restore that is already in flight', async () => {
+    let restores = 0
+    let resolveRestore: (value: unknown) => void = () => undefined
+    const session = {
+      restore: (): Promise<unknown> => {
+        restores += 1
+        return new Promise((resolve) => { resolveRestore = resolve })
+      }
+    }
+
+    const first = restoreSession(session)
+    const second = restoreSession(session)
+    // The shared attempt calls restore() on the next microtask.
+    await Promise.resolve()
+
+    // `restore()` can mutate the session, so both call sites share one attempt.
+    expect(restores).toBe(1)
+    expect(second).toBe(first)
+
+    resolveRestore('restored')
+    await expect(first).resolves.toBe('restored')
+
+    // Once it settled, the next caller starts a new restore.
+    void restoreSession(session)
+    await Promise.resolve()
+    expect(restores).toBe(2)
+  })
+
+  it('has nothing to share when the session cannot restore', () => {
+    expect(restoreSession(undefined)).toBeUndefined()
+    expect(restoreSession({})).toBeUndefined()
   })
 })
 
@@ -512,6 +547,32 @@ describe('watchSessionTransitions', () => {
     // The answer was about Alice; Bob must not be logged out by it.
     expect(emitted).toEqual([])
     expect(sessionWasCleared(session)).toBe(false)
+    expect(sessionExplicitlyInactive(session)).toBe(false)
+  })
+
+  it('does not mark a session that was never established as cleared', async () => {
+    const session = new FakeSession()
+    const emitted: string[] = []
+    const handlers: Record<string, () => void> = {}
+    const doc: DocumentLike = {
+      visibilityState: 'visible',
+      addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+    }
+    watchSessionTransitions(session as unknown as SessionLike, (event) => emitted.push(event), doc, () => 'cleared')
+
+    handlers.visibilitychange()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    // Nothing was in use, so nothing is reported and nothing is invalidated:
+    // a mark here would mask the login that follows.
+    expect(emitted).toEqual([])
+    expect(sessionWasCleared(session)).toBe(false)
+
+    session.isActive = true
+    session.webId = 'https://a.example/#me'
+    session.dispatchEvent(new Event('sessionStateChange'))
+
+    expect(emitted).toEqual(['sessionChange'])
     expect(sessionExplicitlyInactive(session)).toBe(false)
   })
 

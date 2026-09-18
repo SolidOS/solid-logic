@@ -148,6 +148,37 @@ export type DocumentLike = {
 /** How long a refocus resync may delay the snapshot comparison. */
 const RESYNC_TIMEOUT_MS = 2000
 
+export type SessionRestoreLike = {
+  restore?: () => Promise<unknown>
+}
+
+// One restore at a time per session: `restore()` can mutate the session before
+// it resolves, so two overlapping restores could write an older identity back
+// over a newer one. Every call site (the refocus resync and `checkUser()`) goes
+// through this lock, and a caller that arrives while a restore is in flight
+// joins it instead of starting another.
+const restoresInFlight = new WeakMap<object, Promise<unknown>>()
+
+/**
+ * Runs `session.restore()`, sharing an attempt that is already in flight.
+ *
+ * @returns the shared promise, or undefined when the session has no restore.
+ */
+export function restoreSession (session: SessionRestoreLike | undefined): Promise<unknown> | undefined {
+  const restore = session?.restore
+  if (typeof restore !== 'function' || typeof session !== 'object' || session === null) {
+    return undefined
+  }
+  const key = session as object
+  const inFlight = restoresInFlight.get(key)
+  if (inFlight) return inFlight
+  const started = Promise.resolve()
+    .then(() => restore.call(session))
+    .finally(() => { restoresInFlight.delete(key) })
+  restoresInFlight.set(key, started)
+  return started
+}
+
 const snapshotOf = (session: SessionLike): SessionSnapshot => {
   // A session that was reported cleared answers as logged out until it
   // reports an identity again (see sessionWasCleared): the local object may
@@ -241,6 +272,18 @@ export function watchSessionTransitions (
     clearedReported = true
     const wasActive = previous.isActive
     const wasEstablished = previous.webId !== undefined
+    // Only a session that was actually in use has to be invalidated: an
+    // anonymous tab is cleared already, and marking it would make
+    // snapshotOf() report the cleared state — masking a later login until
+    // some other watcher event happens to run.
+    if (!wasActive || !wasEstablished) {
+      previous = snapshotOf(session)
+      if (wasActive) {
+        revision += 1
+        emit('logout')
+      }
+      return
+    }
     // The local session object still reports the old identity: mark it cleared
     // so the derived reads stop answering for it, and baseline the comparison
     // on that cleared state — a later activation is then a new login, and a
@@ -248,8 +291,8 @@ export function watchSessionTransitions (
     clearedSessions.add(session as object)
     previous = snapshotOf(session)
     revision += 1
-    if (wasActive) emit('logout')
-    if (wasActive && wasEstablished) emit('identityReplaced')
+    emit('logout')
+    emit('identityReplaced')
   }
   // A session that cannot receive another tab's change as a pushed event has
   // to be re-read before the snapshots are compared, or the change is simply

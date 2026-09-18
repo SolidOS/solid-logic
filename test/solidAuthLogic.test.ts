@@ -97,6 +97,24 @@ describe('SolidAuthnLogic', () => {
         { webId: 'https://alice.example/profile#me' }
       )).toBe('https://alice.example/profile#me')
     })
+    it('returns null for a session whose backing store was cleared', async () => {
+      // The session still reports Alice, but the backing store lost it: the
+      // cached identity must not be accepted again.
+      const session = { isActive: true, webId: 'https://alice.example/profile#me' }
+      const handlers: Record<string, () => void> = {}
+      watchSessionTransitions(session, () => undefined, {
+        visibilityState: 'visible',
+        addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+      }, () => 'cleared')
+      handlers.visibilitychange()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(solidAuthnLogic.webIdFromSession(
+        { webId: 'https://alice.example/profile#me', isLoggedIn: true },
+        session
+      )).toBeNull()
+    })
+
     it('treats a mixed snapshot as logged out when any source reports inactive', () => {
       expect(solidAuthnLogic.webIdFromSession(
         { webId: 'https://alice.example/profile#me', isLoggedIn: true },
@@ -286,6 +304,58 @@ describe('SolidAuthnLogic', () => {
 
       expect((authn as any).fallbackWebId).toBe('https://carol.localhost/profile/card#me')
       expect(emitted).toEqual(['sessionChange'])
+    })
+
+    it('does not report a superseded checkUser probe a second time', async () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const authn = new SolidAuthnLogic({ events } as any)
+      ;(authn as any).fallbackWebId = 'https://alice.localhost/profile/card#me'
+      ;(authn as any).cookieBackedFallback = true
+      const resolvers: ((webId: string | null) => void)[] = []
+      ;(authn as any).probeNssCookieBackedWebId = (): Promise<string | null> =>
+        new Promise((resolve) => { resolvers.push(resolve) })
+
+      const checking = authn.checkUser()
+      await Promise.resolve()
+      const refocus = authn.refreshCookieBackedFallback()
+      await Promise.resolve()
+
+      // The newer probe establishes a different cookie identity and reports it.
+      resolvers[1]('https://carol.localhost/profile/card#me')
+      await refocus
+      expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+
+      // The older checkUser probe now answers: it is superseded, and the change
+      // it would compare against has already been reported.
+      resolvers[0](null)
+      await checking
+
+      expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+      expect((authn as any).fallbackWebId).toBe('https://carol.localhost/profile/card#me')
+    })
+
+    it('drops a probe result that was in flight when the instance was disposed', async () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const authn = new SolidAuthnLogic({ events } as any)
+      let resolveProbe: (webId: string | null) => void = () => undefined
+      ;(authn as any).probeNssCookieBackedWebId = (): Promise<string | null> =>
+        new Promise((resolve) => { resolveProbe = resolve })
+
+      const probing = authn.refreshCookieBackedFallback()
+      await Promise.resolve()
+      authn.dispose()
+      resolveProbe('https://alice.localhost/profile/card#me')
+      await probing
+
+      // A replaced instance must not apply results any more.
+      expect((authn as any).fallbackWebId).toBeNull()
+      expect(emitted).toEqual([])
     })
 
     it('does not let a checkUser probe replace an identity the session took over', async () => {

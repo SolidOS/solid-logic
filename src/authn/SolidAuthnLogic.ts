@@ -1,7 +1,7 @@
 import { namedNode, NamedNode, sym } from 'rdflib'
 import { appContext, offlineTestID } from './authUtil'
 import * as debug from '../util/debug'
-import { sessionExplicitlyInactive, sessionIsActive, sessionWasCleared } from '../authSession/transitions'
+import { restoreSession, sessionExplicitlyInactive, sessionIsActive, sessionWasCleared } from '../authSession/transitions'
 import type { SessionWithLegacyEvents } from '../authSession/authSession'
 import type { AuthenticationContext, AuthnLogic } from '../types'
 
@@ -73,6 +73,9 @@ export class SolidAuthnLogic implements AuthnLogic {
    * dispose the old one.
    */
   dispose (): void {
+    // A probe that is already awaiting its fetch must not apply its result
+    // either: bumping the generation makes it superseded.
+    this.cookieProbeGeneration += 1
     if (!this.refocusListener) return
     if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
       document.removeEventListener('visibilitychange', this.refocusListener)
@@ -223,9 +226,13 @@ export class SolidAuthnLogic implements AuthnLogic {
       // UI would spin forever. Race it against a timeout and treat a stall
       // as "no previous session" so the page can render the login button.
       const wasActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
-      if (typeof sessionAny?.restore === 'function') {
+      // The shared restore lock also covers this call: a refocus resync can be
+      // in flight at the same time, and two overlapping restores could write an
+      // older identity back over a newer one.
+      const restoring = restoreSession(sessionAny)
+      if (restoring) {
         try {
-          await withRestoreTimeout(sessionAny.restore())
+          await withRestoreTimeout(restoring)
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           // A failed restore on an inactive session just means "no usable
@@ -283,6 +290,8 @@ export class SolidAuthnLogic implements AuthnLogic {
 
     const previousFallback = this.fallbackWebId
     const previousCookieBacked = this.cookieBackedFallback
+    let baselineFallback = previousFallback
+    let baselineCookieBacked = previousCookieBacked
     let webId = this.webIdFromSession(sessionAny?.info, sessionAny)
     let cookieBacked = false
     if (!webId) {
@@ -298,9 +307,12 @@ export class SolidAuthnLogic implements AuthnLogic {
       } else if (result.status === 'session-active') {
         webId = this.webIdFromSession(sessionAny?.info, sessionAny)
       } else {
-        // A newer probe owns the fallback now: keep what it established.
+        // A newer probe already owns the fallback and reported its change: keep
+        // its result, and do not report the transition a second time.
         webId = this.fallbackWebId
         cookieBacked = this.cookieBackedFallback
+        baselineFallback = this.fallbackWebId
+        baselineCookieBacked = this.cookieBackedFallback
       }
     }
 
@@ -312,7 +324,7 @@ export class SolidAuthnLogic implements AuthnLogic {
       this.cookieBackedFallback = false
     }
 
-    this.reportFallbackIdentityChange(previousFallback, previousCookieBacked)
+    this.reportFallbackIdentityChange(baselineFallback, baselineCookieBacked)
 
     if (webId) {
       me = this.saveUser(webId)
@@ -439,8 +451,10 @@ export class SolidAuthnLogic implements AuthnLogic {
     // sessionExplicitlyInactive() in transitions.ts. The session root has no
     // `isLoggedIn` property, so requiring every source to be false kept a
     // cached WebID alive across a logout; a mixed snapshot must not resurrect
-    // one either.
-    if (infoLoggedIn === false || rootLoggedIn === false || rootActive === false) {
+    // one either. A session that was reported cleared (its backing store lost
+    // it) is inactive as well, however positive its own fields still look.
+    if (sessionWasCleared(sessionRoot) ||
+      infoLoggedIn === false || rootLoggedIn === false || rootActive === false) {
       return null
     }
     // Active, or a legacy session that reports no state at all.

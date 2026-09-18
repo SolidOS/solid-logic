@@ -14,7 +14,7 @@ import type { Session as OidcSession } from '@uvdsl/solid-oidc-client-browser/co
 import { _session } from './session'
 import { resolveIssuerForLogin } from './issuer'
 import { SessionEvents } from './events'
-import { sessionIsActive, sessionWasCleared, watchSessionTransitions, type SessionLike } from './transitions'
+import { restoreSession, sessionIsActive, sessionWasCleared, watchSessionTransitions, type SessionLike, type SessionRestoreLike } from './transitions'
 
 type SessionCompatibilityShape = {
   webId?: string
@@ -107,16 +107,14 @@ const events = new SessionEvents()
 // wired. It maps a backing store that no longer holds a session (a cross-tab
 // logout) to 'cleared'; watchSessionTransitions() bounds the wait.
 const resyncSession = (): unknown => {
-  const restore = (_session as any)?.restore
-  if (typeof restore !== 'function') return undefined
-  return Promise.resolve()
-    .then(() => restore.call(_session))
-    .then(() => 'changed', (error: unknown) => {
-      // A transient refresh/network failure is compared as it stands; a store
-      // that has no session to restore means this tab's identity is gone.
-      const message = error instanceof Error ? error.message : String(error)
-      return /no session to restore/i.test(message) ? 'cleared' : 'changed'
-    })
+  const restoring = restoreSession(_session as unknown as SessionRestoreLike)
+  if (!restoring) return undefined
+  return restoring.then(() => 'changed', (error: unknown) => {
+    // A transient refresh/network failure is compared as it stands; a store
+    // that has no session to restore means this tab's identity is gone.
+    const message = error instanceof Error ? error.message : String(error)
+    return /no session to restore/i.test(message) ? 'cleared' : 'changed'
+  })
 }
 watchSessionTransitions(_session as unknown as SessionLike, (event) => events.emit(event), undefined, resyncSession)
 
