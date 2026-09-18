@@ -1,7 +1,7 @@
 import { namedNode, NamedNode, sym } from 'rdflib'
 import { appContext, offlineTestID } from './authUtil'
 import * as debug from '../util/debug'
-import { sessionExplicitlyInactive, sessionIsActive } from '../authSession/transitions'
+import { sessionExplicitlyInactive, sessionIsActive, sessionWasCleared } from '../authSession/transitions'
 import type { SessionWithLegacyEvents } from '../authSession/authSession'
 import type { AuthenticationContext, AuthnLogic } from '../types'
 
@@ -40,6 +40,9 @@ export class SolidAuthnLogic implements AuthnLogic {
   // Serialises the refocus cookie probes: a result that arrives after a newer
   // probe started (or after the session became active) is stale and dropped.
   private cookieProbeGeneration = 0
+  // The document listener installed by the constructor, kept so `dispose()`
+  // can remove it.
+  private refocusListener?: () => void
 
   constructor(solidAuthSession: SessionWithLegacyEvents) {
     this.session = solidAuthSession
@@ -55,19 +58,44 @@ export class SolidAuthnLogic implements AuthnLogic {
    */
   private watchCookieBackedFallbackRefocus (): void {
     if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return
-    document.addEventListener('visibilitychange', () => {
+    const listener = (): void => {
       if (document.visibilityState !== 'visible') return
       void this.refreshCookieBackedFallback()
-    })
+    }
+    this.refocusListener = listener
+    document.addEventListener('visibilitychange', listener)
+  }
+
+  /**
+   * Detaches the refocus watcher from the document. A logic instance that is
+   * replaced stays reachable — and keeps probing on every refocus — until its
+   * listener is removed, so an embedder that creates a new instance should
+   * dispose the old one.
+   */
+  dispose (): void {
+    if (!this.refocusListener) return
+    if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
+      document.removeEventListener('visibilitychange', this.refocusListener)
+    }
+    this.refocusListener = undefined
+  }
+
+  /**
+   * Whether the OIDC session currently owns the identity. A session that was
+   * reported cleared does not, even when the local object still reports it as
+   * active: the backing store lost it, so the cookie fallback has to be
+   * revalidated instead of being left as it is.
+   */
+  private sessionOwnsIdentity (): boolean {
+    return !sessionWasCleared(this.session) && sessionIsActive(this.session as any)
   }
 
   /** Re-probe the NSS cookie-backed identity and report a change, if any. */
   async refreshCookieBackedFallback (): Promise<void> {
-    // While the OIDC session is active it owns the identity. Use the shared
-    // activity rule: a legacy session that reports no `isActive` but has a
-    // WebID counts as active too, and probing would then replace that identity
-    // with a cookie one.
-    if (sessionIsActive(this.session as any)) return
+    // While the OIDC session owns the identity it must not be replaced by a
+    // cookie one. Use the shared activity rule: a legacy session that reports
+    // no `isActive` but has a WebID counts as active too.
+    if (this.sessionOwnsIdentity()) return
     const result = await this.probeCookieIdentity()
     if (result.status !== 'probed') return
     const previousFallback = this.fallbackWebId
@@ -91,7 +119,7 @@ export class SolidAuthnLogic implements AuthnLogic {
     const generation = ++this.cookieProbeGeneration
     const webId = await this.probeNssCookieBackedWebId()
     if (generation !== this.cookieProbeGeneration) return { status: 'superseded' }
-    if (sessionIsActive(this.session as any)) return { status: 'session-active' }
+    if (this.sessionOwnsIdentity()) return { status: 'session-active' }
     return { status: 'probed', webId }
   }
 
@@ -376,8 +404,10 @@ export class SolidAuthnLogic implements AuthnLogic {
     // Invalidate when the raw session is not active: an active one means the
     // watcher has already emitted `sessionChange` for its own transition. The
     // shared activity rule is used here as well, so a legacy session that
-    // reports no `isActive` while carrying a WebID is not reported twice.
-    const sessionActive = sessionIsActive(this.session as any)
+    // reports no `isActive` while carrying a WebID is not reported twice, and
+    // a cleared session (which no longer owns the identity) does not suppress
+    // the change either.
+    const sessionActive = this.sessionOwnsIdentity()
     if (!sessionActive) {
       events.emit('sessionChange')
     }

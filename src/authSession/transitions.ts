@@ -257,45 +257,69 @@ export function watchSessionTransitions (
   // comparison — but the outcome is kept: a restore that only finishes later
   // can still report the session gone, and dropping it would leave this tab on
   // the old identity until some other visibility event.
+  // Only one resync runs at a time: `restore()` can mutate the session before
+  // it resolves, so two overlapping restores could write an older identity
+  // back over a newer one. A refocus that arrives while one is in flight joins
+  // that attempt instead of starting another.
+  let resyncInFlight: Promise<unknown> | undefined
+  const startResync = (action: () => unknown): Promise<unknown> => {
+    if (!resyncInFlight) {
+      resyncInFlight = Promise.resolve()
+        .then(action)
+        .finally(() => { resyncInFlight = undefined })
+    }
+    return resyncInFlight
+  }
   const syncThenNote = async (): Promise<void> => {
     if (typeof resync !== 'function') {
       note()
       return
     }
+    const runResync = resync
     const attemptId = ++resyncAttempt
     const baselineRevision = revision
+    // The identity this attempt started from: a `'cleared'` answer only applies
+    // while the session still reports that same identity. `restore()` rejects
+    // with "no session" for the identity it was started for, so if the session
+    // reports a different identity now, the answer is about the previous one
+    // and must not log the new one out.
+    const rawBaseline = { isActive: sessionIsActive(session), webId: session.webId }
+    const sameRawIdentity = (): boolean =>
+      sessionIsActive(session) === rawBaseline.isActive && session.webId === rawBaseline.webId
     // This attempt's outcome only applies while it is still the newest one and
     // no transition was applied since it started.
     const stale = (): boolean => attemptId !== resyncAttempt || revision !== baselineRevision
     let outcome: unknown
     let done = false
-    const attempt = Promise.resolve()
-      .then(() => resync())
-      .then(
-        (value) => { outcome = value; done = true },
-        () => { done = true } // compared as it stands
-      )
-    await Promise.race([
-      attempt,
-      new Promise<void>((resolve) => setTimeout(resolve, RESYNC_TIMEOUT_MS))
-    ])
-    if (done) {
+    const attempt = startResync(runResync).then(
+      (value) => { outcome = value; done = true },
+      () => { done = true } // compared as it stands
+    )
+    const apply = (): void => {
       if (stale()) return
-      if (outcome === 'cleared') reportCleared()
-      else note()
+      if (outcome === 'cleared') {
+        if (sameRawIdentity()) reportCleared()
+        return
+      }
+      // Any other result may have updated the session (a cross-tab login):
+      // comparing again is what turns that into `sessionChange`/
+      // `identityReplaced` instead of leaving this tab on the old identity
+      // until the next refocus.
+      note()
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<void>((resolve) => { timer = setTimeout(resolve, RESYNC_TIMEOUT_MS) })
+    try {
+      await Promise.race([attempt, timeout])
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
+    }
+    if (done) {
+      apply()
       return
     }
     note()
-    void attempt.then(() => {
-      if (stale()) return
-      // Whatever the slow resync answers is worth acting on: 'cleared' means
-      // the session is gone, and any other result may have updated the session
-      // (a cross-tab login) — comparing again is what turns that into
-      // `sessionChange`/`identityReplaced` instead of leaving this tab on the
-      // old identity until the next refocus.
-      if (outcome === 'cleared') reportCleared()
-      else note()
-    })
+    void attempt.then(apply)
   }
   if (typeof session.addEventListener === 'function') {
     session.addEventListener('sessionStateChange', note)

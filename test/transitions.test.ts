@@ -445,6 +445,76 @@ describe('watchSessionTransitions', () => {
     }
   })
 
+  it('runs one resync at a time when the tab is refocused repeatedly', async () => {
+    const session = new FakeSession()
+    const emitted: string[] = []
+    const handlers: Record<string, () => void> = {}
+    const doc: DocumentLike = {
+      visibilityState: 'visible',
+      addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+    }
+    let resyncs = 0
+    let resolveResync: (value: unknown) => void = () => undefined
+    watchSessionTransitions(
+      session as unknown as SessionLike,
+      (event) => emitted.push(event),
+      doc,
+      // `restore()` can mutate the session, so overlapping restores could
+      // overwrite a newer identity: the second refocus joins the first resync.
+      () => {
+        resyncs += 1
+        return new Promise((resolve) => { resolveResync = resolve })
+      }
+    )
+
+    handlers.visibilitychange()
+    await Promise.resolve()
+    handlers.visibilitychange()
+    await Promise.resolve()
+    expect(resyncs).toBe(1)
+
+    // The single resync pulled in Bob's login: reported once, by the newest refocus.
+    session.isActive = true
+    session.webId = 'https://b.example/#me'
+    resolveResync('changed')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(resyncs).toBe(1)
+    expect(emitted).toEqual(['sessionChange'])
+  })
+
+  it('does not apply a cleared outcome once the session reports another identity', async () => {
+    const session = new FakeSession()
+    session.isActive = true
+    session.webId = 'https://a.example/#me'
+    const emitted: string[] = []
+    const handlers: Record<string, () => void> = {}
+    const doc: DocumentLike = {
+      visibilityState: 'visible',
+      addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+    }
+    let resolveResync: (value: unknown) => void = () => undefined
+    watchSessionTransitions(
+      session as unknown as SessionLike,
+      (event) => emitted.push(event),
+      doc,
+      () => new Promise((resolve) => { resolveResync = resolve })
+    )
+
+    handlers.visibilitychange()
+    await Promise.resolve()
+    // The identity changes while the restore is in flight — without a session
+    // event the watcher cannot see a transition at all.
+    session.webId = 'https://b.example/#me'
+    resolveResync('cleared')
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    // The answer was about Alice; Bob must not be logged out by it.
+    expect(emitted).toEqual([])
+    expect(sessionWasCleared(session)).toBe(false)
+    expect(sessionExplicitlyInactive(session)).toBe(false)
+  })
+
   it('checks nothing while the tab is hidden', () => {
     const session = new FakeSession()
     const emitted: string[] = []

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SolidAuthnLogic } from '../src/authn/SolidAuthnLogic'
+import { watchSessionTransitions } from '../src/authSession/transitions'
 import { silenceDebugMessages } from './helpers/debugger'
 import { AuthenticationContext } from '../src/types'
 import { EventEmitter } from 'node:events'
@@ -338,6 +339,47 @@ describe('SolidAuthnLogic', () => {
 
       expect((authn as any).fallbackWebId).toBe('https://carol.localhost/profile/card#me')
       expect(authn.currentUser()?.uri).toBe('https://carol.localhost/profile/card#me')
+    })
+
+    it('revalidates the cookie fallback when the OIDC session was reported cleared', async () => {
+      const events = new EventEmitter()
+      const session = { events, isActive: true, webId: 'https://bob.example/profile#me' } as any
+      const authn = new SolidAuthnLogic(session)
+      ;(authn as any).fallbackWebId = 'https://alice.localhost/profile/card#me'
+      ;(authn as any).cookieBackedFallback = true
+      const probe = vi.fn(async (): Promise<string | null> => null)
+      ;(authn as any).probeNssCookieBackedWebId = probe
+
+      // Another tab logged the OIDC session out: the backing store lost it, so
+      // the local object no longer reports an identity that owns the session.
+      const handlers: Record<string, () => void> = {}
+      watchSessionTransitions(session, () => undefined, {
+        visibilityState: 'visible',
+        addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+      }, () => 'cleared')
+      handlers.visibilitychange()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      // The retained cookie identity is probed again — and is gone here.
+      await authn.refreshCookieBackedFallback()
+
+      expect(probe).toHaveBeenCalledTimes(1)
+      expect((authn as any).fallbackWebId).toBeNull()
+      expect((authn as any).cookieBackedFallback).toBe(false)
+    })
+
+    it('stops watching the document once disposed', async () => {
+      const events = new EventEmitter()
+      const authn = new SolidAuthnLogic({ events } as any)
+      const probe = vi.fn(async (): Promise<string | null> => null)
+      ;(authn as any).probeNssCookieBackedWebId = probe
+
+      authn.dispose()
+      document.dispatchEvent(new Event('visibilitychange'))
+      await Promise.resolve()
+
+      // A replaced instance must not keep probing on every refocus.
+      expect(probe).not.toHaveBeenCalled()
     })
 
     it('drops a probe result when the session became active while probing', async () => {
