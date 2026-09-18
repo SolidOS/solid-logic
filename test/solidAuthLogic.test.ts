@@ -411,6 +411,53 @@ describe('SolidAuthnLogic', () => {
       expect(authn.currentUser()?.uri).toBe('https://carol.localhost/profile/card#me')
     })
 
+    it('revalidates the cookie fallback for a legacy snapshot that is explicitly logged out', async () => {
+      const events = new EventEmitter()
+      // `isActive` is undefined, so sessionIsActive() would accept the cached
+      // WebID — but the info says logged out, and that wins everywhere else.
+      const authn = new SolidAuthnLogic({
+        events,
+        webId: 'https://bob.example/profile#me',
+        info: { isLoggedIn: false }
+      } as any)
+      const probe = vi.fn(async (): Promise<string | null> => null)
+      ;(authn as any).probeNssCookieBackedWebId = probe
+      ;(authn as any).fallbackWebId = 'https://alice.localhost/profile/card#me'
+      ;(authn as any).cookieBackedFallback = true
+
+      await authn.refreshCookieBackedFallback()
+
+      expect(probe).toHaveBeenCalledTimes(1)
+    })
+
+    it('shares one refocus watcher per session and removes it with the last instance', async () => {
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+      const session = { events: new EventEmitter() } as any
+      const first = new SolidAuthnLogic(session)
+      const second = new SolidAuthnLogic(session)
+      const firstProbe = vi.fn(async (): Promise<string | null> => null)
+      const secondProbe = vi.fn(async (): Promise<string | null> => null)
+      ;(first as any).probeNssCookieBackedWebId = firstProbe
+      ;(second as any).probeNssCookieBackedWebId = secondProbe
+
+      document.dispatchEvent(new Event('visibilitychange'))
+      await Promise.resolve()
+      // One watcher per session, driving the newest instance: a replaced
+      // instance does not add a probe of its own.
+      expect(firstProbe).not.toHaveBeenCalled()
+      expect(secondProbe).toHaveBeenCalledTimes(1)
+
+      second.dispose()
+      document.dispatchEvent(new Event('visibilitychange'))
+      await Promise.resolve()
+      expect(secondProbe).toHaveBeenCalledTimes(1)
+
+      first.dispose()
+      document.dispatchEvent(new Event('visibilitychange'))
+      await Promise.resolve()
+      expect(firstProbe).not.toHaveBeenCalled()
+    })
+
     it('revalidates the cookie fallback when the OIDC session was reported cleared', async () => {
       const events = new EventEmitter()
       const session = { events, isActive: true, webId: 'https://bob.example/profile#me' } as any

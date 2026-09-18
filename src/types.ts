@@ -26,6 +26,12 @@ export interface AuthnLogic {
     checkUser: <T>(setUserCallback?: (me: NamedNode | null) => T) => Promise<NamedNode | T | null>
     saveUser: (webId: NamedNode | string | null,
         context?: AuthenticationContext) => NamedNode | null
+    /**
+     * Releases what the implementation registered elsewhere (document and
+     * session listeners). Optional so other implementations stay valid, but a
+     * caller that replaces a logic instance should dispose the old one.
+     */
+    dispose?: () => void
 }
 
 export interface SolidNamespace {

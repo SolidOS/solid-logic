@@ -11,6 +11,42 @@ import type { AuthenticationContext, AuthnLogic } from '../types'
 const SESSION_RESTORE_TIMEOUT_MS = 5000
 
 /**
+ * One refocus watcher per session. Logic instances can be replaced (a second
+ * `createSolidLogic()` call, a re-created app shell), and an instance that is
+ * replaced would otherwise stay reachable through its own document listener and
+ * probe the cookie fallback on every refocus. The watcher forwards to the
+ * newest instance using that session and is removed with the last one.
+ */
+type RefocusWatch = {
+  handler: () => void
+  owner?: SolidAuthnLogic
+  owners: number
+}
+
+const refocusWatches = new WeakMap<object, RefocusWatch>()
+
+function watchRefocusFor (authn: SolidAuthnLogic, session: object): RefocusWatch | undefined {
+  if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return undefined
+  const existing = refocusWatches.get(session)
+  if (existing) {
+    existing.owner = authn
+    existing.owners += 1
+    return existing
+  }
+  const watch: RefocusWatch = {
+    owners: 1,
+    owner: authn,
+    handler: (): void => {
+      if (document.visibilityState !== 'visible') return
+      void watch.owner?.refreshCookieBackedFallback()
+    }
+  }
+  document.addEventListener('visibilitychange', watch.handler)
+  refocusWatches.set(session, watch)
+  return watch
+}
+
+/**
  * Await a session restore promise, but give up after
  * SESSION_RESTORE_TIMEOUT_MS and resolve with undefined so callers can
  * treat a stalled restore as "no previous session".
@@ -40,9 +76,9 @@ export class SolidAuthnLogic implements AuthnLogic {
   // Serialises the refocus cookie probes: a result that arrives after a newer
   // probe started (or after the session became active) is stale and dropped.
   private cookieProbeGeneration = 0
-  // The document listener installed by the constructor, kept so `dispose()`
-  // can remove it.
-  private refocusListener?: () => void
+  // The session's refocus watcher, shared with any other instance wrapping the
+  // same session (see watchRefocusFor).
+  private refocusWatch?: RefocusWatch
 
   constructor(solidAuthSession: SessionWithLegacyEvents) {
     this.session = solidAuthSession
@@ -57,40 +93,42 @@ export class SolidAuthnLogic implements AuthnLogic {
    * (*.localhost NSS setups).
    */
   private watchCookieBackedFallbackRefocus (): void {
-    if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return
-    const listener = (): void => {
-      if (document.visibilityState !== 'visible') return
-      void this.refreshCookieBackedFallback()
-    }
-    this.refocusListener = listener
-    document.addEventListener('visibilitychange', listener)
+    this.refocusWatch = watchRefocusFor(this, this.session as unknown as object)
   }
 
   /**
-   * Detaches the refocus watcher from the document. A logic instance that is
-   * replaced stays reachable — and keeps probing on every refocus — until its
-   * listener is removed, so an embedder that creates a new instance should
-   * dispose the old one.
+   * Detaches this instance from the session's refocus watcher (removing the
+   * document listener with the last instance using it) and makes any probe that
+   * is already in flight superseded, so a replaced instance stops probing and
+   * cannot apply results any more.
    */
   dispose (): void {
     // A probe that is already awaiting its fetch must not apply its result
     // either: bumping the generation makes it superseded.
     this.cookieProbeGeneration += 1
-    if (!this.refocusListener) return
+    const watch = this.refocusWatch
+    this.refocusWatch = undefined
+    if (!watch) return
+    watch.owners -= 1
+    if (watch.owner === this) watch.owner = undefined
+    if (watch.owners > 0) return
     if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
-      document.removeEventListener('visibilitychange', this.refocusListener)
+      document.removeEventListener('visibilitychange', watch.handler)
     }
-    this.refocusListener = undefined
+    refocusWatches.delete(this.session as unknown as object)
   }
 
   /**
    * Whether the OIDC session currently owns the identity. A session that was
-   * reported cleared does not, even when the local object still reports it as
-   * active: the backing store lost it, so the cookie fallback has to be
-   * revalidated instead of being left as it is.
+   * reported cleared does not, and neither does one that explicitly reports
+   * itself logged out (`isActive: false`, or `info.isLoggedIn: false` with a
+   * cached WebID — the legacy shape `sessionIsActive()` alone would accept).
    */
   private sessionOwnsIdentity (): boolean {
-    return !sessionWasCleared(this.session) && sessionIsActive(this.session as any)
+    const session = this.session
+    return !sessionWasCleared(session) &&
+      !sessionExplicitlyInactive(session) &&
+      sessionIsActive(session as any)
   }
 
   /** Re-probe the NSS cookie-backed identity and report a change, if any. */

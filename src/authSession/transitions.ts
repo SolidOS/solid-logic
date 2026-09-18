@@ -152,6 +152,18 @@ export type SessionRestoreLike = {
   restore?: () => Promise<unknown>
 }
 
+/**
+ * A resync that is (or was) running: its own identity, the revision of the
+ * state it started from, and its outcome. A caller that joins an attempt in
+ * flight must use these, not its own view of the session.
+ */
+type ResyncAttempt = {
+  id: number
+  revision: number
+  raw: { isActive: boolean, webId?: string }
+  promise: Promise<unknown>
+}
+
 // One restore at a time per session: `restore()` can mutate the session before
 // it resolves, so two overlapping restores could write an older identity back
 // over a newer one. Every call site (the refocus resync and `checkUser()`) goes
@@ -303,13 +315,20 @@ export function watchSessionTransitions (
   // Only one resync runs at a time: `restore()` can mutate the session before
   // it resolves, so two overlapping restores could write an older identity
   // back over a newer one. A refocus that arrives while one is in flight joins
-  // that attempt instead of starting another.
-  let resyncInFlight: Promise<unknown> | undefined
-  const startResync = (action: () => unknown): Promise<unknown> => {
+  // that attempt instead of starting another — and it joins the *attempt's*
+  // baseline too: the answer belongs to the identity the restore started from,
+  // not to the identity the joining caller happens to see now.
+  let resyncInFlight: ResyncAttempt | undefined
+  const startResync = (action: () => unknown): ResyncAttempt => {
     if (!resyncInFlight) {
-      resyncInFlight = Promise.resolve()
-        .then(action)
-        .finally(() => { resyncInFlight = undefined })
+      resyncInFlight = {
+        id: ++resyncAttempt,
+        revision,
+        raw: { isActive: sessionIsActive(session), webId: session.webId },
+        promise: Promise.resolve()
+          .then(action)
+          .finally(() => { resyncInFlight = undefined })
+      }
     }
     return resyncInFlight
   }
@@ -319,22 +338,20 @@ export function watchSessionTransitions (
       return
     }
     const runResync = resync
-    const attemptId = ++resyncAttempt
-    const baselineRevision = revision
-    // The identity this attempt started from: a `'cleared'` answer only applies
-    // while the session still reports that same identity. `restore()` rejects
-    // with "no session" for the identity it was started for, so if the session
-    // reports a different identity now, the answer is about the previous one
-    // and must not log the new one out.
-    const rawBaseline = { isActive: sessionIsActive(session), webId: session.webId }
-    const sameRawIdentity = (): boolean =>
-      sessionIsActive(session) === rawBaseline.isActive && session.webId === rawBaseline.webId
+    const started = startResync(runResync)
     // This attempt's outcome only applies while it is still the newest one and
-    // no transition was applied since it started.
-    const stale = (): boolean => attemptId !== resyncAttempt || revision !== baselineRevision
+    // no transition was applied since the attempt (not this caller) started.
+    const stale = (): boolean => started.id !== resyncAttempt || revision !== started.revision
+    // A `'cleared'` answer only applies while the session still reports the
+    // identity the attempt started from. `restore()` rejects with "no session"
+    // for the identity it was started for, so if the session reports a
+    // different identity now, the answer is about the previous one and must not
+    // log the new one out.
+    const sameRawIdentity = (): boolean =>
+      sessionIsActive(session) === started.raw.isActive && session.webId === started.raw.webId
     let outcome: unknown
     let done = false
-    const attempt = startResync(runResync).then(
+    const attempt = started.promise.then(
       (value) => { outcome = value; done = true },
       () => { done = true } // compared as it stands
     )

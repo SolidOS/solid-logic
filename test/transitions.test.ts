@@ -576,6 +576,53 @@ describe('watchSessionTransitions', () => {
     expect(sessionExplicitlyInactive(session)).toBe(false)
   })
 
+  it('does not apply a joined resync outcome to the identity that superseded it', async () => {
+    vi.useFakeTimers()
+    try {
+      const session = new FakeSession()
+      session.isActive = true
+      session.webId = 'https://a.example/#me'
+      const emitted: string[] = []
+      const handlers: Record<string, () => void> = {}
+      const doc: DocumentLike = {
+        visibilityState: 'visible',
+        addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+      }
+      let resolveResync: (value: unknown) => void = () => undefined
+      watchSessionTransitions(
+        session as unknown as SessionLike,
+        (event) => emitted.push(event),
+        doc,
+        () => new Promise((resolve) => { resolveResync = resolve })
+      )
+
+      // The resync starts for Alice …
+      handlers.visibilitychange()
+      await vi.advanceTimersByTimeAsync(2500)
+      expect(emitted).toEqual([])
+
+      // … Bob logs in while it is still running …
+      session.webId = 'https://b.example/#me'
+      session.dispatchEvent(new Event('sessionStateChange'))
+      expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+
+      // … and a second refocus joins the very same restore, so the answer must
+      // be judged against the identity the attempt started from, not against
+      // the identity the joining refocus sees.
+      handlers.visibilitychange()
+      await vi.advanceTimersByTimeAsync(2500)
+
+      resolveResync('cleared')
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+      expect(sessionWasCleared(session)).toBe(false)
+      expect(sessionExplicitlyInactive(session)).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('checks nothing while the tab is hidden', () => {
     const session = new FakeSession()
     const emitted: string[] = []
