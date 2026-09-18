@@ -3,6 +3,7 @@ import { LiveStore, NamedNode, Statement } from 'rdflib'
 import { createAclLogic } from '../acl/aclLogic'
 import { SolidAuthnLogic } from '../authn/SolidAuthnLogic'
 import type { SessionWithLegacyEvents } from '../authSession/authSession'
+import { flagAuthorizationOnSessionTransitions } from '../authSession/flagAuthorizationOnTransitions'
 import { createChatLogic } from '../chat/chatLogic'
 import { createInboxLogic } from '../inbox/inboxLogic'
 import { createResourceLogic } from '../resource/resourceLogic'
@@ -25,6 +26,12 @@ export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: 
     rdf.fetcher(store, {fetch: specialFetch.fetch}) // Attach a web I/O module, store.fetcher
     store.updater = new rdf.UpdateManager(store) // Add real-time live updates store.updater
     store.features = [] // disable automatic node merging on store load
+    // Whose credentials a request would carry changed: mark every recorded
+    // response out-of-date so editability answers "unknown" instead of the
+    // previous identity's access. Decision points repair with
+    // ensureDocumentAuthorization() (see flagAuthorizationOnTransitions.ts).
+    // The subscription lives as long as the identity state's, i.e. the session's.
+    flagAuthorizationOnSessionTransitions(store, session)
 
     const authn: AuthnLogic = new SolidAuthnLogic(session)
     

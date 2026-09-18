@@ -119,6 +119,8 @@ const RESYNC_TIMEOUT_MS = 2000
 
 type Subscriber = {
   onEvent?: (event: IdentityEvent) => void
+  /** The whole transition, once — for consumers that only invalidate. */
+  onTransition?: (events: IdentityEvent[]) => void
   onRefocus?: () => void | Promise<void>
   resync?: () => unknown
 }
@@ -279,8 +281,17 @@ export function restoreSession (session: SessionLike | undefined): Promise<unkno
   return started
 }
 
-const emit = (record: Record, event: IdentityEvent): void => {
-  record.subscribers.forEach(subscriber => subscriber.onEvent?.(event))
+/**
+ * Reports one applied transition. `onEvent` receives each event separately
+ * (the legacy vocabulary); `onTransition` receives the whole transition once,
+ * so a consumer that only invalidates does not do its work twice when a
+ * transition carries two events (a logout that also replaces the identity).
+ */
+const deliver = (record: Record, events: IdentityEvent[]): void => {
+  record.subscribers.forEach(subscriber => {
+    events.forEach(event => subscriber.onEvent?.(event))
+    subscriber.onTransition?.(events)
+  })
 }
 
 /**
@@ -307,8 +318,10 @@ function note (record: Record): void {
   // The session moved on: an attempt that started before this transition is
   // answering about a state that no longer holds.
   record.version += 1
-  if (event) emit(record, event)
-  if (replaced) emit(record, 'identityReplaced')
+  const events: IdentityEvent[] = []
+  if (event) events.push(event)
+  if (replaced) events.push('identityReplaced')
+  deliver(record, events)
 }
 
 /**
@@ -328,7 +341,7 @@ function reportCleared (record: Record): void {
     record.raw = snapshotOf(record)
     if (wasActive) {
       record.version += 1
-      emit(record, 'logout')
+      deliver(record, ['logout'])
     }
     return
   }
@@ -339,8 +352,7 @@ function reportCleared (record: Record): void {
   record.cleared = true
   record.raw = snapshotOf(record)
   record.version += 1
-  emit(record, 'logout')
-  emit(record, 'identityReplaced')
+  deliver(record, ['logout', 'identityReplaced'])
 }
 
 /**
@@ -548,11 +560,12 @@ function applyCookieIdentity (record: Record, webId: string | null): void {
   if (sessionOwnsIdentity(record.session)) return
   const previousCookieBacked = record.cookieWebId !== null
   record.cookieWebId = webId
-  emit(record, 'sessionChange')
   // The replacement is owed whenever the identity being REPLACED was
   // cookie-backed — the session watcher could not see it. Adopting one is not
   // a replacement: there was nothing of a previous user to drop.
-  if (previousCookieBacked) emit(record, 'identityReplaced')
+  const events: IdentityEvent[] = ['sessionChange']
+  if (previousCookieBacked) events.push('identityReplaced')
+  deliver(record, events)
 }
 
 /**
