@@ -100,6 +100,28 @@ export const sessionIsActive = (session: SessionLike): boolean =>
   session.isActive === true || (session.isActive === undefined && Boolean(session.webId))
 
 /**
+ * Sessions whose backing store no longer holds a session (a cross-tab logout):
+ * the local session object keeps reporting the previous identity, so every
+ * consumer that reads it would keep answering for that user. Such a session is
+ * marked here, which makes the transition watcher AND the derived reads
+ * (`sessionExplicitlyInactive()`, `legacySessionInfo()`) report the cleared
+ * state until the session reports an identity again.
+ *
+ * The mark is deliberately kept outside the session object: the library owns
+ * its state, and clearing it there would also wipe the shared (per-origin)
+ * session database that another tab may just have written.
+ */
+const clearedSessions = new WeakSet<object>()
+
+/**
+ * Whether a session was reported cleared: its backing store lost the session
+ * while this tab still had one, so its identity no longer holds here.
+ */
+export function sessionWasCleared (session: unknown): boolean {
+  return typeof session === 'object' && session !== null && clearedSessions.has(session)
+}
+
+/**
  * Whether the session explicitly reports itself inactive. An explicit `false`
  * — `isActive` on the session or `isLoggedIn` on the legacy `info` shape —
  * wins over a retained WebID: a partial logout that has not cleared the
@@ -111,6 +133,10 @@ export function sessionExplicitlyInactive (session: {
   isActive?: boolean
   info?: { isLoggedIn?: boolean }
 }): boolean {
+  // A session that was reported cleared (its backing store lost the session)
+  // answers as logged out even though the local session object still carries
+  // the previous identity — see sessionWasCleared().
+  if (sessionWasCleared(session)) return true
   return session?.isActive === false || session?.info?.isLoggedIn === false
 }
 
@@ -122,10 +148,16 @@ export type DocumentLike = {
 /** How long a refocus resync may delay the snapshot comparison. */
 const RESYNC_TIMEOUT_MS = 2000
 
-const snapshotOf = (session: SessionLike): SessionSnapshot => ({
-  isActive: sessionIsActive(session),
-  webId: session.webId
-})
+const snapshotOf = (session: SessionLike): SessionSnapshot => {
+  // A session that was reported cleared answers as logged out until it
+  // reports an identity again (see sessionWasCleared): the local object may
+  // still carry the previous WebID.
+  const cleared = sessionWasCleared(session)
+  return {
+    isActive: !cleared && sessionIsActive(session),
+    webId: cleared ? undefined : session.webId
+  }
+}
 
 // uvdsl's session announces only changes of `isActive`; a WebID can change
 // while both states stay active and would go unseen (see the header). Every
@@ -171,6 +203,12 @@ export function watchSessionTransitions (
   let previous = snapshotOf(session)
   let clearedReported = false
   const note = (): void => {
+    // The session reports an identity again: the cleared state is superseded,
+    // so drop the mark before comparing (otherwise it would mask the new
+    // identity and no login would ever be noticed again).
+    if (sessionWasCleared(session) && sessionIsActive(session)) {
+      clearedSessions.delete(session as object)
+    }
     const next = snapshotOf(session)
     const event = classifySessionTransition(previous, next)
     const replaced = identityReplaced(previous, next)
@@ -190,6 +228,11 @@ export function watchSessionTransitions (
     clearedReported = true
     const wasActive = previous.isActive
     const wasEstablished = previous.webId !== undefined
+    // The local session object still reports the old identity: mark it cleared
+    // so the derived reads stop answering for it, and baseline the comparison
+    // on that cleared state — a later activation is then a new login, and a
+    // still-cleared session cannot report the logout twice.
+    clearedSessions.add(session as object)
     previous = snapshotOf(session)
     if (wasActive) emit('logout')
     if (wasActive && wasEstablished) emit('identityReplaced')
@@ -224,7 +267,13 @@ export function watchSessionTransitions (
     }
     note()
     void attempt.then(() => {
+      // Whatever the slow resync answers is worth acting on: 'cleared' means
+      // the session is gone, and any other result may have updated the session
+      // (a cross-tab login) — comparing again is what turns that into
+      // `sessionChange`/`identityReplaced` instead of leaving this tab on the
+      // old identity until the next refocus.
       if (outcome === 'cleared') reportCleared()
+      else note()
     })
   }
   if (typeof session.addEventListener === 'function') {

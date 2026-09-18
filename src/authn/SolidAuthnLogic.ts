@@ -1,7 +1,7 @@
 import { namedNode, NamedNode, sym } from 'rdflib'
 import { appContext, offlineTestID } from './authUtil'
 import * as debug from '../util/debug'
-import { sessionExplicitlyInactive } from '../authSession/transitions'
+import { sessionExplicitlyInactive, sessionIsActive } from '../authSession/transitions'
 import type { SessionWithLegacyEvents } from '../authSession/authSession'
 import type { AuthenticationContext, AuthnLogic } from '../types'
 
@@ -37,6 +37,9 @@ export class SolidAuthnLogic implements AuthnLogic {
   // the OIDC session: an inactive OIDC session is exactly why that identity
   // was probed, so it must survive `currentUser()`'s stand-down below.
   private cookieBackedFallback = false
+  // Serialises the refocus cookie probes: a result that arrives after a newer
+  // probe started (or after the session became active) is stale and dropped.
+  private cookieProbeGeneration = 0
 
   constructor(solidAuthSession: SessionWithLegacyEvents) {
     this.session = solidAuthSession
@@ -60,11 +63,23 @@ export class SolidAuthnLogic implements AuthnLogic {
 
   /** Re-probe the NSS cookie-backed identity and report a change, if any. */
   async refreshCookieBackedFallback (): Promise<void> {
-    // While the OIDC session is active it owns the identity.
-    if (Boolean((this.session as any)?.isActive)) return
+    // While the OIDC session is active it owns the identity. Use the shared
+    // activity rule: a legacy session that reports no `isActive` but has a
+    // WebID counts as active too, and probing would then replace that identity
+    // with a cookie one.
+    if (sessionIsActive(this.session as any)) return
+    // Only the newest probe may apply its result: an older probe that answers
+    // late must not overwrite the identity a newer one (or the session) has
+    // established in the meantime.
+    const generation = ++this.cookieProbeGeneration
     const previousFallback = this.fallbackWebId
     const previousCookieBacked = this.cookieBackedFallback
     const webId = await this.probeNssCookieBackedWebId()
+    // The OIDC session can become active, or a newer probe can start, while
+    // this probe is in flight — then the identity it found no longer owns the
+    // session and its result is stale.
+    if (generation !== this.cookieProbeGeneration) return
+    if (sessionIsActive(this.session as any)) return
     if (webId === null && !previousCookieBacked) return
     this.fallbackWebId = webId
     this.cookieBackedFallback = webId !== null
@@ -337,8 +352,10 @@ export class SolidAuthnLogic implements AuthnLogic {
     if (typeof events?.emit !== 'function') return
 
     // Invalidate when the raw session is not active: an active one means the
-    // watcher has already emitted `sessionChange` for its own transition.
-    const sessionActive = Boolean((this.session as any)?.isActive)
+    // watcher has already emitted `sessionChange` for its own transition. The
+    // shared activity rule is used here as well, so a legacy session that
+    // reports no `isActive` while carrying a WebID is not reported twice.
+    const sessionActive = sessionIsActive(this.session as any)
     if (!sessionActive) {
       events.emit('sessionChange')
     }

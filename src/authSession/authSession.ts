@@ -14,7 +14,7 @@ import type { Session as OidcSession } from '@uvdsl/solid-oidc-client-browser/co
 import { _session } from './session'
 import { resolveIssuerForLogin } from './issuer'
 import { SessionEvents } from './events'
-import { sessionIsActive, watchSessionTransitions, type SessionLike } from './transitions'
+import { sessionIsActive, sessionWasCleared, watchSessionTransitions, type SessionLike } from './transitions'
 
 type SessionCompatibilityShape = {
   webId?: string
@@ -141,6 +141,13 @@ export const authSession: SessionWithLegacyEvents = Object.assign(
 // reports logged out even when a WebID is still cached, or the fetch bridge
 // would keep routing anonymous requests through the authenticated fetch.
 export function legacySessionInfo (session: SessionLike): { webId?: string; isLoggedIn?: boolean } {
+  // A session whose backing store was reported cleared (see
+  // sessionWasCleared) answers as logged out: the local session object can
+  // still carry the identity it had before, and that identity must not keep
+  // being published through the legacy shape.
+  if (sessionWasCleared(session)) {
+    return { webId: undefined, isLoggedIn: false }
+  }
   return {
     webId: session.webId,
     isLoggedIn: sessionIsActive(session)

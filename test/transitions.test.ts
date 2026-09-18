@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { classifySessionTransition, identityReplaced, reloadOnIdentityReplaced, sessionIsActive, watchSessionTransitions, type DocumentLike, type SessionLike } from '../src/authSession/transitions'
+import { classifySessionTransition, identityReplaced, reloadOnIdentityReplaced, sessionExplicitlyInactive, sessionIsActive, sessionWasCleared, watchSessionTransitions, type DocumentLike, type SessionLike } from '../src/authSession/transitions'
 
 describe('classifySessionTransition', () => {
   it('reports a logout when the session goes inactive', () => {
@@ -323,6 +323,80 @@ describe('watchSessionTransitions', () => {
       await vi.advanceTimersByTimeAsync(3000)
       // The outcome was kept, not discarded.
       expect(emitted).toEqual(['logout', 'identityReplaced'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stops answering for the cleared identity once the backing session is gone', async () => {
+    const session = new FakeSession()
+    session.isActive = true
+    session.webId = 'https://a.example/#me'
+    const emitted: string[] = []
+    const handlers: Record<string, () => void> = {}
+    const doc: DocumentLike = {
+      visibilityState: 'visible',
+      addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+    }
+    watchSessionTransitions(
+      session as unknown as SessionLike,
+      (event) => emitted.push(event),
+      doc,
+      // Another tab logged out. The local session object still reports Alice:
+      // restore() can reject without mutating it.
+      () => 'cleared'
+    )
+
+    handlers.visibilitychange()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(emitted).toEqual(['logout', 'identityReplaced'])
+    // The local object still carries Alice, but the session is no longer usable:
+    // the consumers that read it directly must stand down.
+    expect(session.webId).toBe('https://a.example/#me')
+    expect(sessionWasCleared(session)).toBe(true)
+    expect(sessionExplicitlyInactive(session)).toBe(true)
+
+    // A later login in this tab is a new identity, not masked by the clear.
+    session.webId = 'https://b.example/#me'
+    session.dispatchEvent(new Event('sessionStateChange'))
+    expect(emitted).toEqual(['logout', 'identityReplaced', 'sessionChange'])
+    expect(sessionWasCleared(session)).toBe(false)
+    expect(sessionExplicitlyInactive(session)).toBe(false)
+  })
+
+  it('compares again when a slow resync only reports a change after the timeout', async () => {
+    vi.useFakeTimers()
+    try {
+      const session = new FakeSession()
+      session.isActive = true
+      session.webId = 'https://a.example/#me'
+      const emitted: string[] = []
+      const handlers: Record<string, () => void> = {}
+      const doc: DocumentLike = {
+        visibilityState: 'visible',
+        addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+      }
+      watchSessionTransitions(
+        session as unknown as SessionLike,
+        (event) => emitted.push(event),
+        doc,
+        // A slow cross-tab login: the re-read only updates the session (A -> B)
+        // long after the comparison gave up waiting.
+        () => new Promise((resolve) => setTimeout(() => {
+          session.webId = 'https://b.example/#me'
+          resolve('changed')
+        }, 5000))
+      )
+
+      handlers.visibilitychange()
+      await vi.advanceTimersByTimeAsync(2500)
+      // Timed out: compared as it stood, nothing reported yet.
+      expect(emitted).toEqual([])
+
+      await vi.advanceTimersByTimeAsync(3000)
+      // The late change was compared instead of being dropped.
+      expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
     } finally {
       vi.useRealTimers()
     }

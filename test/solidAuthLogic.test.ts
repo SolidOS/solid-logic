@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SolidAuthnLogic } from '../src/authn/SolidAuthnLogic'
 import { silenceDebugMessages } from './helpers/debugger'
 import { AuthenticationContext } from '../src/types'
@@ -225,6 +225,89 @@ describe('SolidAuthnLogic', () => {
 
       expect(emitted).toEqual([])
       expect((authn as any).fallbackWebId).toBe('https://bob.example/profile#me')
+    })
+
+    it('treats a legacy active session (no isActive, but a WebID) as active', async () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      // The supported legacy shape: no isActive at all, identity from the WebID.
+      const authn = new SolidAuthnLogic({ events, webId: 'https://alice.example/profile#me' } as any)
+      const probe = vi.fn(async (): Promise<string | null> => null)
+      ;(authn as any).probeNssCookieBackedWebId = probe
+
+      await authn.refreshCookieBackedFallback()
+
+      // Probing here would replace an identity the session already owns.
+      expect(probe).not.toHaveBeenCalled()
+      expect(emitted).toEqual([])
+      expect((authn as any).fallbackWebId).toBeNull()
+    })
+
+    it('does not report a second sessionChange for a legacy session', () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      // The watcher treats this shape as active — an active session means it
+      // already emitted `sessionChange` for the transition it observed, so
+      // only the cookie replacement is owed here.
+      const authn = new SolidAuthnLogic({ events, webId: 'https://bob.example/profile#me' } as any)
+      ;(authn as any).fallbackWebId = 'https://bob.example/profile#me'
+      ;(authn as any).cookieBackedFallback = false
+
+      ;(authn as any).reportFallbackIdentityChange('https://alice.localhost/profile/card#me', true)
+
+      expect(emitted).toEqual(['identityReplaced'])
+    })
+
+    it('drops a probe result that an earlier probe superseded', async () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const authn = new SolidAuthnLogic({ events } as any)
+      const resolvers: ((webId: string | null) => void)[] = []
+      ;(authn as any).probeNssCookieBackedWebId = (): Promise<string | null> =>
+        new Promise((resolve) => { resolvers.push(resolve) })
+
+      const first = authn.refreshCookieBackedFallback()
+      await Promise.resolve()
+      const second = authn.refreshCookieBackedFallback()
+      await Promise.resolve()
+
+      // The newer probe answers first, the older one only afterwards.
+      resolvers[1]('https://carol.localhost/profile/card#me')
+      await second
+      resolvers[0]('https://alice.localhost/profile/card#me')
+      await first
+
+      expect((authn as any).fallbackWebId).toBe('https://carol.localhost/profile/card#me')
+      expect(emitted).toEqual(['sessionChange'])
+    })
+
+    it('drops a probe result when the session became active while probing', async () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const session = { events, isActive: false } as any
+      const authn = new SolidAuthnLogic(session)
+      let resolveProbe: (webId: string | null) => void = () => undefined
+      ;(authn as any).probeNssCookieBackedWebId = (): Promise<string | null> =>
+        new Promise((resolve) => { resolveProbe = resolve })
+
+      const probing = authn.refreshCookieBackedFallback()
+      await Promise.resolve()
+      // The OIDC session takes over while the cookie probe is in flight.
+      session.isActive = true
+      session.webId = 'https://bob.example/profile#me'
+      resolveProbe('https://alice.localhost/profile/card#me')
+      await probing
+
+      expect((authn as any).fallbackWebId).toBeNull()
+      expect(emitted).toEqual([])
     })
   })
 
