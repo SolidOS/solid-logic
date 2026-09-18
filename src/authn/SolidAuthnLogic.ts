@@ -1,6 +1,7 @@
 import { namedNode, NamedNode, sym } from 'rdflib'
 import { appContext, offlineTestID } from './authUtil'
 import * as debug from '../util/debug'
+import { restoreSession, sessionExplicitlyInactive, sessionIsActive, sessionWasCleared } from '../authSession/transitions'
 import type { SessionWithLegacyEvents } from '../authSession/authSession'
 import type { AuthenticationContext, AuthnLogic } from '../types'
 
@@ -8,6 +9,42 @@ import type { AuthenticationContext, AuthnLogic } from '../types'
 // a worker message; a missing/unreachable RefreshWorker asset makes it hang
 // forever. This caps the wait so the login UI can never spin indefinitely.
 const SESSION_RESTORE_TIMEOUT_MS = 5000
+
+/**
+ * One refocus watcher per session. Logic instances can be replaced (a second
+ * `createSolidLogic()` call, a re-created app shell), and an instance that is
+ * replaced would otherwise stay reachable through its own document listener and
+ * probe the cookie fallback on every refocus. The watcher forwards to the
+ * newest instance using that session and is removed with the last one.
+ */
+type RefocusWatch = {
+  handler: () => void
+  owner?: SolidAuthnLogic
+  owners: number
+}
+
+const refocusWatches = new WeakMap<object, RefocusWatch>()
+
+function watchRefocusFor (authn: SolidAuthnLogic, session: object): RefocusWatch | undefined {
+  if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return undefined
+  const existing = refocusWatches.get(session)
+  if (existing) {
+    existing.owner = authn
+    existing.owners += 1
+    return existing
+  }
+  const watch: RefocusWatch = {
+    owners: 1,
+    owner: authn,
+    handler: (): void => {
+      if (document.visibilityState !== 'visible') return
+      void watch.owner?.refreshCookieBackedFallback()
+    }
+  }
+  document.addEventListener('visibilitychange', watch.handler)
+  refocusWatches.set(session, watch)
+  return watch
+}
 
 /**
  * Await a session restore promise, but give up after
@@ -32,9 +69,99 @@ export class SolidAuthnLogic implements AuthnLogic {
   private checkUserInFlight: Promise<NamedNode | null> | null = null
   private sessionRestoreHookAttached = false
   private fallbackWebId: string | null = null
+  // Set when `fallbackWebId` came from the NSS cookie probe rather than from
+  // the OIDC session: an inactive OIDC session is exactly why that identity
+  // was probed, so it must survive `currentUser()`'s stand-down below.
+  private cookieBackedFallback = false
+  // Serialises the refocus cookie probes: a result that arrives after a newer
+  // probe started (or after the session became active) is stale and dropped.
+  private cookieProbeGeneration = 0
+  // The session's refocus watcher, shared with any other instance wrapping the
+  // same session (see watchRefocusFor).
+  private refocusWatch?: RefocusWatch
 
   constructor(solidAuthSession: SessionWithLegacyEvents) {
     this.session = solidAuthSession
+    this.watchCookieBackedFallbackRefocus()
+  }
+
+  /**
+   * The cookie-backed identity is invisible to the transition watcher (the
+   * OIDC session stays inactive and WebID-less), so re-probe it when the tab
+   * regains focus: another tab may have logged out or switched identity while
+   * this one was backgrounded. Only meaningful where the probe applies
+   * (*.localhost NSS setups).
+   */
+  private watchCookieBackedFallbackRefocus (): void {
+    this.refocusWatch = watchRefocusFor(this, this.session as unknown as object)
+  }
+
+  /**
+   * Detaches this instance from the session's refocus watcher (removing the
+   * document listener with the last instance using it) and makes any probe that
+   * is already in flight superseded, so a replaced instance stops probing and
+   * cannot apply results any more.
+   */
+  dispose (): void {
+    // A probe that is already awaiting its fetch must not apply its result
+    // either: bumping the generation makes it superseded.
+    this.cookieProbeGeneration += 1
+    const watch = this.refocusWatch
+    this.refocusWatch = undefined
+    if (!watch) return
+    watch.owners -= 1
+    if (watch.owner === this) watch.owner = undefined
+    if (watch.owners > 0) return
+    if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
+      document.removeEventListener('visibilitychange', watch.handler)
+    }
+    refocusWatches.delete(this.session as unknown as object)
+  }
+
+  /**
+   * Whether the OIDC session currently owns the identity. A session that was
+   * reported cleared does not, and neither does one that explicitly reports
+   * itself logged out (`isActive: false`, or `info.isLoggedIn: false` with a
+   * cached WebID — the legacy shape `sessionIsActive()` alone would accept).
+   */
+  private sessionOwnsIdentity (): boolean {
+    const session = this.session
+    return !sessionWasCleared(session) &&
+      !sessionExplicitlyInactive(session) &&
+      sessionIsActive(session as any)
+  }
+
+  /** Re-probe the NSS cookie-backed identity and report a change, if any. */
+  async refreshCookieBackedFallback (): Promise<void> {
+    // While the OIDC session owns the identity it must not be replaced by a
+    // cookie one. Use the shared activity rule: a legacy session that reports
+    // no `isActive` but has a WebID counts as active too.
+    if (this.sessionOwnsIdentity()) return
+    const result = await this.probeCookieIdentity()
+    if (result.status !== 'probed') return
+    const previousFallback = this.fallbackWebId
+    const previousCookieBacked = this.cookieBackedFallback
+    if (result.webId === null && !previousCookieBacked) return
+    this.fallbackWebId = result.webId
+    this.cookieBackedFallback = result.webId !== null
+    this.reportFallbackIdentityChange(previousFallback, previousCookieBacked)
+  }
+
+  /**
+   * Runs the NSS cookie probe under the guard both call sites share: the probe
+   * takes a generation stamp, and its result is only usable when no newer probe
+   * started meanwhile (a refocus revalidation and `checkUser()` can overlap,
+   * and a probe that answers out of order must not win) and the OIDC session
+   * did not take ownership of the identity while the probe was in flight.
+   */
+  private async probeCookieIdentity (): Promise<
+  { status: 'probed', webId: string | null } | { status: 'superseded' } | { status: 'session-active' }
+  > {
+    const generation = ++this.cookieProbeGeneration
+    const webId = await this.probeNssCookieBackedWebId()
+    if (generation !== this.cookieProbeGeneration) return { status: 'superseded' }
+    if (this.sessionOwnsIdentity()) return { status: 'session-active' }
+    return { status: 'probed', webId }
   }
 
   // we created authSession getter because we want to access it as authn.authSession externally
@@ -46,6 +173,17 @@ export class SolidAuthnLogic implements AuthnLogic {
       return sym(app.webId)
     }
     const sessionAny = this.session as any
+    if (sessionExplicitlyInactive(sessionAny)) {
+      // A logout that leaves the WebID cached must not keep answering for the
+      // previous user: drop the remembered session fallback and report logged
+      // out. A cookie-backed fallback is different — it was probed precisely
+      // because the OIDC session is inactive, so it stays usable.
+      if (this.cookieBackedFallback && this.fallbackWebId) {
+        return sym(this.fallbackWebId)
+      }
+      this.fallbackWebId = null
+      return offlineTestID() // null unless testing
+    }
     const infoWebId = sessionAny?.info?.webId
     const sessionWebId = sessionAny?.webId
     const webId = infoWebId || sessionWebId || this.fallbackWebId
@@ -126,9 +264,13 @@ export class SolidAuthnLogic implements AuthnLogic {
       // UI would spin forever. Race it against a timeout and treat a stall
       // as "no previous session" so the page can render the login button.
       const wasActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
-      if (typeof sessionAny?.restore === 'function') {
+      // The shared restore lock also covers this call: a refocus resync can be
+      // in flight at the same time, and two overlapping restores could write an
+      // older identity back over a newer one.
+      const restoring = restoreSession(sessionAny)
+      if (restoring) {
         try {
-          await withRestoreTimeout(sessionAny.restore())
+          await withRestoreTimeout(restoring)
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           // A failed restore on an inactive session just means "no usable
@@ -184,17 +326,43 @@ export class SolidAuthnLogic implements AuthnLogic {
       return me
     }
 
+    const previousFallback = this.fallbackWebId
+    const previousCookieBacked = this.cookieBackedFallback
+    let baselineFallback = previousFallback
+    let baselineCookieBacked = previousCookieBacked
     let webId = this.webIdFromSession(sessionAny?.info, sessionAny)
+    let cookieBacked = false
     if (!webId) {
       // NSS-specific fallback: recover WebID from NSS cookie session when client restore is empty.
-      webId = await this.probeNssCookieBackedWebId()
+      // The probe takes the same guard as the refocus revalidation: a result a
+      // newer probe superseded, or one that answers after the OIDC session took
+      // ownership, must not become the fallback identity (a later logout would
+      // then answer with that stale cookie identity).
+      const result = await this.probeCookieIdentity()
+      if (result.status === 'probed') {
+        webId = result.webId
+        cookieBacked = result.webId !== null
+      } else if (result.status === 'session-active') {
+        webId = this.webIdFromSession(sessionAny?.info, sessionAny)
+      } else {
+        // A newer probe already owns the fallback and reported its change: keep
+        // its result, and do not report the transition a second time.
+        webId = this.fallbackWebId
+        cookieBacked = this.cookieBackedFallback
+        baselineFallback = this.fallbackWebId
+        baselineCookieBacked = this.cookieBackedFallback
+      }
     }
 
     if (webId) {
       this.fallbackWebId = webId
+      this.cookieBackedFallback = cookieBacked
     } else {
       this.fallbackWebId = null
+      this.cookieBackedFallback = false
     }
+
+    this.reportFallbackIdentityChange(baselineFallback, baselineCookieBacked)
 
     if (webId) {
       me = this.saveUser(webId)
@@ -265,6 +433,44 @@ export class SolidAuthnLogic implements AuthnLogic {
   }
 
   /**
+   * The NSS cookie fallback is a second identity source: the OIDC session
+   * stays inactive and WebID-less, so the transition watcher cannot observe
+   * anonymous -> cookie-user, cookie-user A -> B, or a cookie logout. Report
+   * those changes like a session transition so invalidation and reload
+   * consumers still react.
+   *
+   * Only cookie-backed changes are reported here: an OIDC identity change is
+   * already emitted by the watcher (with `identityReplaced`), and reporting it
+   * again would duplicate the events — a reload consumer would reload twice.
+   */
+  private reportFallbackIdentityChange (previousFallback: string | null, previousCookieBacked: boolean): void {
+    if (previousFallback === this.fallbackWebId) return
+    // Only the cookie probe is invisible to the transition watcher: an OIDC
+    // identity change is already emitted from there.
+    if (!previousCookieBacked && !this.cookieBackedFallback) return
+    const events = (this.session as any)?.events
+    if (typeof events?.emit !== 'function') return
+
+    // Invalidate when the raw session is not active: an active one means the
+    // watcher has already emitted `sessionChange` for its own transition. The
+    // shared activity rule is used here as well, so a legacy session that
+    // reports no `isActive` while carrying a WebID is not reported twice, and
+    // a cleared session (which no longer owns the identity) does not suppress
+    // the change either.
+    const sessionActive = this.sessionOwnsIdentity()
+    if (!sessionActive) {
+      events.emit('sessionChange')
+    }
+    // The replacement is owed whenever the identity being REPLACED was
+    // cookie-backed — the watcher could not see it. An OIDC identity that a
+    // cookie one succeeds has already been reported by the watcher when it
+    // went inactive, so no second replacement is emitted.
+    if (previousCookieBacked && previousFallback !== null) {
+      events.emit('identityReplaced')
+    }
+  }
+
+  /**
    * @returns {Promise<string|null>} Resolves with WebID URI or null
    */
   webIdFromSession (
@@ -278,12 +484,18 @@ export class SolidAuthnLogic implements AuthnLogic {
     const infoLoggedIn = sessionInfo?.isLoggedIn
     const rootLoggedIn = sessionRoot?.isLoggedIn
     const rootActive = sessionRoot?.isActive
-    if (infoLoggedIn === true || rootLoggedIn === true || rootActive === true) {
-      return webId
-    }
-    if (infoLoggedIn === false && rootLoggedIn === false && rootActive === false) {
+    // An explicit inactive/not-logged-in flag wins over a cached WebID and
+    // over a positive flag in another source — the same rule as
+    // sessionExplicitlyInactive() in transitions.ts. The session root has no
+    // `isLoggedIn` property, so requiring every source to be false kept a
+    // cached WebID alive across a logout; a mixed snapshot must not resurrect
+    // one either. A session that was reported cleared (its backing store lost
+    // it) is inactive as well, however positive its own fields still look.
+    if (sessionWasCleared(sessionRoot) ||
+      infoLoggedIn === false || rootLoggedIn === false || rootActive === false) {
       return null
     }
+    // Active, or a legacy session that reports no state at all.
     return webId
   }
 

@@ -1,12 +1,18 @@
 import * as debug from '../util/debug'
 import { authSession } from '../authSession/authSession'
+import { sessionExplicitlyInactive } from '../authSession/transitions'
 import { createSolidLogic } from './solidLogic'
 import { SolidLogic } from '../types'
 
 const _fetch = async (url, requestInit) => {
     const omitCreds = requestInit && requestInit.credentials && requestInit.credentials == 'omit'
     const sessionAny = authSession as any
-    const sessionWebId = sessionAny?.info?.webId || sessionAny?.webId
+    // A session that explicitly reports itself inactive must not keep
+    // identifying the last user: with a retained WebID, choosing the
+    // authenticated fetch would send the previous identity's credentials.
+    const sessionWebId = sessionExplicitlyInactive(sessionAny)
+        ? undefined
+        : (sessionAny?.info?.webId || sessionAny?.webId)
     if (sessionWebId && !omitCreds) { // see https://github.com/solidos/solidos/issues/114
         // In fact fetch should respect credentials omit itself
         const authenticatedFetch = (typeof sessionAny.fetch === 'function')

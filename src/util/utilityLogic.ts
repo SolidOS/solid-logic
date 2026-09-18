@@ -1,4 +1,5 @@
 import { NamedNode, st, sym } from 'rdflib'
+import { loadAuthorizedDocument } from '../authSession/flagAuthorizationOnTransitions'
 import {
   CrossOriginForbiddenError,
   FetchError,
@@ -89,7 +90,15 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     object: NamedNode,
     doc: NamedNode
   ): Promise<NamedNode | null> {
-    await store.fetcher.load(doc)
+    // On rdflib 2.4.0 a plain load() does not refetch a flagged document, and a
+    // response begun before a transition can be recorded after it: the helper
+    // owns the load, checks it was not overtaken and repairs before anything is
+    // read (see flagAuthorizationOnTransitions.ts).
+    if (!(await loadAuthorizedDocument(store, doc))) {
+      const msg = `followOrCreateLink: cannot establish the authorization of ${doc.value}`
+      debug.warn(msg)
+      throw new NotEditableError(msg)
+    }
     const result = store.any(subject, predicate, null, doc)
 
     if (result) return result as NamedNode
@@ -123,7 +132,11 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     doc: NamedNode,
     data: string
   ): Promise<NamedNode | null> {
-    await store.fetcher.load(doc)
+    if (!(await loadAuthorizedDocument(store, doc))) {
+      const msg = `followOrCreateLinkWithContentOnCreate: cannot establish the authorization of ${doc.value}`
+      debug.warn(msg)
+      throw new NotEditableError(msg)
+    }
     const result = store.any(subject, predicate, null, doc)
 
     if (result) return result as NamedNode

@@ -14,6 +14,7 @@ import type { Session as OidcSession } from '@uvdsl/solid-oidc-client-browser/co
 import { _session } from './session'
 import { resolveIssuerForLogin } from './issuer'
 import { SessionEvents } from './events'
+import { restoreSession, sessionIsActive, sessionWasCleared, watchSessionTransitions, type SessionLike, type SessionRestoreLike } from './transitions'
 
 type SessionCompatibilityShape = {
   webId?: string
@@ -93,22 +94,72 @@ if (originalLogin) {
 
 const events = new SessionEvents()
 
-// Emit the legacy 'logout' event when the session transitions from active to inactive.
 // 'login' and 'sessionRestore' are emitted in SolidAuthnLogic.checkUser()
-// because only that call site knows which path activated the session.
-let _wasActive = (_session as any).isActive ?? Boolean((_session as any).webId)
-if (typeof (_session as unknown as EventTarget).addEventListener === 'function') {
-  ;(_session as unknown as EventTarget).addEventListener('sessionStateChange', () => {
-    const isNowActive = (_session as any).isActive ?? Boolean((_session as any).webId)
-    if (_wasActive && !isNowActive) {
-      events.emit('logout')
-    }
-    _wasActive = isNowActive
+// because only that call site knows which path activated the session. Every
+// other identity transition is reported from here: 'logout' when the session
+// goes inactive, and 'sessionChange' when the identity changes some other way
+// — including a login/logout made in another tab, which the uvdsl
+// SharedWorker does not broadcast as a state change and which is noticed when
+// this tab is refocused.
+// A worker-backed session pushes another tab's change here, but a worker can
+// also be constructed and then never answer — so "the worker exists" is not
+// proof that a cross-tab change will be pushed, and the resync is always
+// wired. It maps a backing store that no longer holds a session (a cross-tab
+// logout) to 'cleared'; watchSessionTransitions() bounds the wait.
+const resyncSession = (): unknown => {
+  const restoring = restoreSession(_session as unknown as SessionRestoreLike)
+  if (!restoring) return undefined
+  return restoring.then(() => 'changed', (error: unknown) => {
+    // A transient refresh/network failure is compared as it stands; a store
+    // that has no session to restore means this tab's identity is gone.
+    const message = error instanceof Error ? error.message : String(error)
+    return /no session to restore/i.test(message) ? 'cleared' : 'changed'
   })
 }
+watchSessionTransitions(_session as unknown as SessionLike, (event) => events.emit(event), undefined, resyncSession)
 
 export const authSession: SessionWithLegacyEvents = Object.assign(
   _session as Omit<OidcSession, 'login'> & { login: LoginCompat },
   { events }
 )
+
+// Legacy `info` compatibility shape.
+// The uvdsl session stores state on `webId_`/`isActive_` and exposes them via
+// `webId`/`isActive` getters, but legacy consumers (e.g. solid-ui's
+// `loginStatusBox` widget, `SolidAuthnLogic.currentUser()`'s fallback path)
+// read `authSession.info.webId` / `authSession.info.isLoggedIn`. Expose those
+// as a derived value — and keep it derived: `SolidAuthnLogic.webIdFromSession()`
+// and the fetch bridge prefer `info.webId` when present, so a retained
+// snapshot (callers snapshot and restore `info`) must never answer for the
+// session. A sticky value would report the previous identity after a
+// login/logout. Assignment is accepted and ignored so ordinary property
+// writes cannot throw; a test that needs to fake `info` redefines it.
+//
+// `isLoggedIn` follows `sessionIsActive`: an explicit `isActive: false`
+// reports logged out even when a WebID is still cached, or the fetch bridge
+// would keep routing anonymous requests through the authenticated fetch.
+export function legacySessionInfo (session: SessionLike): { webId?: string; isLoggedIn?: boolean } {
+  // A session whose backing store was reported cleared (see
+  // sessionWasCleared) answers as logged out: the local session object can
+  // still carry the identity it had before, and that identity must not keep
+  // being published through the legacy shape.
+  if (sessionWasCleared(session)) {
+    return { webId: undefined, isLoggedIn: false }
+  }
+  return {
+    webId: session.webId,
+    isLoggedIn: sessionIsActive(session)
+  }
+}
+
+Object.defineProperty(authSession, 'info', {
+  enumerable: true,
+  configurable: true,
+  get (): { webId?: string; isLoggedIn?: boolean } {
+    return legacySessionInfo(_session as unknown as SessionLike)
+  },
+  set (_value: { webId?: string; isLoggedIn?: boolean } | undefined): void {
+    // Accepted for legacy code that assigns snapshots; reads stay derived.
+  }
+})
   
