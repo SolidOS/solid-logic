@@ -1,6 +1,15 @@
 import { namedNode, NamedNode, sym } from 'rdflib'
 import { appContext, offlineTestID } from './authUtil'
 import * as debug from '../util/debug'
+import {
+  effectiveIdentity,
+  restoreSession,
+  sessionOwnsIdentity,
+  sessionWasCleared,
+  subscribeIdentity,
+  type IdentitySubscription,
+  type SessionLike
+} from '../authSession/identityState'
 import type { SessionWithLegacyEvents } from '../authSession/authSession'
 import type { AuthenticationContext, AuthnLogic } from '../types'
 
@@ -31,33 +40,63 @@ export class SolidAuthnLogic implements AuthnLogic {
   private session: SessionWithLegacyEvents
   private checkUserInFlight: Promise<NamedNode | null> | null = null
   private sessionRestoreHookAttached = false
-  private fallbackWebId: string | null = null
+  /**
+   * This instance's subscription to the session's identity state. Its lifetime
+   * IS this instance's: a cookie probe that answers after `dispose()` is
+   * ignored, and the refocus listener is removed with the last instance using
+   * the session (see identityState.ts).
+   */
+  private identity: IdentitySubscription
 
-  constructor(solidAuthSession: SessionWithLegacyEvents) {
+  constructor (solidAuthSession: SessionWithLegacyEvents) {
     this.session = solidAuthSession
+    // The cookie-backed identity is invisible to the session (it stays inactive
+    // and WebID-less), so it is re-probed when the tab regains focus: another
+    // tab may have logged out or switched identity while this one was
+    // backgrounded. Only meaningful where the probe applies (*.localhost NSS).
+    //
+    // TEMPORARY, pending the uvdsl change: this subscription exists because the
+    // library does not report a cookie identity change (nor a WebID change that
+    // keeps the session active). See the identityState header.
+    this.identity = subscribeIdentity(solidAuthSession as unknown as SessionLike, {
+      onRefocus: () => this.refreshCookieBackedFallback()
+    })
+  }
+
+  /**
+   * Detaches this instance from the session's identity state: the refocus
+   * listener is removed with the last instance using the session, and a probe
+   * that is still in flight can no longer apply its result.
+   */
+  dispose (): void {
+    this.identity.unsubscribe()
+  }
+
+  /**
+   * Re-probes the NSS cookie-backed identity. Skipped while the session owns
+   * the identity — the probe only exists for the case where it does not — and
+   * the state drops the result if the session takes ownership while the probe
+   * is in flight.
+   */
+  private async refreshCookieBackedFallback (): Promise<void> {
+    if (sessionOwnsIdentity(this.session as unknown as SessionLike)) return
+    this.identity.reportCookieIdentity(await this.probeNssCookieBackedWebId())
   }
 
   // we created authSession getter because we want to access it as authn.authSession externally
-  get authSession(): SessionWithLegacyEvents { return this.session }
+  get authSession (): SessionWithLegacyEvents { return this.session }
 
-  currentUser(): NamedNode | null {
+  currentUser (): NamedNode | null {
     const app = appContext()
     if (app.viewingNoAuthPage) {
       return sym(app.webId)
     }
-    const sessionAny = this.session as any
-    const infoWebId = sessionAny?.info?.webId
-    const sessionWebId = sessionAny?.webId
-    const webId = infoWebId || sessionWebId || this.fallbackWebId
-    const infoLoggedIn = sessionAny?.info?.isLoggedIn
-    const sessionActive = sessionAny?.isActive
-    const isLoggedIn = infoLoggedIn === true || sessionActive === true ||
-      ((infoLoggedIn == null && sessionActive == null) ? Boolean(webId) : false) ||
-      Boolean(this.fallbackWebId)
-    if (this && this.session && webId && isLoggedIn) {
-      return sym(webId)
-    }
-    return offlineTestID() // null unless testing
+    // The state answers with the session's identity when it owns one, the
+    // probed cookie identity when the session is inactive (or cleared), and
+    // nothing when neither does — a logout that retains the cached WebID must
+    // not keep answering for the previous user.
+    const { webId } = effectiveIdentity(this.session as unknown as SessionLike)
+    return webId ? sym(webId) : offlineTestID() // null unless testing
   }
 
   /**
@@ -126,9 +165,13 @@ export class SolidAuthnLogic implements AuthnLogic {
       // UI would spin forever. Race it against a timeout and treat a stall
       // as "no previous session" so the page can render the login button.
       const wasActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
-      if (typeof sessionAny?.restore === 'function') {
+      // The shared restore lock also covers this call: a refocus resync can be
+      // in flight at the same time, and two overlapping restores could write an
+      // older identity back over a newer one.
+      const restoring = restoreSession(sessionAny)
+      if (restoring) {
         try {
-          await withRestoreTimeout(sessionAny.restore())
+          await withRestoreTimeout(restoring)
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           // A failed restore on an inactive session just means "no usable
@@ -186,14 +229,13 @@ export class SolidAuthnLogic implements AuthnLogic {
 
     let webId = this.webIdFromSession(sessionAny?.info, sessionAny)
     if (!webId) {
-      // NSS-specific fallback: recover WebID from NSS cookie session when client restore is empty.
-      webId = await this.probeNssCookieBackedWebId()
-    }
-
-    if (webId) {
-      this.fallbackWebId = webId
-    } else {
-      this.fallbackWebId = null
+      // NSS-specific fallback: recover the WebID from the NSS cookie session
+      // when the client restore is empty. The result goes through the identity
+      // state, which drops it if the session took ownership while the probe was
+      // in flight (or if this instance was disposed meanwhile) — and reports the
+      // change like any other transition.
+      this.identity.reportCookieIdentity(await this.probeNssCookieBackedWebId())
+      webId = effectiveIdentity(sessionAny).webId ?? null
     }
 
     if (webId) {
@@ -278,13 +320,18 @@ export class SolidAuthnLogic implements AuthnLogic {
     const infoLoggedIn = sessionInfo?.isLoggedIn
     const rootLoggedIn = sessionRoot?.isLoggedIn
     const rootActive = sessionRoot?.isActive
-    if (infoLoggedIn === true || rootLoggedIn === true || rootActive === true) {
-      return webId
-    }
-    if (infoLoggedIn === false && rootLoggedIn === false && rootActive === false) {
+    // An explicit inactive/not-logged-in flag wins over a cached WebID and
+    // over a positive flag in another source — the same rule the identity
+    // state uses (see identityState.ts). The session root has no `isLoggedIn`
+    // property, so requiring every source to be false kept a cached WebID
+    // alive across a logout; a mixed snapshot must not resurrect one either. A
+    // session whose backing store lost it is inactive as well, however
+    // positive its own fields still look.
+    if (sessionWasCleared(sessionRoot) ||
+      infoLoggedIn === false || rootLoggedIn === false || rootActive === false) {
       return null
     }
+    // Active, or a legacy session that reports no state at all.
     return webId
   }
-
 }
