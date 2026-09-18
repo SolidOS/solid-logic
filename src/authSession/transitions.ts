@@ -202,6 +202,15 @@ export function watchSessionTransitions (
 ): void {
   let previous = snapshotOf(session)
   let clearedReported = false
+  // Bumped whenever a transition is applied. A resync that started before such
+  // a transition is answering about an older state and must not be applied: a
+  // slow restore begun while A was active can resolve after B logged in, and
+  // reporting that as 'cleared' would log out the identity that now owns the
+  // session.
+  let revision = 0
+  // The newest resync attempt: an older attempt that answers after a newer
+  // refocus started is superseded.
+  let resyncAttempt = 0
   const note = (): void => {
     // The session reports an identity again: the cleared state is superseded,
     // so drop the mark before comparing (otherwise it would mask the new
@@ -214,8 +223,12 @@ export function watchSessionTransitions (
     const replaced = identityReplaced(previous, next)
     const moved = event !== null || replaced
     previous = next
-    // The session moved on again: a later 'cleared' resync is a new fact.
-    if (moved) clearedReported = false
+    if (moved) {
+      // The session moved on again: a later 'cleared' resync is a new fact, and
+      // any resync that started before this transition is now stale.
+      clearedReported = false
+      revision += 1
+    }
     if (event) emit(event)
     if (replaced) emit('identityReplaced')
   }
@@ -234,6 +247,7 @@ export function watchSessionTransitions (
     // still-cleared session cannot report the logout twice.
     clearedSessions.add(session as object)
     previous = snapshotOf(session)
+    revision += 1
     if (wasActive) emit('logout')
     if (wasActive && wasEstablished) emit('identityReplaced')
   }
@@ -248,6 +262,11 @@ export function watchSessionTransitions (
       note()
       return
     }
+    const attemptId = ++resyncAttempt
+    const baselineRevision = revision
+    // This attempt's outcome only applies while it is still the newest one and
+    // no transition was applied since it started.
+    const stale = (): boolean => attemptId !== resyncAttempt || revision !== baselineRevision
     let outcome: unknown
     let done = false
     const attempt = Promise.resolve()
@@ -261,12 +280,14 @@ export function watchSessionTransitions (
       new Promise<void>((resolve) => setTimeout(resolve, RESYNC_TIMEOUT_MS))
     ])
     if (done) {
+      if (stale()) return
       if (outcome === 'cleared') reportCleared()
       else note()
       return
     }
     note()
     void attempt.then(() => {
+      if (stale()) return
       // Whatever the slow resync answers is worth acting on: 'cleared' means
       // the session is gone, and any other result may have updated the session
       // (a cross-tab login) — comparing again is what turns that into

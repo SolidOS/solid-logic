@@ -287,6 +287,59 @@ describe('SolidAuthnLogic', () => {
       expect(emitted).toEqual(['sessionChange'])
     })
 
+    it('does not let a checkUser probe replace an identity the session took over', async () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const session = { events, isActive: false } as any
+      const authn = new SolidAuthnLogic(session)
+      let resolveProbe: (webId: string | null) => void = () => undefined
+      ;(authn as any).probeNssCookieBackedWebId = (): Promise<string | null> =>
+        new Promise((resolve) => { resolveProbe = resolve })
+
+      const checking = authn.checkUser()
+      await Promise.resolve()
+      // The OIDC session takes ownership while the NSS probe is in flight.
+      session.isActive = true
+      session.webId = 'https://bob.example/profile#me'
+      resolveProbe('https://alice.localhost/profile/card#me')
+      await checking
+
+      // The stale cookie identity must not be usable after a later logout.
+      expect(authn.currentUser()?.uri).toBe('https://bob.example/profile#me')
+      expect((authn as any).cookieBackedFallback).toBe(false)
+      session.isActive = false
+      session.webId = undefined
+      expect(authn.currentUser()).toBeNull()
+      expect(emitted).toEqual([])
+    })
+
+    it('does not let an older refocus probe win over a newer checkUser probe', async () => {
+      const events = new EventEmitter()
+      const emitted: string[] = []
+      events.on('sessionChange', () => emitted.push('sessionChange'))
+      events.on('identityReplaced', () => emitted.push('identityReplaced'))
+      const authn = new SolidAuthnLogic({ events } as any)
+      const resolvers: ((webId: string | null) => void)[] = []
+      ;(authn as any).probeNssCookieBackedWebId = (): Promise<string | null> =>
+        new Promise((resolve) => { resolvers.push(resolve) })
+
+      const refocus = authn.refreshCookieBackedFallback()
+      await Promise.resolve()
+      const checking = authn.checkUser()
+      await Promise.resolve()
+
+      // checkUser's probe answers first, the refocus one only afterwards.
+      resolvers[1]('https://carol.localhost/profile/card#me')
+      await checking
+      resolvers[0]('https://alice.localhost/profile/card#me')
+      await refocus
+
+      expect((authn as any).fallbackWebId).toBe('https://carol.localhost/profile/card#me')
+      expect(authn.currentUser()?.uri).toBe('https://carol.localhost/profile/card#me')
+    })
+
     it('drops a probe result when the session became active while probing', async () => {
       const events = new EventEmitter()
       const emitted: string[] = []

@@ -68,22 +68,31 @@ export class SolidAuthnLogic implements AuthnLogic {
     // WebID counts as active too, and probing would then replace that identity
     // with a cookie one.
     if (sessionIsActive(this.session as any)) return
-    // Only the newest probe may apply its result: an older probe that answers
-    // late must not overwrite the identity a newer one (or the session) has
-    // established in the meantime.
-    const generation = ++this.cookieProbeGeneration
+    const result = await this.probeCookieIdentity()
+    if (result.status !== 'probed') return
     const previousFallback = this.fallbackWebId
     const previousCookieBacked = this.cookieBackedFallback
-    const webId = await this.probeNssCookieBackedWebId()
-    // The OIDC session can become active, or a newer probe can start, while
-    // this probe is in flight — then the identity it found no longer owns the
-    // session and its result is stale.
-    if (generation !== this.cookieProbeGeneration) return
-    if (sessionIsActive(this.session as any)) return
-    if (webId === null && !previousCookieBacked) return
-    this.fallbackWebId = webId
-    this.cookieBackedFallback = webId !== null
+    if (result.webId === null && !previousCookieBacked) return
+    this.fallbackWebId = result.webId
+    this.cookieBackedFallback = result.webId !== null
     this.reportFallbackIdentityChange(previousFallback, previousCookieBacked)
+  }
+
+  /**
+   * Runs the NSS cookie probe under the guard both call sites share: the probe
+   * takes a generation stamp, and its result is only usable when no newer probe
+   * started meanwhile (a refocus revalidation and `checkUser()` can overlap,
+   * and a probe that answers out of order must not win) and the OIDC session
+   * did not take ownership of the identity while the probe was in flight.
+   */
+  private async probeCookieIdentity (): Promise<
+  { status: 'probed', webId: string | null } | { status: 'superseded' } | { status: 'session-active' }
+  > {
+    const generation = ++this.cookieProbeGeneration
+    const webId = await this.probeNssCookieBackedWebId()
+    if (generation !== this.cookieProbeGeneration) return { status: 'superseded' }
+    if (sessionIsActive(this.session as any)) return { status: 'session-active' }
+    return { status: 'probed', webId }
   }
 
   // we created authSession getter because we want to access it as authn.authSession externally
@@ -250,8 +259,21 @@ export class SolidAuthnLogic implements AuthnLogic {
     let cookieBacked = false
     if (!webId) {
       // NSS-specific fallback: recover WebID from NSS cookie session when client restore is empty.
-      webId = await this.probeNssCookieBackedWebId()
-      cookieBacked = webId !== null
+      // The probe takes the same guard as the refocus revalidation: a result a
+      // newer probe superseded, or one that answers after the OIDC session took
+      // ownership, must not become the fallback identity (a later logout would
+      // then answer with that stale cookie identity).
+      const result = await this.probeCookieIdentity()
+      if (result.status === 'probed') {
+        webId = result.webId
+        cookieBacked = result.webId !== null
+      } else if (result.status === 'session-active') {
+        webId = this.webIdFromSession(sessionAny?.info, sessionAny)
+      } else {
+        // A newer probe owns the fallback now: keep what it established.
+        webId = this.fallbackWebId
+        cookieBacked = this.cookieBackedFallback
+      }
     }
 
     if (webId) {

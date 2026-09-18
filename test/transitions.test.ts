@@ -402,6 +402,49 @@ describe('watchSessionTransitions', () => {
     }
   })
 
+  it('does not apply a cleared outcome that a newer transition superseded', async () => {
+    vi.useFakeTimers()
+    try {
+      const session = new FakeSession()
+      session.isActive = true
+      session.webId = 'https://a.example/#me'
+      const emitted: string[] = []
+      const handlers: Record<string, () => void> = {}
+      const doc: DocumentLike = {
+        visibilityState: 'visible',
+        addEventListener: (type: string, listener: () => void): void => { handlers[type] = listener }
+      }
+      let resolveResync: (value: unknown) => void = () => undefined
+      watchSessionTransitions(
+        session as unknown as SessionLike,
+        (event) => emitted.push(event),
+        doc,
+        () => new Promise((resolve) => { resolveResync = resolve })
+      )
+
+      handlers.visibilitychange()
+      await vi.advanceTimersByTimeAsync(2500)
+      expect(emitted).toEqual([])
+
+      // Bob logs in in this tab while the slow resync is still in flight.
+      session.webId = 'https://b.example/#me'
+      session.dispatchEvent(new Event('sessionStateChange'))
+      expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+
+      // The resync now answers about the state from before Bob logged in.
+      resolveResync('cleared')
+      await vi.advanceTimersByTimeAsync(0)
+
+      // Bob must not be reported as logged out, and his credentials must stay
+      // usable: the outcome belonged to the superseded state.
+      expect(emitted).toEqual(['sessionChange', 'identityReplaced'])
+      expect(sessionWasCleared(session)).toBe(false)
+      expect(sessionExplicitlyInactive(session)).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('checks nothing while the tab is hidden', () => {
     const session = new FakeSession()
     const emitted: string[] = []
