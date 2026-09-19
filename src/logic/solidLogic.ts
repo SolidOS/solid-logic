@@ -35,7 +35,7 @@ export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: 
     const chat = createChatLogic(store, profile)
     const inbox = createInboxLogic(store, profile, utilityLogic, containerLogic, acl)
     const typeIndex = createTypeIndexLogic(store, authn, profile, utilityLogic)
-    const resource = createResourceLogic(store, acl, containerLogic, typeIndex)
+    const resource = createResourceLogic(store, authn, acl, containerLogic, typeIndex, profile)
     debug.log('SolidAuthnLogic initialized')
 
     function load(doc: NamedNode | NamedNode[] | string) {

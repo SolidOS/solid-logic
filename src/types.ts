@@ -79,6 +79,11 @@ export interface AclLogic {
             public?: []
         }
     ) => Promise<NamedNode>,
+    setACLUserOwnerOnly: (docURI: string, me: NamedNode,
+        options: {
+            defaultForNew?: boolean,
+        }
+    ) => Promise<NamedNode>,
     genACLText: (docURI: string, me: NamedNode, aclURI: string,
         options: {
             defaultForNew?: boolean,
@@ -95,15 +100,12 @@ export interface InboxLogic {
 
 export type ResourceDeleteOptions = {
     deleteTypeIndexes?: boolean,
-    user?: NamedNode | null
 }
 
 export type ResourceAccess = {
     canEdit: boolean
+    canControl: boolean
     isPublic: boolean
-}
-
-export type ResourceAccessWithDelete = ResourceAccess & {
     canDelete: boolean
 }
 
@@ -115,18 +117,21 @@ export type ResourceMetadata = {
     modified: string | undefined
 }
 
-export type ResourceMetadataWithDelete = ResourceMetadata & {
-    access: ResourceAccessWithDelete
-}
-
 export interface ResourceLogic {
     recursiveDelete: (resource: NamedNode, options?: ResourceDeleteOptions) => Promise<any>,
-    deleteResourceAndTypeIndexIfExists: (resource: NamedNode, user?: NamedNode | null) => Promise<void>,
+    deleteResourceAndTypeIndexIfExists: (resource: NamedNode) => Promise<void>,
+    moveToTrash: (resource: NamedNode) => Promise<void>,
     fetchMetadata: (subject: NamedNode) => Promise<ResourceMetadata>,
-    fetchMetadataWithDelete: (subject: NamedNode) => Promise<ResourceMetadataWithDelete>,
     createContainer: (url: string) => Promise<void>,
     isContainer: (resource: NamedNode) => boolean,
-    getContainerMemberCount: (resource: NamedNode) => number
+    isStorageRoot: (store: LiveStore, resource: NamedNode) => boolean,
+    noHiddenFiles: (resource: NamedNode) => boolean,
+    getContainerVisibleItemCount: (resource: NamedNode) => number,
+    getContainerIndexThing: (container: NamedNode) => NamedNode,
+    hasMintClassIndexDocument: (resource: NamedNode) => boolean,
+    isPaneIndexDocument: (resource: NamedNode) => boolean,
+    copyResource: (resource: NamedNode, targetUrl: string) => Promise<void>,
+    moveResource: (resource: NamedNode, targetUrl: string) => Promise<void>
 }
 
 export interface TypeIndexLogic {

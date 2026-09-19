@@ -16,7 +16,7 @@ function parseWacAllowHeader (headerValue: string | null | undefined) {
 
 export function readWacAccessInfo (wacAllow: string | null | undefined) {
   if (!wacAllow) {
-    return { canEdit: false, isPublic: false }
+    return { canEdit: false, canControl: false, isPublic: false }
   }
 
   const permissions = parseWacAllowHeader(wacAllow)
@@ -25,6 +25,7 @@ export function readWacAccessInfo (wacAllow: string | null | undefined) {
 
   return {
     canEdit: userModes.has('write'),
+    canControl: userModes.has('control'),
     isPublic: publicModes.has('read') || publicModes.has('write')
   }
 }

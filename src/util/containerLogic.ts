@@ -5,6 +5,25 @@ import { ns } from './ns'
  * Container-related class
  */
 export function createContainerLogic(store) {
+    const hiddenFileSuffixes = ['.acl', '~']
+
+    function noHiddenFiles (obj) {
+        // @@ This hiddenness should actually be server defined
+        const parentUri = obj?.dir?.()?.uri
+        const uri = obj?.uri
+
+        if (typeof uri !== 'string' || typeof parentUri !== 'string') {
+            return true
+        }
+
+        const pathEnd = uri.slice(parentUri.length)
+        return !pathEnd.startsWith('.') && !hiddenFileSuffixes.some((suffix) => pathEnd.endsWith(suffix))
+    }
+
+    function getContainerIndexThing(containerNode: NamedNode): NamedNode {
+        const folderUri = containerNode.uri.endsWith('/') ? containerNode.uri : containerNode.uri + '/'
+        return store.sym(folderUri + 'index.ttl#this')
+    }
 
     function getContainerElements(containerNode: NamedNode): NamedNode[] {
         return store
@@ -16,6 +35,10 @@ export function createContainerLogic(store) {
             .map((st: Statement) => st.object as NamedNode)
     }
 
+    function getContainerVisibleItemCount(containerNode: NamedNode): number {
+        return store.each(containerNode, sym('http://www.w3.org/ns/ldp#contains')).filter(noHiddenFiles).length
+    }
+
     function isContainer(url: NamedNode) {
         const typeUris = store.findTypeURIs(url)
         return Boolean(
@@ -25,8 +48,20 @@ export function createContainerLogic(store) {
         )
     }
 
-    function getContainerMemberCount(containerNode: NamedNode): number {
-        return getContainerElements(containerNode).length
+    function isStorageRoot(resourceStore, resource: NamedNode): boolean {
+        if (!resourceStore) return false
+
+        return resourceStore.holds(resource, ns.rdf('type'), ns.space('Storage'), resource.doc())
+    }
+
+    function hasMintClassIndexDocument(containerNode: NamedNode): boolean {
+        const indexThing = getContainerIndexThing(containerNode)
+        const mintClassPredicate = ns.ui('mintClass')
+
+        return Boolean(
+            store.any(indexThing, mintClassPredicate, undefined, indexThing.doc()) ||
+            store.any(indexThing.doc(), mintClassPredicate, undefined, indexThing.doc())
+        )
     }
 
     async function createContainer(url: string) {
@@ -62,6 +97,9 @@ export function createContainerLogic(store) {
         createContainer,
         getContainerElements,
         getContainerMembers,
-        getContainerMemberCount
+        noHiddenFiles,
+        isStorageRoot,
+        getContainerVisibleItemCount,
+        hasMintClassIndexDocument
     }
 }
