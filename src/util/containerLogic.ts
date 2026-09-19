@@ -19,7 +19,7 @@ export function createContainerLogic(store) {
     function isContainer(url: NamedNode) {
         const typeUris = store.findTypeURIs(url)
         return Boolean(
-            url.value.charAt(url.value.length - 1) === '/' ||
+            url.value.endsWith('/') ||
             typeUris[ns.ldp('Container').uri] ||
             typeUris[ns.ldp('BasicContainer').uri]
         )
