@@ -196,7 +196,13 @@ export async function loadAuthorizedDocument (
 ): Promise<boolean> {
   const state = storeState(store)
   const generation = state.generation
-  await store.fetcher?.load?.(doc)
+  const load = store.fetcher?.load
+  if (typeof load !== 'function') {
+    // A plain load() would fail on a store with no fetcher: this call loads
+    // `doc`, so it must not answer "consumed" after skipping the load.
+    throw new Error('fetcher.load is unavailable')
+  }
+  await load.call(store.fetcher, doc)
   if (generation !== state.generation) {
     return (await repairDocument(store, doc)) !== undefined
   }

@@ -30,10 +30,18 @@ export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: 
     // response out-of-date so editability answers "unknown" instead of the
     // previous identity's access. Decision points repair with
     // ensureDocumentAuthorization() (see flagAuthorizationOnTransitions.ts).
-    // The subscription lives as long as the identity state's, i.e. the session's.
-    flagAuthorizationOnSessionTransitions(store, session)
+    const unsubscribeAuthorization = flagAuthorizationOnSessionTransitions(store, session)
 
     const authn: AuthnLogic = new SolidAuthnLogic(session)
+
+    // The subscription is released with the auth logic: both belong to this
+    // instance's lifetime, so replacing a SolidLogic instance does not leave
+    // the old store subscribed to the session.
+    const disposeAuthn = authn.dispose?.bind(authn)
+    authn.dispose = (): void => {
+      unsubscribeAuthorization()
+      disposeAuthn?.()
+    }
     
     const acl = createAclLogic(store)
     const containerLogic = createContainerLogic(store)

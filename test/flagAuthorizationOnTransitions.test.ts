@@ -220,6 +220,13 @@ describe('loadAuthorizedDocument', () => {
     expect(store.fetcher.load).toHaveBeenCalledTimes(1)
   })
 
+  it('refuses to report success when the store cannot load at all', async () => {
+    // No fetcher to load with: the call fails like a plain load() would,
+    // instead of answering "consumed" for a document it never loaded.
+    const store: any = { updater: { editable: vi.fn(() => 'SPARQL') } }
+    await expect(loadAuthorizedDocument(store, doc)).rejects.toThrow('fetcher.load is unavailable')
+  })
+
   it('repairs a load that a transition overtook', async () => {
     const session = fakeSession({ isActive: false })
     const store = fakeStore({
