@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fetcher, graph, lit, sym, UpdateManager } from 'rdflib'
-import { refreshDocumentAuthorization } from '../src/authSession/flagAuthorizationOnTransitions'
+import { ensureDocumentAuthorization } from '../src/authSession/flagAuthorizationOnTransitions'
 
 const LINK = (name: string) => sym(`http://www.w3.org/2007/ont/link#${name}`)
 const HTTPH = (name: string) => sym(`http://www.w3.org/2007/ont/httph#${name}`)
@@ -74,7 +74,7 @@ describe('rdflib authorization metadata contract', () => {
     expect(store.updater.editable(doc)).toBe('N3PATCH')
   })
 
-  it('repairs through refreshDocumentAuthorization() on any rdflib (the deterministic path)', async () => {
+  it('lets a decision point repair a flagged document through a load', async () => {
     const store: any = graph()
     const doc = 'https://example.org/repair'
     let calls = 0
@@ -92,9 +92,11 @@ describe('rdflib authorization metadata contract', () => {
     store.updater.flagAuthorizationMetadata()
     expect(store.updater.editable(doc)).toBeUndefined()
 
-    // refresh() forces the fetch, awaiting the fetcher's completion callback,
-    // and only then answers from the fresh response.
-    await expect(refreshDocumentAuthorization(store, doc)).resolves.toBe('N3PATCH')
+    // ensureDocumentAuthorization() re-flags and loads; rdflib refetches a
+    // fully flagged document, so the decision point answers from the fresh
+    // response instead of the previous identity's.
+    await expect(ensureDocumentAuthorization(store, doc)).resolves.toBe(true)
     expect(calls).toBe(2)
+    expect(store.updater.editable(doc)).toBe('N3PATCH')
   })
 })
