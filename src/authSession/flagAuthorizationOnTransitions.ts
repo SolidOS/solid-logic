@@ -56,7 +56,7 @@ function invalidate (store: AuthorizationStore): boolean {
     flag.call(store.updater)
     return true
   } catch (error) {
-    debug.warn(`Could not flag authorization metadata: ${error}`)
+    debug.warn(`Could not flag authorization metadata: ${String(error)}`)
     return false
   }
 }

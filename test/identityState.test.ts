@@ -47,6 +47,28 @@ const collect = (): { events: IdentityEvent[], emit: (event: IdentityEvent) => v
   return { events, emit: (event: IdentityEvent) => { events.push(event) } }
 }
 
+const subscriptions: Array<{ unsubscribe: () => void }> = []
+
+/**
+ * Subscribes and remembers the handle: a first subscription attaches a
+ * `visibilitychange` listener to the document, and the tests release theirs so
+ * a later test's refocus cannot run resyncs or probes from a finished one.
+ */
+const subscribe = (
+  session: any,
+  options: Parameters<typeof subscribeIdentity>[1] = {}
+): ReturnType<typeof subscribeIdentity> => {
+  const subscription = subscribeIdentity(session, options)
+  subscriptions.push(subscription)
+  return subscription
+}
+
+// Release whatever each test subscribed, whichever assertions it made.
+afterEach(() => {
+  subscriptions.forEach(subscription => subscription.unsubscribe())
+  subscriptions.length = 0
+})
+
 describe('identityState — predicates', () => {
   it('treats isActive as authoritative and the WebID as the legacy fallback', () => {
     expect(sessionIsActive({ isActive: true })).toBe(true)
@@ -89,7 +111,7 @@ describe('identityState — session transitions', () => {
   it('reports a login once, and nothing when the identity does not move', () => {
     const session = fakeSession({ isActive: false })
     const { events, emit } = collect()
-    subscribeIdentity(session, { onEvent: emit })
+    subscribe(session, { onEvent: emit })
 
     session.isActive = true
     session.webId = 'https://alice.example/me'
@@ -106,7 +128,7 @@ describe('identityState — session transitions', () => {
   it('reports a logout, and one replacement for the identity that was active', () => {
     const session = fakeSession({ isActive: true, webId: 'https://alice.example/me' })
     const { events, emit } = collect()
-    subscribeIdentity(session, { onEvent: emit })
+    subscribe(session, { onEvent: emit })
 
     session.isActive = false
     session.fire('sessionStateChange')
@@ -123,7 +145,7 @@ describe('identityState — session transitions', () => {
   it('reports an identity change while the session stays active', () => {
     const session = fakeSession({ isActive: true, webId: 'https://alice.example/me' })
     const { events, emit } = collect()
-    subscribeIdentity(session, { onEvent: emit })
+    subscribe(session, { onEvent: emit })
 
     session.webId = 'https://bob.example/me'
     session.fire('sessionStateChange')
@@ -137,9 +159,9 @@ describe('identityState — session transitions', () => {
     const original = vi.fn(async () => { session.webId = 'https://bob.example/me' })
     session.setTokenDetails = original
     const { events, emit } = collect()
-    subscribeIdentity(session, { onEvent: emit })
+    subscribe(session, { onEvent: emit })
 
-    subscribeIdentity(session, {}) // second subscription must not wrap again
+    subscribe(session, {}) // second subscription must not wrap again
     await session.setTokenDetails('token')
     await flush()
     expect(original).toHaveBeenCalledTimes(1)
@@ -154,7 +176,7 @@ describe('identityState — session transitions', () => {
       throw new Error('persist failed')
     })
     const { events, emit } = collect()
-    subscribeIdentity(session, { onEvent: emit })
+    subscribe(session, { onEvent: emit })
 
     await expect(session.setTokenDetails('token')).rejects.toThrow('persist failed')
     await flush()
@@ -175,7 +197,7 @@ describe('identityState — refocus resync', () => {
     const session = fakeSession({ isActive: true, webId: 'https://alice.example/me' })
     const { events, emit } = collect()
     let restores = 0
-    subscribeIdentity(session, {
+    subscribe(session, {
       onEvent: emit,
       resync: async () => {
         restores += 1
@@ -198,7 +220,7 @@ describe('identityState — refocus resync', () => {
     const session = fakeSession({ isActive: true, webId: 'https://alice.example/me' })
     let resolveRestore: (value: unknown) => void = () => undefined
     let restores = 0
-    subscribeIdentity(session, {
+    subscribe(session, {
       resync: () => {
         restores += 1
         return new Promise(resolve => { resolveRestore = resolve })
@@ -216,12 +238,12 @@ describe('identityState — refocus resync', () => {
   it('takes the newest resync action when several subscribers provide one', async () => {
     const session = fakeSession({ isActive: true, webId: 'https://alice.example/me' })
     const calls: string[] = []
-    subscribeIdentity(session, {
+    subscribe(session, {
       resync: async () => {
         calls.push('older')
       }
     })
-    subscribeIdentity(session, {
+    subscribe(session, {
       resync: async () => {
         calls.push('newer')
       }
@@ -236,7 +258,7 @@ describe('identityState — refocus resync', () => {
     const session = fakeSession({ isActive: true, webId: 'https://alice.example/me' })
     const { events, emit } = collect()
     let resolveRestore: (value: unknown) => void = () => undefined
-    subscribeIdentity(session, {
+    subscribe(session, {
       onEvent: emit,
       resync: () => new Promise(resolve => { resolveRestore = resolve })
     })
@@ -260,7 +282,7 @@ describe('identityState — refocus resync', () => {
     const session = fakeSession({ isActive: true, webId: 'https://alice.example/me' })
     const { events, emit } = collect()
     let resolveRestore: (value: unknown) => void = () => undefined
-    subscribeIdentity(session, {
+    subscribe(session, {
       onEvent: emit,
       resync: () => new Promise(resolve => { resolveRestore = resolve })
     })
@@ -285,7 +307,7 @@ describe('identityState — cookie identity', () => {
   it('adopts a cookie identity silently as a replacement source, and reports its loss', () => {
     const session = fakeSession({ isActive: false })
     const { events, emit } = collect()
-    const subscription = subscribeIdentity(session, { onEvent: emit })
+    const subscription = subscribe(session, { onEvent: emit })
 
     subscription.reportCookieIdentity('https://cookie.example/profile/card#me')
     expect(events).toEqual(['sessionChange'])
@@ -304,7 +326,7 @@ describe('identityState — cookie identity', () => {
   it('does not replace the identity while the session owns it', () => {
     const session = fakeSession({ isActive: true, webId: 'https://alice.example/me' })
     const { events, emit } = collect()
-    const subscription = subscribeIdentity(session, { onEvent: emit })
+    const subscription = subscribe(session, { onEvent: emit })
 
     subscription.reportCookieIdentity('https://cookie.example/profile/card#me')
     expect(events).toEqual([])
@@ -313,7 +335,7 @@ describe('identityState — cookie identity', () => {
 
   it('forgets a remembered cookie identity once the session owns one again', () => {
     const session = fakeSession({ isActive: false })
-    const subscription = subscribeIdentity(session, {})
+    const subscription = subscribe(session, {})
     subscription.reportCookieIdentity('https://cookie.example/profile/card#me')
     expect(effectiveIdentity(session).source).toBe('cookie')
 
@@ -330,7 +352,7 @@ describe('identityState — cookie identity', () => {
   it('ignores a probe that answers after its subscription was released', () => {
     const session = fakeSession({ isActive: false })
     const { events, emit } = collect()
-    const subscription = subscribeIdentity(session, { onEvent: emit })
+    const subscription = subscribe(session, { onEvent: emit })
 
     subscription.unsubscribe()
     subscription.reportCookieIdentity('https://cookie.example/profile/card#me')
@@ -341,7 +363,7 @@ describe('identityState — cookie identity', () => {
   it('forwards a refocus to the subscribers and removes the listener with the last one', async () => {
     const session = fakeSession({ isActive: true, webId: 'https://alice.example/me' })
     const onRefocus = vi.fn()
-    const first = subscribeIdentity(session, { onRefocus })
+    const first = subscribe(session, { onRefocus })
 
     document.dispatchEvent(new Event('visibilitychange'))
     expect(onRefocus).toHaveBeenCalledTimes(1)
