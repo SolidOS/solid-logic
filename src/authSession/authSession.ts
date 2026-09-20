@@ -14,6 +14,7 @@ import type { Session as OidcSession } from '@uvdsl/solid-oidc-client-browser/co
 import { _session } from './session'
 import { resolveIssuerForLogin } from './issuer'
 import { SessionEvents } from './events'
+import { legacySessionInfo, restoreSession, subscribeIdentity, type SessionLike } from './identityState'
 
 type SessionCompatibilityShape = {
   webId?: string
@@ -93,22 +94,55 @@ if (originalLogin) {
 
 const events = new SessionEvents()
 
-// Emit the legacy 'logout' event when the session transitions from active to inactive.
 // 'login' and 'sessionRestore' are emitted in SolidAuthnLogic.checkUser()
-// because only that call site knows which path activated the session.
-let _wasActive = (_session as any).isActive ?? Boolean((_session as any).webId)
-if (typeof (_session as unknown as EventTarget).addEventListener === 'function') {
-  ;(_session as unknown as EventTarget).addEventListener('sessionStateChange', () => {
-    const isNowActive = (_session as any).isActive ?? Boolean((_session as any).webId)
-    if (_wasActive && !isNowActive) {
-      events.emit('logout')
-    }
-    _wasActive = isNowActive
+// because only that call site knows which path activated the session. Every
+// other identity transition is reported by the identity state, which watches
+// the session itself: 'logout' when the session goes inactive, 'sessionChange'
+// when the identity changes some other way — including a login/logout made in
+// another tab, which uvdsl does not broadcast as a state change and which is
+// noticed when this tab is refocused — and 'identityReplaced' when an
+// established identity is gone.
+//
+// The resync maps a backing store that no longer holds a session (a cross-tab
+// logout) to 'cleared'; the state bounds the wait and drops an answer that
+// belongs to an identity the session has left.
+const resyncSession = (): unknown => {
+  const restoring = restoreSession(_session as unknown as SessionLike)
+  if (!restoring) return undefined
+  return restoring.then(() => 'changed', (error: unknown) => {
+    // A transient refresh/network failure is compared as it stands; a store
+    // that has no session to restore means this tab's identity is gone.
+    const message = error instanceof Error ? error.message : String(error)
+    return /no session to restore/i.test(message) ? 'cleared' : 'changed'
   })
 }
+subscribeIdentity(_session as unknown as SessionLike, {
+  onEvent: (event) => events.emit(event),
+  resync: resyncSession
+})
 
 export const authSession: SessionWithLegacyEvents = Object.assign(
   _session as Omit<OidcSession, 'login'> & { login: LoginCompat },
   { events }
 )
+
+// Legacy `info` compatibility shape.
+// The uvdsl session stores state on `webId_`/`isActive_` and exposes them via
+// `webId`/`isActive` getters, but legacy consumers (e.g. solid-ui's
+// `loginStatusBox` widget, `SolidAuthnLogic.currentUser()`'s fallback path)
+// read `authSession.info.webId` / `authSession.info.isLoggedIn`. Expose those
+// as a derived value — and keep it derived: consumers snapshot and restore
+// `info`, and a retained value would report the previous identity after a
+// login/logout. Assignment is accepted and ignored so ordinary property
+// writes cannot throw; a test that needs to fake `info` redefines it.
+Object.defineProperty(authSession, 'info', {
+  enumerable: true,
+  configurable: true,
+  get (): { webId?: string, isLoggedIn?: boolean } {
+    return legacySessionInfo(_session as unknown as SessionLike)
+  },
+  set (_value: { webId?: string, isLoggedIn?: boolean } | undefined): void {
+    // Accepted for legacy code that assigns snapshots; reads stay derived.
+  }
+})
   
