@@ -286,11 +286,17 @@ export function restoreSession (session: SessionLike | undefined): Promise<unkno
  * (the legacy vocabulary); `onTransition` receives the whole transition once,
  * so a consumer that only invalidates does not do its work twice when a
  * transition carries two events (a logout that also replaces the identity).
+ *
+ * Every subscriber's `onTransition` runs BEFORE any subscriber's `onEvent`:
+ * a consumer that hears the event can rely on the transition having been
+ * applied everywhere else (the store is already invalidated when the legacy
+ * listeners run), instead of depending on the order subscriptions happened to
+ * be created in.
  */
 const deliver = (record: Record, events: IdentityEvent[]): void => {
+  record.subscribers.forEach(subscriber => subscriber.onTransition?.(events))
   record.subscribers.forEach(subscriber => {
     events.forEach(event => subscriber.onEvent?.(event))
-    subscriber.onTransition?.(events)
   })
 }
 
