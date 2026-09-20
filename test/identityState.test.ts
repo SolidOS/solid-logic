@@ -145,6 +145,21 @@ describe('identityState — session transitions', () => {
     expect(original).toHaveBeenCalledTimes(1)
     expect(events).toEqual(['sessionChange', 'identityReplaced'])
   })
+
+  it('reports an identity a rejected token update still applied', async () => {
+    const session = fakeSession({ isActive: true, webId: 'https://alice.example/me' })
+    // The update applies the new identity and then fails (persistence).
+    session.setTokenDetails = vi.fn(async () => {
+      session.webId = 'https://bob.example/me'
+      throw new Error('persist failed')
+    })
+    const { events, emit } = collect()
+    subscribeIdentity(session, { onEvent: emit })
+
+    await expect(session.setTokenDetails('token')).rejects.toThrow('persist failed')
+    await flush()
+    expect(events).toEqual(['sessionChange', 'identityReplaced'])
+  })
 })
 
 describe('identityState — refocus resync', () => {
@@ -196,6 +211,25 @@ describe('identityState — refocus resync', () => {
     expect(restores).toBe(1)
     resolveRestore('changed')
     await flush()
+  })
+
+  it('takes the newest resync action when several subscribers provide one', async () => {
+    const session = fakeSession({ isActive: true, webId: 'https://alice.example/me' })
+    const calls: string[] = []
+    subscribeIdentity(session, {
+      resync: async () => {
+        calls.push('older')
+      }
+    })
+    subscribeIdentity(session, {
+      resync: async () => {
+        calls.push('newer')
+      }
+    })
+
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flush()
+    expect(calls).toEqual(['newer'])
   })
 
   it('drops an answer that belongs to an identity the session has left', async () => {

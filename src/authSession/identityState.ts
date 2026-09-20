@@ -445,10 +445,12 @@ async function resyncThenNote (record: Record): Promise<void> {
  * session.
  */
 function resyncActionOf (record: Record): (() => unknown) | undefined {
+  // Subscribers iterate in insertion order, so the last match is the newest.
+  let newest: (() => unknown) | undefined
   for (const subscriber of record.subscribers) {
-    if (subscriber.resync) return subscriber.resync
+    if (subscriber.resync) newest = subscriber.resync
   }
-  return undefined
+  return newest
 }
 
 // uvdsl's session announces only changes of `isActive`; a WebID can change
@@ -471,12 +473,27 @@ function watchTokenUpdates (record: Record): void {
       const after = snapshotOf(record)
       return after.webId !== before.webId || after.isActive !== before.isActive
     }
-    const result = original.apply(session, args)
+    // Whatever the outcome — a token update can apply the new identity and
+    // then fail (a failed persistence, for one) — the identity around the call
+    // is what matters, so the change is reported and the failure passes on.
+    let result: unknown
+    try {
+      result = original.apply(session, args)
+    } catch (error) {
+      if (changed()) note(record)
+      throw error
+    }
     if (result && typeof (result as Promise<unknown>).then === 'function') {
-      return (result as Promise<unknown>).then((value) => {
-        if (changed()) note(record)
-        return value
-      })
+      return (result as Promise<unknown>).then(
+        (value: unknown) => {
+          if (changed()) note(record)
+          return value
+        },
+        (error: unknown) => {
+          if (changed()) note(record)
+          throw error
+        }
+      )
     }
     if (changed()) note(record)
     return result
