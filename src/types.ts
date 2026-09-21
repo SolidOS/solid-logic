@@ -34,6 +34,7 @@ export interface SolidNamespace {
 
 export type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode }
 export type ScopedApp = { instance: NamedNode, type: NamedNode, scope: TypeIndexScope }
+export type TypeIndexVisibility = 'public' | 'private'
 
 export interface NewPaneOptions {
     me?: NamedNode;
@@ -121,13 +122,19 @@ export interface ResourceLogic {
     recursiveDelete: (resource: NamedNode, options?: ResourceDeleteOptions) => Promise<any>,
     deleteResourceAndTypeIndexIfExists: (resource: NamedNode) => Promise<void>,
     moveToTrash: (resource: NamedNode) => Promise<void>,
+    findTypeIndexRegistrations: (resource: NamedNode, visibility: TypeIndexVisibility) => Promise<NamedNode[]>,
+    addToTypeIndex: (resource: NamedNode, visibility: TypeIndexVisibility, theClass: NamedNode) => Promise<NamedNode | null>,
+    removeFromTypeIndex: (resource: NamedNode, visibility: TypeIndexVisibility) => Promise<boolean>,
     fetchMetadata: (subject: NamedNode) => Promise<ResourceMetadata>,
     createContainer: (url: string) => Promise<void>,
     isContainer: (resource: NamedNode) => boolean,
     isStorageRoot: (store: LiveStore, resource: NamedNode) => boolean,
     noHiddenFiles: (resource: NamedNode) => boolean,
+    canAcceptUploads: (resource: NamedNode) => boolean,
     getContainerVisibleItemCount: (resource: NamedNode) => number,
     getContainerIndexThing: (container: NamedNode) => NamedNode,
+    getContainerMintClass: (container: NamedNode) => NamedNode | undefined,
+    loadContainerMintClass: (container: NamedNode) => Promise<NamedNode | undefined>,
     hasMintClassIndexDocument: (resource: NamedNode) => boolean,
     isPaneIndexDocument: (resource: NamedNode) => boolean,
     copyResource: (resource: NamedNode, targetUrl: string) => Promise<void>,
@@ -137,6 +144,7 @@ export interface ResourceLogic {
 export interface TypeIndexLogic {
     getRegistrations: (instance, theClass) => Node[],
     loadTypeIndexesFor: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
+    loadExistingTypeIndexesFor: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
     loadCommunityTypeIndexes: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
     loadAllTypeIndexes: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
     getScopedAppInstances: (klass: NamedNode, user: NamedNode) => Promise<ScopedApp[]>,
@@ -145,6 +153,8 @@ export interface TypeIndexLogic {
     suggestPrivateTypeIndex: (preferencesFile: NamedNode) => NamedNode,
     registerInTypeIndex: (instance: NamedNode, index: NamedNode, theClass: NamedNode) => Promise<NamedNode | null>,
     deleteTypeIndexRegistration: (item: any) => Promise<void>,
+    findTypeIndexRegistrationsForResourceInScope: (resource: NamedNode, scope: TypeIndexScope) => NamedNode[],
+    deleteTypeIndexRegistrationsForResourceInScope: (resource: NamedNode, scope: TypeIndexScope) => Promise<boolean>,
     deleteTypeIndexRegistrationForResource: (resource: NamedNode, user: NamedNode) => Promise<boolean>,
     getScopedAppsFromIndex: (scope: TypeIndexScope, theClass: NamedNode | null) => Promise<ScopedApp[]>,
 }

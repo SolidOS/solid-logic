@@ -114,6 +114,14 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         return loadTypeIndexScopesFor(user, false)
     }
 
+    function findTypeIndexRegistrationsForIndex(resource: NamedNode, index: NamedNode): NamedNode[] {
+        const registrations = store.statementsMatching(null, ns.solid('instance'), resource, index)
+            .concat(store.statementsMatching(null, ns.solid('instanceContainer'), resource, index))
+            .map(st => st.subject as NamedNode)
+
+        return Array.from(new Map<string, NamedNode>(registrations.map(registration => [registration.value, registration] as const)).values())
+    }
+
     async function loadCommunityTypeIndexes(user: NamedNode): Promise<TypeIndexScope[]> {
         let preferencesFile
         try {
@@ -199,6 +207,11 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         index: NamedNode,
         theClass: NamedNode,
     ): Promise<NamedNode | null> {
+        const existingRegistrationsInIndex = findTypeIndexRegistrationsForIndex(instance, index)
+        if (existingRegistrationsInIndex.length > 0) {
+            return existingRegistrationsInIndex[0]
+        }
+
         const registration = newThing(index)
         const ins = [
             st(registration, ns.rdf('type'), ns.solid('TypeRegistration'), index),
@@ -222,25 +235,30 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         await store.updater.update(statements, [])
     }
 
+    function findTypeIndexRegistrationsForResourceInScope(resource: NamedNode, scope: TypeIndexScope): NamedNode[] {
+        return findTypeIndexRegistrationsForIndex(resource, scope.index)
+    }
+
+    async function deleteTypeIndexRegistrationsForResourceInScope(resource: NamedNode, scope: TypeIndexScope): Promise<boolean> {
+        const registrations = findTypeIndexRegistrationsForResourceInScope(resource, scope)
+        await Promise.all(
+            registrations.map(async (registration) => {
+                const statements = store.statementsMatching(registration, null, null, scope.index)
+                if (statements.length > 0) {
+                    await store.updater.update(statements, [])
+                }
+            })
+        )
+        return registrations.length > 0
+    }
+
     async function deleteTypeIndexRegistrationForResource(resource: NamedNode, user: NamedNode): Promise<boolean> {
         const scopes = await loadExistingTypeIndexesFor(user)
-        const registrationsToDelete = scopes.flatMap(scope => {
-            const registrations = store.statementsMatching(null, ns.solid('instance'), resource, scope.index)
-                .concat(store.statementsMatching(null, ns.solid('instanceContainer'), resource, scope.index))
-                .map(st => st.subject)
-
-            return [...new Map(registrations.map(registration => [registration.value, registration] as const)).values()]
-                .flatMap(registration => {
-                    const statements = store.statementsMatching(registration, null, null, scope.index)
-                    return statements.length ? [{ scope, statements }] : []
-                })
-        })
-
-        await Promise.all(
-            registrationsToDelete.map(({ statements }) => store.updater.update(statements, []))
+        const deletions = await Promise.all(
+            scopes.map(scope => deleteTypeIndexRegistrationsForResourceInScope(resource, scope))
         )
 
-        return registrationsToDelete.length > 0
+        return deletions.some(Boolean)
     }
 
     async function getScopedAppsFromIndex(scope: TypeIndexScope, theClass: NamedNode | null): Promise<ScopedApp[]> {
@@ -270,6 +288,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         registerInTypeIndex,
         getRegistrations,
         loadTypeIndexesFor,
+        loadExistingTypeIndexesFor,
         loadCommunityTypeIndexes,
         loadAllTypeIndexes,
         getScopedAppInstances,
@@ -277,6 +296,8 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         suggestPublicTypeIndex,
         suggestPrivateTypeIndex,
         deleteTypeIndexRegistration,
+        findTypeIndexRegistrationsForResourceInScope,
+        deleteTypeIndexRegistrationsForResourceInScope,
         deleteTypeIndexRegistrationForResource,
         getScopedAppsFromIndex
     }

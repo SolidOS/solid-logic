@@ -25,6 +25,25 @@ export function createContainerLogic(store) {
         return store.sym(folderUri + 'index.ttl#this')
     }
 
+    function getContainerMintClass(containerNode: NamedNode): NamedNode | undefined {
+        if (!store) {
+            return undefined
+        }
+
+        const indexThing = getContainerIndexThing(containerNode)
+        const indexDoc = indexThing.doc()
+        const mintClassPredicate = ns.ui('mintClass')
+        const typePredicate = ns.rdf('type')
+
+        return (
+            store.any(indexThing, mintClassPredicate, undefined, indexDoc) ??
+            store.any(indexDoc, mintClassPredicate, undefined, indexDoc) ??
+            store.any(indexThing, typePredicate, undefined, indexDoc) ??
+            store.any(indexDoc, typePredicate, undefined, indexDoc) ??
+            undefined
+        ) as NamedNode | undefined
+    }
+
     function getContainerElements(containerNode: NamedNode): NamedNode[] {
         return store
             .statementsMatching(
@@ -55,13 +74,7 @@ export function createContainerLogic(store) {
     }
 
     function hasMintClassIndexDocument(containerNode: NamedNode): boolean {
-        const indexThing = getContainerIndexThing(containerNode)
-        const mintClassPredicate = ns.ui('mintClass')
-
-        return Boolean(
-            store.any(indexThing, mintClassPredicate, undefined, indexThing.doc()) ||
-            store.any(indexThing.doc(), mintClassPredicate, undefined, indexThing.doc())
-        )
+        return Boolean(getContainerMintClass(containerNode))
     }
 
     async function createContainer(url: string) {
@@ -97,9 +110,11 @@ export function createContainerLogic(store) {
         createContainer,
         getContainerElements,
         getContainerMembers,
+        getContainerIndexThing,
         noHiddenFiles,
         isStorageRoot,
         getContainerVisibleItemCount,
+        getContainerMintClass,
         hasMintClassIndexDocument
     }
 }
