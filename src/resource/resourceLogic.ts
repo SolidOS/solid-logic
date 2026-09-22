@@ -271,6 +271,7 @@ export function createResourceLogic(store, authn: AuthnLogic, aclLogic: AclLogic
     }
 
     if (resourceParent) {
+      store.removeMatches(resourceParent, ns.ldp('contains'), resourceNode)
       store.removeMatches(resourceParent, ns.ldp('contains'), resourceNode, resourceParent.doc())
     }
 
@@ -371,6 +372,48 @@ export function createResourceLogic(store, authn: AuthnLogic, aclLogic: AclLogic
   async function moveResource(resourceNode: NamedNode, targetUrl: string) {
     // .acl and .meta sidecars are server-managed on many pods, so move the resource itself only.
     await solidFileClient.move(resourceNode.uri, targetUrl, { withAcl: false, withMeta: false })
+
+    const sourceStillExists = await solidFileClient.itemExists(resourceNode.uri).catch((_error) => false)
+
+    if (sourceStillExists) {
+      await recursiveDelete(resourceNode)
+    }
+
+    const resourceParent = resourceNode.dir()
+    const targetParent = sym(targetUrl).dir()
+
+    if (resourceParent) {
+      store.removeMatches(resourceParent, ns.ldp('contains'), resourceNode, resourceParent.doc())
+    }
+
+    store.removeDocument(resourceNode)
+    store.fetcher.unload(resourceNode.doc())
+
+    if (resourceParent) {
+      store.fetcher.unload(resourceParent.doc())
+    }
+
+    if (targetParent) {
+      store.fetcher.unload(targetParent.doc())
+    }
+
+    const containersToReload = [resourceParent, targetParent].filter(
+      (container): container is NamedNode => Boolean(container)
+    )
+
+    await Promise.all(containersToReload.map(async (container) => {
+      metadataCache.delete(container.uri)
+
+      try {
+        await store.fetcher.load(container, { force: true, clearPreviousData: true })
+      } catch (_error) {
+        // The move succeeded; keep the local store usable if reconciliation fails.
+      }
+    }))
+
+    const targetNode = sym(targetUrl)
+    metadataCache.delete(resourceNode.uri)
+    metadataCache.delete(targetNode.uri)
   }
 
   return {
