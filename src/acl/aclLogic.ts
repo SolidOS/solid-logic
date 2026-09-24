@@ -76,6 +76,21 @@ export function createAclLogic(store): AclLogic {
     }
 
     /**
+     * Simple private ACL: owner gets read/write/control and nobody else gets access.
+     Will do this differently later if we keep the trash. 
+     May use the ACL library from Dokeili instead 
+    */
+    function setACLUserOwnerOnly (
+        docURI: string,
+        me: NamedNode,
+        options: {
+            defaultForNew?: boolean,
+        }
+    ): Promise<NamedNode> {
+        return setACLUserPublic(docURI, me, { ...options, public: [] })
+    }
+
+    /**
      * @param docURI
      * @returns
      */
@@ -150,6 +165,7 @@ export function createAclLogic(store): AclLogic {
     return {
         findAclDocUrl,
         setACLUserPublic,
+        setACLUserOwnerOnly,
         genACLText
     }
 }

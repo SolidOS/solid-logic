@@ -2,14 +2,35 @@ import { describe, expect, it, vi } from 'vitest'
 import { sym } from 'rdflib'
 import { createResourceLogic } from '../../src/resource/resourceLogic'
 
+const solidFileClientMocks = vi.hoisted(() => ({
+  itemExists: vi.fn(),
+  move: vi.fn()
+}))
+
+vi.mock('solid-file-client', () => ({
+  default: class {
+    itemExists = solidFileClientMocks.itemExists
+    move = solidFileClientMocks.move
+  }
+}))
+
 function buildResourceLogic(overrides: {
   webOperation?: (method: string, uri: string) => Promise<any>
   getContainerMembers?: (resource: any) => Promise<string[]>
   isContainer?: (resource: any) => boolean
   findAclDocUrl?: (resource: any) => Promise<string | undefined>
+  currentUser?: () => any
+  getPodRoot?: () => any
 } = {}) {
   const typeIndexLogic = {
     deleteTypeIndexRegistrationForResource: vi.fn().mockResolvedValue(true)
+  }
+
+  const authn = {
+    authSession: {},
+    currentUser: vi.fn(overrides.currentUser ?? (() => null)),
+    checkUser: vi.fn(),
+    saveUser: vi.fn()
   }
 
   const store = {
@@ -28,23 +49,30 @@ function buildResourceLogic(overrides: {
     each: vi.fn().mockReturnValue([]),
     removeMatches: vi.fn(),
     removeDocument: vi.fn(),
+    add: vi.fn(),
+    holds: vi.fn().mockReturnValue(false),
     sym
   }
 
   const resourceLogic = createResourceLogic(
     store as any,
+    authn as any,
     {
       findAclDocUrl: vi.fn(overrides.findAclDocUrl ?? (async () => undefined)),
       setACLUserPublic: vi.fn(),
+      setACLUserOwnerOnly: vi.fn().mockResolvedValue(undefined),
       genACLText: vi.fn()
     } as any,
     {
       createContainer: vi.fn(async () => undefined),
       isContainer: vi.fn(overrides.isContainer ?? (() => false)),
-      getContainerMemberCount: vi.fn().mockReturnValue(0),
+      getContainerVisibleItemCount: vi.fn().mockReturnValue(0),
       getContainerMembers: vi.fn(overrides.getContainerMembers ?? (async () => []))
     } as any,
-    typeIndexLogic as any
+    typeIndexLogic as any,
+    {
+      getPodRoot: vi.fn(overrides.getPodRoot ?? (() => sym('https://example.com/')))
+    } as any
   )
 
   return { resourceLogic, store, typeIndexLogic }
@@ -57,7 +85,7 @@ describe('createResourceLogic', () => {
 
     expect(await resourceLogic.createContainer('https://example.com/workspace/new/')).toBeUndefined()
     expect(resourceLogic.isContainer(resource)).toBe(false)
-    expect(resourceLogic.getContainerMemberCount(resource)).toBe(0)
+    expect(resourceLogic.getContainerVisibleItemCount(resource)).toBe(0)
   })
 
   it('returns resource metadata even when delete access probing fails for the container', async () => {
@@ -85,10 +113,11 @@ describe('createResourceLogic', () => {
       }
     })
 
-    const metadata = await resourceLogic.fetchMetadataWithDelete(sym(subjectUri))
+    const metadata = await resourceLogic.fetchMetadata(sym(subjectUri))
 
     expect(metadata.access).toEqual({
       canEdit: true,
+      canControl: false,
       isPublic: true,
       canDelete: false
     })
@@ -116,10 +145,11 @@ describe('createResourceLogic', () => {
       }
     })
 
-    const metadata = await resourceLogic.fetchMetadataWithDelete(sym(subjectUri))
+    const metadata = await resourceLogic.fetchMetadata(sym(subjectUri))
 
     expect(metadata.access).toEqual({
       canEdit: true,
+      canControl: false,
       isPublic: true,
       canDelete: false
     })
@@ -189,13 +219,41 @@ describe('createResourceLogic', () => {
     const resourceUri = 'https://example.com/workspace/doc.ttl'
     const userNode = sym('https://example.com/profile/card#me')
     const { resourceLogic, store, typeIndexLogic } = buildResourceLogic({
+      currentUser: () => userNode,
       webOperation: async () => ({ ok: true, headers: new Headers({ 'content-type': 'text/turtle' }), responseText: 'ok' })
     })
 
     store.fetcher._fetch.mockResolvedValue({ ok: true })
 
-    await expect(resourceLogic.deleteResourceAndTypeIndexIfExists(sym(resourceUri), userNode)).resolves.toBeUndefined()
+    await expect(resourceLogic.deleteResourceAndTypeIndexIfExists(sym(resourceUri))).resolves.toBeUndefined()
     expect(typeIndexLogic.deleteTypeIndexRegistrationForResource).toHaveBeenCalledWith(sym(resourceUri), userNode)
     expect(store.fetcher._fetch).toHaveBeenCalledWith(resourceUri, { method: 'DELETE' })
+  })
+
+  it('refreshes source and Trash memberships after moving a resource', async () => {
+    const resourceUri = 'https://example.com/workspace/doc.ttl'
+    const sourceContainer = sym('https://example.com/workspace/')
+    const trashContainer = sym('https://example.com/Trash/')
+    const targetResource = sym('https://example.com/Trash/doc.ttl')
+    const user = sym('https://example.com/profile/card#me')
+    const { resourceLogic, store } = buildResourceLogic({
+      currentUser: () => user,
+      getPodRoot: () => sym('https://example.com/'),
+      webOperation: async () => ({ ok: true, headers: new Headers() })
+    })
+
+    solidFileClientMocks.move.mockReset()
+    solidFileClientMocks.itemExists.mockReset()
+    solidFileClientMocks.move.mockResolvedValue(undefined)
+    solidFileClientMocks.itemExists.mockResolvedValue(false)
+    store.fetcher.load.mockResolvedValue(undefined)
+
+    await resourceLogic.moveToTrash(sym(resourceUri))
+
+    expect(solidFileClientMocks.move).toHaveBeenCalledWith(resourceUri, targetResource.uri, { withAcl: false, withMeta: false })
+    expect(store.removeMatches).toHaveBeenCalledWith(sourceContainer, expect.anything(), sym(resourceUri), sourceContainer.doc())
+    expect(store.fetcher.load).toHaveBeenCalledWith(sourceContainer, { force: true, clearPreviousData: true })
+    expect(store.fetcher.load).toHaveBeenCalledWith(trashContainer, { force: true, clearPreviousData: true })
+    expect(store.add).toHaveBeenCalledWith(trashContainer, expect.anything(), targetResource, trashContainer.doc())
   })
 })

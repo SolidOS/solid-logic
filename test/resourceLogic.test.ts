@@ -26,7 +26,7 @@ describe('resourceLogic', () => {
   let containerLogic: {
     createContainer: ReturnType<typeof vi.fn>
     isContainer: ReturnType<typeof vi.fn>
-    getContainerMemberCount: ReturnType<typeof vi.fn>
+    getContainerVisibleItemCount: ReturnType<typeof vi.fn>
     getContainerMembers: ReturnType<typeof vi.fn>
   }
   let typeIndexLogic: TypeIndexLogic
@@ -41,7 +41,7 @@ describe('resourceLogic', () => {
     containerLogic = {
       createContainer: vi.fn(),
       isContainer: vi.fn(),
-      getContainerMemberCount: vi.fn(),
+      getContainerVisibleItemCount: vi.fn(),
       getContainerMembers: vi.fn()
     }
     typeIndexLogic = {

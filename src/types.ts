@@ -40,6 +40,7 @@ export interface SolidNamespace {
 
 export type TypeIndexScope = { label: string, index: NamedNode, agent: NamedNode }
 export type ScopedApp = { instance: NamedNode, type: NamedNode, scope: TypeIndexScope }
+export type TypeIndexVisibility = 'public' | 'private'
 
 export interface NewPaneOptions {
     me?: NamedNode;
@@ -85,6 +86,11 @@ export interface AclLogic {
             public?: []
         }
     ) => Promise<NamedNode>,
+    setACLUserOwnerOnly: (docURI: string, me: NamedNode,
+        options: {
+            defaultForNew?: boolean,
+        }
+    ) => Promise<NamedNode>,
     genACLText: (docURI: string, me: NamedNode, aclURI: string,
         options: {
             defaultForNew?: boolean,
@@ -101,15 +107,12 @@ export interface InboxLogic {
 
 export type ResourceDeleteOptions = {
     deleteTypeIndexes?: boolean,
-    user?: NamedNode | null
 }
 
 export type ResourceAccess = {
     canEdit: boolean
+    canControl: boolean
     isPublic: boolean
-}
-
-export type ResourceAccessWithDelete = ResourceAccess & {
     canDelete: boolean
 }
 
@@ -121,23 +124,33 @@ export type ResourceMetadata = {
     modified: string | undefined
 }
 
-export type ResourceMetadataWithDelete = ResourceMetadata & {
-    access: ResourceAccessWithDelete
-}
-
 export interface ResourceLogic {
     recursiveDelete: (resource: NamedNode, options?: ResourceDeleteOptions) => Promise<any>,
-    deleteResourceAndTypeIndexIfExists: (resource: NamedNode, user?: NamedNode | null) => Promise<void>,
+    deleteResourceAndTypeIndexIfExists: (resource: NamedNode) => Promise<void>,
+    moveToTrash: (resource: NamedNode) => Promise<void>,
+    findTypeIndexRegistrations: (resource: NamedNode, visibility: TypeIndexVisibility) => Promise<NamedNode[]>,
+    addToTypeIndex: (resource: NamedNode, visibility: TypeIndexVisibility, theClass: NamedNode) => Promise<NamedNode | null>,
+    removeFromTypeIndex: (resource: NamedNode, visibility: TypeIndexVisibility) => Promise<boolean>,
     fetchMetadata: (subject: NamedNode) => Promise<ResourceMetadata>,
-    fetchMetadataWithDelete: (subject: NamedNode) => Promise<ResourceMetadataWithDelete>,
     createContainer: (url: string) => Promise<void>,
     isContainer: (resource: NamedNode) => boolean,
-    getContainerMemberCount: (resource: NamedNode) => number
+    isStorageRoot: (store: LiveStore, resource: NamedNode) => boolean,
+    noHiddenFiles: (resource: NamedNode) => boolean,
+    canAcceptUploads: (resource: NamedNode) => boolean,
+    getContainerVisibleItemCount: (resource: NamedNode) => number,
+    getContainerIndexThing: (container: NamedNode) => NamedNode,
+    getContainerMintClass: (container: NamedNode) => NamedNode | undefined,
+    loadContainerMintClass: (container: NamedNode) => Promise<NamedNode | undefined>,
+    hasMintClassIndexDocument: (resource: NamedNode) => boolean,
+    isPaneIndexDocument: (resource: NamedNode) => boolean,
+    copyResource: (resource: NamedNode, targetUrl: string) => Promise<void>,
+    moveResource: (resource: NamedNode, targetUrl: string) => Promise<void>
 }
 
 export interface TypeIndexLogic {
     getRegistrations: (instance, theClass) => Node[],
     loadTypeIndexesFor: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
+    loadExistingTypeIndexesFor: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
     loadCommunityTypeIndexes: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
     loadAllTypeIndexes: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
     getScopedAppInstances: (klass: NamedNode, user: NamedNode) => Promise<ScopedApp[]>,
@@ -146,6 +159,8 @@ export interface TypeIndexLogic {
     suggestPrivateTypeIndex: (preferencesFile: NamedNode) => NamedNode,
     registerInTypeIndex: (instance: NamedNode, index: NamedNode, theClass: NamedNode) => Promise<NamedNode | null>,
     deleteTypeIndexRegistration: (item: any) => Promise<void>,
+    findTypeIndexRegistrationsForResourceInScope: (resource: NamedNode, scope: TypeIndexScope) => NamedNode[],
+    deleteTypeIndexRegistrationsForResourceInScope: (resource: NamedNode, scope: TypeIndexScope) => Promise<boolean>,
     deleteTypeIndexRegistrationForResource: (resource: NamedNode, user: NamedNode) => Promise<boolean>,
     getScopedAppsFromIndex: (scope: TypeIndexScope, theClass: NamedNode | null) => Promise<ScopedApp[]>,
 }

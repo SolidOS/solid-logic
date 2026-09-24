@@ -20,7 +20,8 @@
   ],
   "scripts": {
     "clean": "rm -rf dist src/versionInfo.ts",
-    "build": "npm run clean && npm run typecheck && vite build",
+    "build": "npm run clean && npm run typecheck && vite build && npm run build-types",
+    "build-types": "tsc --emitDeclarationOnly",
     "watch": "vite build --watch",
     "postbuild": "npm run postbuild-js",
     "postbuild-js": "rm -f dist/versionInfo.d.ts dist/versionInfo.d.ts.map dist/index.js dist/index.js.map",
@@ -50,20 +51,21 @@
   },
   "devDependencies": {
     "@typescript-eslint/parser": "^8.61.1",
+    "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
-    "vitest": "^4.1.9",
     "jsdom": "^21.1.0",
+    "solidos-toolkit": "dev",
     "rdflib": "^2.4.1",
     "ts-loader": "^9.6.1",
     "tslib": "^2.8.1",
     "typescript": "^5.9.3",
-    "@vitest/coverage-v8": "^4.1.9",
-    "solidos-toolkit": "dev"
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "@uvdsl/solid-oidc-client-browser": "^0.2.3",
+    "solid-file-client": "^2.1.11",
     "solid-namespace": "^0.5.4",
     "vite": "^8.0.16",
     "vitest": "^4.1.9"

@@ -5,6 +5,44 @@ import { ns } from './ns'
  * Container-related class
  */
 export function createContainerLogic(store) {
+    const hiddenFileSuffixes = ['.acl', '~']
+
+    function noHiddenFiles (obj) {
+        // @@ This hiddenness should actually be server defined
+        const parentUri = obj?.dir?.()?.uri
+        const uri = obj?.uri
+
+        if (typeof uri !== 'string' || typeof parentUri !== 'string') {
+            return true
+        }
+
+        const pathEnd = uri.slice(parentUri.length)
+        return !pathEnd.startsWith('.') && !hiddenFileSuffixes.some((suffix) => pathEnd.endsWith(suffix))
+    }
+
+    function getContainerIndexThing(containerNode: NamedNode): NamedNode {
+        const folderUri = containerNode.uri.endsWith('/') ? containerNode.uri : containerNode.uri + '/'
+        return store.sym(folderUri + 'index.ttl#this')
+    }
+
+    function getContainerMintClass(containerNode: NamedNode): NamedNode | undefined {
+        if (!store) {
+            return undefined
+        }
+
+        const indexThing = getContainerIndexThing(containerNode)
+        const indexDoc = indexThing.doc()
+        const mintClassPredicate = ns.ui('mintClass')
+        const typePredicate = ns.rdf('type')
+
+        return (
+            store.any(indexThing, mintClassPredicate, undefined, indexDoc) ??
+            store.any(indexDoc, mintClassPredicate, undefined, indexDoc) ??
+            store.any(indexThing, typePredicate, undefined, indexDoc) ??
+            store.any(indexDoc, typePredicate, undefined, indexDoc) ??
+            undefined
+        ) as NamedNode | undefined
+    }
 
     function getContainerElements(containerNode: NamedNode): NamedNode[] {
         return store
@@ -16,17 +54,27 @@ export function createContainerLogic(store) {
             .map((st: Statement) => st.object as NamedNode)
     }
 
+    function getContainerVisibleItemCount(containerNode: NamedNode): number {
+        return store.each(containerNode, sym('http://www.w3.org/ns/ldp#contains')).filter(noHiddenFiles).length
+    }
+
     function isContainer(url: NamedNode) {
         const typeUris = store.findTypeURIs(url)
         return Boolean(
-            url.value.charAt(url.value.length - 1) === '/' ||
+            url.value.endsWith('/') ||
             typeUris[ns.ldp('Container').uri] ||
             typeUris[ns.ldp('BasicContainer').uri]
         )
     }
 
-    function getContainerMemberCount(containerNode: NamedNode): number {
-        return getContainerElements(containerNode).length
+    function isStorageRoot(resourceStore, resource: NamedNode): boolean {
+        if (!resourceStore) return false
+
+        return resourceStore.holds(resource, ns.rdf('type'), ns.space('Storage'), resource.doc())
+    }
+
+    function hasMintClassIndexDocument(containerNode: NamedNode): boolean {
+        return Boolean(getContainerMintClass(containerNode))
     }
 
     async function createContainer(url: string) {
@@ -62,6 +110,11 @@ export function createContainerLogic(store) {
         createContainer,
         getContainerElements,
         getContainerMembers,
-        getContainerMemberCount
+        getContainerIndexThing,
+        noHiddenFiles,
+        isStorageRoot,
+        getContainerVisibleItemCount,
+        getContainerMintClass,
+        hasMintClassIndexDocument
     }
 }
