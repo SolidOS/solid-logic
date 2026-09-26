@@ -3,7 +3,8 @@ import { ACL_LINK } from '../acl/aclLogic'
 import { ns } from '../util/ns'
 import { assertSuccessfulHttpResponse, isMissingError } from './resourceHttp'
 import { readWacAccessInfo } from './resourceMetadata'
-import { type AclLogic, type ResourceAccess, type ResourceAccessWithDelete, type ResourceDeleteOptions, type ResourceLogic, type ResourceMetadata, type ResourceMetadataWithDelete, type TypeIndexLogic } from '../types'
+import { type ResourceAccess, type ResourceAccessWithDelete, type ResourceDeleteOptions, type ResourceLogic, type ResourceMetadata, type ResourceMetadataWithDelete, type TypeIndexLogic } from '../types'
+import type { AclLogic } from '../types'
 
 export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, typeIndexLogic: TypeIndexLogic): ResourceLogic {
   function createContainer(url: string) {
@@ -16,6 +17,17 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
 
   function getContainerMemberCount(resourceNode: NamedNode) {
     return containerLogic.getContainerMemberCount(resourceNode)
+  }
+
+  function isWebId(resource: string | NamedNode) {
+    const uri = typeof resource === 'string' ? resource : resource.value
+
+    try {
+      const parsed = new URL(uri)
+      return parsed.hash === '#me' && /\/profile\/card\.ttl$/.test(parsed.pathname)
+    } catch (_error) {
+      return false
+    }
   }
 
   function readMetadata(subject: NamedNode, response: Response): ResourceMetadata {
@@ -175,6 +187,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     fetchMetadataWithDelete,
     createContainer,
     isContainer,
-    getContainerMemberCount
+    getContainerMemberCount,
+    isWebId
   }
 }

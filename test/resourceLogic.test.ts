@@ -35,6 +35,10 @@ describe('resourceLogic', () => {
     store = makeStore()
     aclLogic = {
       findAclDocUrl: vi.fn().mockResolvedValue(undefined),
+      findEffectiveAcl: vi.fn().mockResolvedValue({ authorizations: [] }),
+      findAccessGrants: vi.fn().mockResolvedValue([]),
+      planGrant: vi.fn(),
+      planPublicRead: vi.fn(),
       setACLUserPublic: vi.fn(),
       genACLText: vi.fn()
     }
@@ -102,5 +106,13 @@ describe('resourceLogic', () => {
 
     await expect(resourceLogic.recursiveDelete(resource)).resolves.toBeUndefined()
     expect(store.removeDocument).toHaveBeenCalledWith(resource)
+  })
+
+  it('recognizes only profile-card.ttl WebIDs', () => {
+    const resourceLogic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+
+    expect(resourceLogic.isWebId(sym('https://alice.example.com/profile/card.ttl#me'))).toBe(true)
+    expect(resourceLogic.isWebId(sym('https://alice.example.com/profile/card#me'))).toBe(false)
+    expect(resourceLogic.isWebId(sym('https://alice.example.com/profile/card.jsonld#me'))).toBe(false)
   })
 })

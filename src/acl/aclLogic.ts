@@ -1,6 +1,16 @@
+import { findEffectiveACL, planGrant as planAuthorizationGrant, planPublicRead as planAuthorizationPublicRead, type AccessMode, type AccessSubject, type ACLContext, type Authorization, type PatchPlan } from '@dokieli/web-access-control'
 import { graph, NamedNode, Namespace, serialize, sym } from 'rdflib'
-import { AclLogic } from '../types'
+import type { AclLogic } from '../types'
 import { ns as namespace } from '../util/ns'
+
+// Helpers available from @dokieli/web-access-control:
+// - Discovery: findEffectiveACL, parentContainer
+// - ACL context and parsing: buildACLContext, authorizationsFromDataset, parseTurtle
+// - Query helpers: agentsWithMode, hasControl, isPublic, modesFor, subjectsWithMode
+// - Plan helpers: planContainerACL, planGrant, planOwnerControl, planPublicRead, planRevoke
+// - Serialization and application: serializeTerm, toN3Patch, toSparqlUpdate, toTurtle, applyPlan, negotiatePatchContentType
+// - Link and allow parsing: allows, parseWacAllow, linkTargets, parseLinkHeader
+// - Terms and constants: ACCESS_MODES, ACL, Authenticated, FOAF, modeFromIRI, modeIRI, namedNode, Public, quad, RDF_TYPE, variable
 
 
 export const ACL_LINK = sym(
@@ -10,6 +20,18 @@ export const ACL_LINK = sym(
 export function createAclLogic(store): AclLogic {
 
     const ns = namespace
+
+    function getFetch() {
+        const fetcher = store.fetcher as {
+            _fetch?: (url: string, init?: RequestInit) => Promise<Response>
+            fetch?: (url: string, init?: RequestInit) => Promise<Response>
+        } | undefined
+        const fetch = fetcher?._fetch ?? fetcher?.fetch
+        if (!fetch) {
+            throw new Error('Cannot find effective ACL, store has no fetcher')
+        }
+        return fetch.bind(fetcher)
+    }
     
     async function findAclDocUrl(url: NamedNode) {
         await store.fetcher.load(url)
@@ -18,6 +40,26 @@ export function createAclLogic(store): AclLogic {
             throw new Error(`No ACL link discovered for ${url}`)
         }
         return docNode.value
+    }
+
+    async function findEffectiveAcl(resourceURL: string | NamedNode): Promise<ACLContext> {
+        const url = typeof resourceURL === 'string' ? resourceURL : resourceURL.value
+        return findEffectiveACL(url, { fetch: getFetch() })
+    }
+
+    async function findAccessGrants(resourceURL: string | NamedNode): Promise<Authorization[]> {
+        const context = await findEffectiveAcl(resourceURL)
+        return context.authorizations
+    }
+
+    async function planGrant(resourceURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]): Promise<PatchPlan> {
+        const context = await findEffectiveAcl(resourceURL)
+        return planAuthorizationGrant(context, subject, modes)
+    }
+
+    async function planPublicRead(resourceURL: string | NamedNode, enabled: boolean): Promise<PatchPlan> {
+        const context = await findEffectiveAcl(resourceURL)
+        return planAuthorizationPublicRead(context, enabled)
     }
     /**
      * Simple Access Control
@@ -149,6 +191,10 @@ export function createAclLogic(store): AclLogic {
     }
     return {
         findAclDocUrl,
+        findEffectiveAcl,
+        findAccessGrants,
+        planGrant,
+        planPublicRead,
         setACLUserPublic,
         genACLText
     }
