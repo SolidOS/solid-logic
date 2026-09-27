@@ -38,7 +38,9 @@ describe('resourceLogic', () => {
       findEffectiveAcl: vi.fn().mockResolvedValue({ authorizations: [] }),
       findAccessGrants: vi.fn().mockResolvedValue([]),
       planGrant: vi.fn(),
+      planRevoke: vi.fn(),
       planPublicRead: vi.fn(),
+      applyPlan: vi.fn(),
       setACLUserPublic: vi.fn(),
       genACLText: vi.fn()
     }

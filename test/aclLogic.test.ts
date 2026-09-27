@@ -1,16 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Fetcher, Store, sym, UpdateManager } from 'rdflib'
-import { findEffectiveACL, planGrant, planPublicRead } from '@dokieli/web-access-control'
+import { applyPlan, findEffectiveACL, planGrant, planPublicRead, planRevoke } from '@dokieli/web-access-control'
 import { ACL_LINK, createAclLogic } from '../src/acl/aclLogic'
 
 vi.mock('@dokieli/web-access-control', () => ({
   findEffectiveACL: vi.fn(),
   planGrant: vi.fn(),
   planPublicRead: vi.fn(),
+  planRevoke: vi.fn(),
+  applyPlan: vi.fn(),
   Authenticated: Symbol('Authenticated'),
   Public: Symbol('Public'),
-  planOwnerControl: vi.fn(),
-  planRevoke: vi.fn()
+  planOwnerControl: vi.fn()
 }))
 
 describe('createAclLogic', () => {
@@ -100,6 +101,30 @@ describe('createAclLogic', () => {
 
     await expect(aclLogic.planPublicRead(resource, true)).resolves.toBe(plan)
     expect(planPublicRead).toHaveBeenCalledWith(expect.objectContaining({ authorizations: [] }), true)
+  })
+
+  it('delegates planRevoke through the effective ACL context', async () => {
+    const resource = sym('https://example.com/resource.ttl')
+    const subject = { type: 'agent', iri: 'https://example.com/profile/card#me' }
+    const plan = { target: 'https://example.com/resource.ttl.acl', deletes: [], inserts: [] }
+
+    vi.mocked(findEffectiveACL).mockResolvedValue({ authorizations: [] } as any)
+    vi.mocked(planRevoke).mockReturnValue(plan as any)
+    store.fetcher._fetch.mockResolvedValue(new Response('', { status: 200 }))
+
+    await expect(aclLogic.planRevoke(resource, subject as any)).resolves.toBe(plan)
+    expect(planRevoke).toHaveBeenCalledWith(expect.objectContaining({ authorizations: [] }), subject)
+  })
+
+  it('applies a patch plan with the store fetcher', async () => {
+    const plan = { target: 'https://example.com/resource.ttl.acl', deletes: [], inserts: [] }
+    const response = new Response('ok', { status: 200 })
+
+    store.fetcher._fetch.mockResolvedValue(new Response('', { status: 200 }))
+    vi.mocked(applyPlan).mockResolvedValue(response)
+
+    await expect(aclLogic.applyPlan(plan as any)).resolves.toBe(response)
+    expect(applyPlan).toHaveBeenCalledWith(plan, expect.objectContaining({ fetch: expect.any(Function) }))
   })
 
   it('throws when the store cannot supply a fetch function', async () => {

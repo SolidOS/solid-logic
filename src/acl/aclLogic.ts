@@ -1,4 +1,4 @@
-import { findEffectiveACL, planGrant as planAuthorizationGrant, planPublicRead as planAuthorizationPublicRead, type AccessMode, type AccessSubject, type ACLContext, type Authorization, type PatchPlan } from '@dokieli/web-access-control'
+import { applyPlan as applyAuthorizationPlan, findEffectiveACL, planGrant as planAuthorizationGrant, planPublicRead as planAuthorizationPublicRead, planRevoke as planAuthorizationRevoke, type AccessMode, type AccessSubject, type ACLContext, type Authorization, type PatchPlan } from '@dokieli/web-access-control'
 import { graph, NamedNode, Namespace, serialize, sym } from 'rdflib'
 import type { AclLogic } from '../types'
 import { ns as namespace } from '../util/ns'
@@ -57,9 +57,18 @@ export function createAclLogic(store): AclLogic {
         return planAuthorizationGrant(context, subject, modes)
     }
 
+    async function planRevoke(resourceURL: string | NamedNode, subject: AccessSubject): Promise<PatchPlan> {
+        const context = await findEffectiveAcl(resourceURL)
+        return planAuthorizationRevoke(context, subject)
+    }
+
     async function planPublicRead(resourceURL: string | NamedNode, enabled: boolean): Promise<PatchPlan> {
         const context = await findEffectiveAcl(resourceURL)
         return planAuthorizationPublicRead(context, enabled)
+    }
+
+    async function applyPlan(plan: PatchPlan): Promise<Response> {
+        return applyAuthorizationPlan(plan, { fetch: getFetch() })
     }
     /**
      * Simple Access Control
@@ -194,7 +203,9 @@ export function createAclLogic(store): AclLogic {
         findEffectiveAcl,
         findAccessGrants,
         planGrant,
+        planRevoke,
         planPublicRead,
+        applyPlan,
         setACLUserPublic,
         genACLText
     }

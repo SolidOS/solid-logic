@@ -83,7 +83,9 @@ export interface AclLogic {
     findEffectiveAcl: (resourceURL: string | NamedNode) => Promise<ACLContext>,
     findAccessGrants: (resourceURL: string | NamedNode) => Promise<Authorization[]>,
     planGrant: (resourceURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>,
+    planRevoke: (resourceURL: string | NamedNode, subject: AccessSubject) => Promise<PatchPlan>,
     planPublicRead: (resourceURL: string | NamedNode, enabled: boolean) => Promise<PatchPlan>,
+    applyPlan: (plan: PatchPlan) => Promise<Response>,
     setACLUserPublic: (docURI: string, me: NamedNode,
         options: {
             defaultForNew?: boolean,
