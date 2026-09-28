@@ -26,6 +26,12 @@ export interface AuthnLogic {
     checkUser: <T>(setUserCallback?: (me: NamedNode | null) => T) => Promise<NamedNode | T | null>
     saveUser: (webId: NamedNode | string | null,
         context?: AuthenticationContext) => NamedNode | null
+    /**
+     * Releases what the implementation registered elsewhere (document and
+     * session listeners). Optional so other implementations stay valid, but a
+     * caller that replaces a logic instance should dispose the old one.
+     */
+    dispose?: () => void
 }
 
 export interface SolidNamespace {
@@ -93,6 +99,42 @@ export interface InboxLogic {
     markAsRead: (url: string, date: Date) => void
 }
 
+export type ResourceDeleteOptions = {
+    deleteTypeIndexes?: boolean,
+    user?: NamedNode | null
+}
+
+export type ResourceAccess = {
+    canEdit: boolean
+    isPublic: boolean
+}
+
+export type ResourceAccessWithDelete = ResourceAccess & {
+    canDelete: boolean
+}
+
+export type ResourceMetadata = {
+    contentType: string | undefined
+    access: ResourceAccess
+    aclUri: string | undefined
+    eTag: string | undefined
+    modified: string | undefined
+}
+
+export type ResourceMetadataWithDelete = ResourceMetadata & {
+    access: ResourceAccessWithDelete
+}
+
+export interface ResourceLogic {
+    recursiveDelete: (resource: NamedNode, options?: ResourceDeleteOptions) => Promise<any>,
+    deleteResourceAndTypeIndexIfExists: (resource: NamedNode, user?: NamedNode | null) => Promise<void>,
+    fetchMetadata: (subject: NamedNode) => Promise<ResourceMetadata>,
+    fetchMetadataWithDelete: (subject: NamedNode) => Promise<ResourceMetadataWithDelete>,
+    createContainer: (url: string) => Promise<void>,
+    isContainer: (resource: NamedNode) => boolean,
+    getContainerMemberCount: (resource: NamedNode) => number
+}
+
 export interface TypeIndexLogic {
     getRegistrations: (instance, theClass) => Node[],
     loadTypeIndexesFor: (user: NamedNode) => Promise<Array<TypeIndexScope>>,
@@ -103,14 +145,16 @@ export interface TypeIndexLogic {
     suggestPublicTypeIndex: (me: NamedNode) => NamedNode,
     suggestPrivateTypeIndex: (preferencesFile: NamedNode) => NamedNode,
     registerInTypeIndex: (instance: NamedNode, index: NamedNode, theClass: NamedNode) => Promise<NamedNode | null>,
-    deleteTypeIndexRegistration: (item: any) => Promise<void>
-    getScopedAppsFromIndex: (scope: TypeIndexScope, theClass: NamedNode | null) => Promise<ScopedApp[]>
+    deleteTypeIndexRegistration: (item: any) => Promise<void>,
+    deleteTypeIndexRegistrationForResource: (resource: NamedNode, user: NamedNode) => Promise<boolean>,
+    getScopedAppsFromIndex: (scope: TypeIndexScope, theClass: NamedNode | null) => Promise<ScopedApp[]>,
 }
 
 export interface SolidLogic {
     store: LiveStore,
     authn: AuthnLogic,
     acl: AclLogic,
+    resource: ResourceLogic,
     profile: ProfileLogic,
     inbox: InboxLogic,
     typeIndex: TypeIndexLogic,

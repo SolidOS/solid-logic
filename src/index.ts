@@ -9,6 +9,7 @@ const store = solidLogicSingleton.store
 export { ACL_LINK } from './acl/aclLogic'
 export { offlineTestID, appContext } from './authn/authUtil'
 export { performServerSideLogout } from './authn/serverLogout'
+export { reloadOnIdentityReplaced } from './authSession/identityState'
 export { getSuggestedIssuers } from './issuer/issuerLogic'
 export { createTypeIndexLogic } from './typeIndex/typeIndexLogic'
 export type { AppDetails, SolidNamespace, AuthenticationContext, SolidLogic, ChatLogic } from './types'

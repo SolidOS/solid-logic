@@ -20,63 +20,63 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
             })
     }
 
-    async function loadTypeIndexesFor(user: NamedNode): Promise<Array<TypeIndexScope>> {
+    async function loadTypeIndexScopesFor(user: NamedNode, createMissingLinks: boolean): Promise<Array<TypeIndexScope>> {
         if (!user) throw new Error('loadTypeIndexesFor: No user given')
         const profile = await profileLogic.loadProfile(user)
 
-        let suggestion: NamedNode | null = null
-        try {
-            suggestion = suggestPublicTypeIndex(user)
-        } catch (err) {
-            const message = `User ${user} has no usable profile document directory for publicTypeIndex.`
-            debug.warn(message)
-        }
-        let publicTypeIndex
+        let publicTypeIndex: NamedNode | null = null
         try {
             const existingPublicTypeIndex = store.any(user, ns.solid('publicTypeIndex'), undefined, profile)
             if (existingPublicTypeIndex) {
                 publicTypeIndex = existingPublicTypeIndex
-            } else if (suggestion) {
-                publicTypeIndex = await utilityLogic.followOrCreateLinkWithContentOnCreate(
-                    user,
-                    ns.solid('publicTypeIndex') as NamedNode,
-                    suggestion,
-                    profile,
-                    publicTypeIndexDocument()
-                )
-            } else {
-                publicTypeIndex = null
+            } else if (createMissingLinks) {
+                let suggestion: NamedNode | null = null
+                try {
+                    suggestion = suggestPublicTypeIndex(user)
+                } catch (err) {
+                    const message = `User ${user} has no usable profile document directory for publicTypeIndex.`
+                    debug.warn(message)
+                }
+                if (suggestion) {
+                    publicTypeIndex = await utilityLogic.followOrCreateLinkWithContentOnCreate(
+                        user,
+                        ns.solid('publicTypeIndex') as NamedNode,
+                        suggestion,
+                        profile,
+                        publicTypeIndexDocument()
+                    )
+                }
             }
         } catch (err) {
             const message = `User ${user} has no pointer in profile to publicTypeIndex file: ${err}`
             debug.warn(message)
         }
-        const publicScopes = publicTypeIndex ? [{ label: 'public', index: publicTypeIndex as NamedNode, agent: user }] : []
+        const publicScopes = publicTypeIndex ? [{ label: 'public', index: publicTypeIndex, agent: user }] : []
 
         let preferencesFile
         try {
             preferencesFile = await profileLogic.silencedLoadPreferences(user)
-        } catch (err) {
+        } catch (_err) {
             preferencesFile = null
         }
 
-        let privateScopes
-        if (preferencesFile) { // watch out - can be in either as spec was not clear.  Legacy is profile.
-            // If there is a legacy one linked from the profile, use that.
-            // Otherwiae use or make one linked from Preferences
+        let privateScopes: TypeIndexScope[]
+        if (preferencesFile) {
             let suggestedPrivateTypeIndex: NamedNode | null = null
-            try {
-                suggestedPrivateTypeIndex = suggestPrivateTypeIndex(preferencesFile)
-            } catch (err) {
-                const message = `User ${user} has no usable preferences document directory for privateTypeIndex.`
-                debug.warn(message)
+            if (createMissingLinks) {
+                try {
+                    suggestedPrivateTypeIndex = suggestPrivateTypeIndex(preferencesFile)
+                } catch (err) {
+                    const message = `User ${user} has no usable preferences document directory for privateTypeIndex.`
+                    debug.warn(message)
+                }
             }
-            let privateTypeIndex
+            let privateTypeIndex: NamedNode | null = null
             try {
                 const existingPrivateTypeIndex = store.any(user, ns.solid('privateTypeIndex'), undefined, profile)
                 if (existingPrivateTypeIndex) {
                     privateTypeIndex = existingPrivateTypeIndex
-                } else if (suggestedPrivateTypeIndex) {
+                } else if (createMissingLinks && suggestedPrivateTypeIndex) {
                     privateTypeIndex = await utilityLogic.followOrCreateLinkWithContentOnCreate(
                         user,
                         ns.solid('privateTypeIndex') as NamedNode,
@@ -84,19 +84,19 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
                         preferencesFile,
                         privateTypeIndexDocument()
                     )
-                } else {
-                    privateTypeIndex = null
                 }
             } catch (err) {
                 const message = `User ${user} has no pointer in preference file to privateTypeIndex file: ${err}`
                 debug.warn(message)
             }
-            privateScopes = privateTypeIndex ? [{ label: 'private', index: privateTypeIndex as NamedNode, agent: user }] : []
+            privateScopes = privateTypeIndex ? [{ label: 'private', index: privateTypeIndex, agent: user }] : []
         } else {
             privateScopes = []
         }
+
         const scopes = publicScopes.concat(privateScopes)
         if (scopes.length === 0) return scopes
+
         const files = scopes.map(scope => scope.index)
         try {
             await store.fetcher.load(files)
@@ -104,6 +104,14 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
             debug.warn('Problems loading type index: ', err)
         }
         return scopes
+    }
+
+    async function loadTypeIndexesFor(user: NamedNode): Promise<Array<TypeIndexScope>> {
+        return loadTypeIndexScopesFor(user, true)
+    }
+
+    async function loadExistingTypeIndexesFor(user: NamedNode): Promise<Array<TypeIndexScope>> {
+        return loadTypeIndexScopesFor(user, false)
     }
 
     async function loadCommunityTypeIndexes(user: NamedNode): Promise<TypeIndexScope[]> {
@@ -114,7 +122,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
             const message = `User ${user} has no pointer in profile to preferences file.`
             debug.warn(message)
         }
-        if (preferencesFile) { // For now, pick up communities as simple links from the preferences file.
+        if (preferencesFile) {
             const communities = store.each(user, ns.solid('community'), undefined, preferencesFile as NamedNode).concat(
                 store.each(user, ns.solid('community'), undefined, user.doc() as NamedNode)
             )
@@ -132,7 +140,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
             }
             return result
         }
-        return [] // No communities
+        return []
     }
 
     async function loadAllTypeIndexes(user: NamedNode) {
@@ -149,9 +157,6 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         return scopedApps
     }
 
-    // This is the function signature which used to be in solid-ui/logic
-    // Recommended to use getScopedAppInstances instead as it provides more information.
-    //
     async function getAppInstances(klass: NamedNode): Promise<NamedNode[]> {
         const user = authn.currentUser()
         if (!user) throw new Error('getAppInstances: Must be logged in to find apps.')
@@ -182,7 +187,6 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         if (!dirUri) throw new Error(`suggestPublicTypeIndex: Cannot derive directory for ${me.uri}`)
         return sym(dirUri + 'publicTypeIndex.ttl')
     }
-    // Note this one is based off the pref file not the profile
 
     function suggestPrivateTypeIndex(preferencesFile: NamedNode) {
         const dirUri = docDirUri(preferencesFile)
@@ -190,20 +194,13 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         return sym(dirUri + 'privateTypeIndex.ttl')
     }
 
-    /*
-    * Register a new app in a type index
-    * used in chat in bookmark.js (solid-ui)
-    * Returns the registration object if successful else null
-    */
     async function registerInTypeIndex(
         instance: NamedNode,
         index: NamedNode,
         theClass: NamedNode,
-        // agent: NamedNode
     ): Promise<NamedNode | null> {
         const registration = newThing(index)
         const ins = [
-            // See https://github.com/solid/solid/blob/main/proposals/data-discovery.md
             st(registration, ns.rdf('type'), ns.solid('TypeRegistration'), index),
             st(registration, ns.solid('forClass'), theClass, index),
             st(registration, ns.solid('instance'), instance, index)
@@ -225,6 +222,27 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         await store.updater.update(statements, [])
     }
 
+    async function deleteTypeIndexRegistrationForResource(resource: NamedNode, user: NamedNode): Promise<boolean> {
+        const scopes = await loadExistingTypeIndexesFor(user)
+        const registrationsToDelete = scopes.flatMap(scope => {
+            const registrations = store.statementsMatching(null, ns.solid('instance'), resource, scope.index)
+                .concat(store.statementsMatching(null, ns.solid('instanceContainer'), resource, scope.index))
+                .map(st => st.subject)
+
+            return [...new Map(registrations.map(registration => [registration.value, registration] as const)).values()]
+                .flatMap(registration => {
+                    const statements = store.statementsMatching(registration, null, null, scope.index)
+                    return statements.length ? [{ scope, statements }] : []
+                })
+        })
+
+        await Promise.all(
+            registrationsToDelete.map(({ statements }) => store.updater.update(statements, []))
+        )
+
+        return registrationsToDelete.length > 0
+    }
+
     async function getScopedAppsFromIndex(scope: TypeIndexScope, theClass: NamedNode | null): Promise<ScopedApp[]> {
         const index = scope.index
         const results: ScopedApp[] = []
@@ -232,18 +250,18 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
             .concat(store.statementsMatching(null, ns.solid('instanceContainer'), null, index))
             .map(st => st.subject)
         for (const reg of registrations) {
-          const klass = store.any(reg, ns.solid('forClass'), null, index)
-          if (!theClass || klass.sameTerm(theClass)) {
-            const instances = store.each(reg, ns.solid('instance'), null, index)
-            for (const instance of instances) {
-              results.push({ instance, type: klass, scope })
+            const klass = store.any(reg, ns.solid('forClass'), null, index)
+            if (!theClass || klass.sameTerm(theClass)) {
+                const instances = store.each(reg, ns.solid('instance'), null, index)
+                for (const instance of instances) {
+                    results.push({ instance, type: klass, scope })
+                }
+                const containers = store.each(reg, ns.solid('instanceContainer'), null, index)
+                for (const instance of containers) {
+                    await store.fetcher.load(instance)
+                    results.push({ instance: sym(instance.value), type: klass, scope })
+                }
             }
-            const containers = store.each(reg, ns.solid('instanceContainer'), null, index)
-            for (const instance of containers) {
-                await store.fetcher.load(instance)
-                results.push({ instance: sym(instance.value), type: klass,  scope })
-            }
-          }
         }
         return results
     }
@@ -259,6 +277,7 @@ export function createTypeIndexLogic(store, authn, profileLogic, utilityLogic): 
         suggestPublicTypeIndex,
         suggestPrivateTypeIndex,
         deleteTypeIndexRegistration,
+        deleteTypeIndexRegistrationForResource,
         getScopedAppsFromIndex
     }
 }

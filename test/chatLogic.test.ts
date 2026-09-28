@@ -1,14 +1,12 @@
-/**
-* @jest-environment jsdom
-*
-*/
-import { UpdateManager, Store, Fetcher } from 'rdflib'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { UpdateManager, Store, Fetcher, NamedNode } from 'rdflib'
 import { createAclLogic } from '../src/acl/aclLogic'
 import { createChatLogic } from '../src/chat/chatLogic'
 import { createProfileLogic } from '../src/profile/profileLogic'
 import { createContainerLogic } from '../src/util/containerLogic'
 import { createUtilityLogic } from '../src/util/utilityLogic'
 import { alice, bob } from './helpers/dataSetup'
+import { ChatLogic } from '../src/types'
 
 declare global {
   interface Window {
@@ -19,8 +17,8 @@ declare global {
 window.$SolidTestEnvironment = { username: alice.uri }
 
 describe('Chat logic', () => {
-  let chatLogic
-  let store
+  let chatLogic: ChatLogic
+  let store: Store
   beforeEach(() => {
     fetchMock.resetMocks()
     fetchMock.mockResponse('Not Found', {
@@ -40,7 +38,7 @@ describe('Chat logic', () => {
 
   describe('get chat, without creating', () => {
     describe('when no chat exists yet', () => {
-      let result
+      let result: NamedNode | null
       beforeEach(async () => {
         aliceHasValidProfile()
         noChatWithBobExists()
@@ -67,9 +65,9 @@ describe('Chat logic', () => {
 
   describe('get chat, create if missing', () => {
     describe('when no chat exists yet', () => {
-      let result
+      let result: NamedNode | null
       beforeEach(async () => {
-        Date.now = jest.fn(() =>
+        Date.now = vi.fn(() =>
           new Date(Date.UTC(2021, 1, 6, 10, 11, 12)).valueOf()
         )
         aliceHasValidProfile()
@@ -84,7 +82,7 @@ describe('Chat logic', () => {
         result = await chatLogic.getChat(bob, true)
       })
       it('returns the chat URI based on the invitee\'s WebID', () => {
-        expect(result.uri).toBe(
+        expect(result?.uri).toBe(
           'https://alice.example.com/IndividualChats/bob.example.com/index.ttl#this'
         )
       })

@@ -1,4 +1,5 @@
 import { NamedNode, st, sym } from 'rdflib'
+import { loadAuthorizedDocument } from '../authSession/flagAuthorizationOnTransitions'
 import {
   CrossOriginForbiddenError,
   FetchError,
@@ -11,19 +12,6 @@ import * as debug from '../util/debug'
 import { differentOrigin } from './utils'
 
 export function createUtilityLogic(store, aclLogic, containerLogic) {
-  async function recursiveDelete(containerNode: NamedNode) {
-    try {
-      if (containerLogic.isContainer(containerNode)) {
-        const aclDocUrl = await aclLogic.findAclDocUrl(containerNode)
-        await store.fetcher._fetch(aclDocUrl, { method: 'DELETE' })
-        const containerMembers = await containerLogic.getContainerMembers(containerNode)
-        await Promise.all(containerMembers.map((url) => recursiveDelete(url)))
-      }
-      return store.fetcher._fetch(containerNode.value, { method: 'DELETE' })
-    } catch (e) {
-      debug.log(`Please manually remove ${containerNode.value} from your system.`, e)
-    }
-  }
 
   /**
    * Create a resource if it really does not exist.
@@ -102,7 +90,15 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     object: NamedNode,
     doc: NamedNode
   ): Promise<NamedNode | null> {
-    await store.fetcher.load(doc)
+    // A response begun before an identity transition can be recorded after it,
+    // and on rdflib 2.4.0 a plain load does not refetch a flagged document: the
+    // helper owns the load, checks it was not overtaken and repairs before
+    // anything is read (see flagAuthorizationOnTransitions.ts).
+    if (!(await loadAuthorizedDocument(store, doc))) {
+      const msg = `followOrCreateLink: cannot establish the authorization of ${doc.value}`
+      debug.warn(msg)
+      throw new NotEditableError(msg)
+    }
     const result = store.any(subject, predicate, null, doc)
 
     if (result) return result as NamedNode
@@ -136,7 +132,15 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
     doc: NamedNode,
     data: string
   ): Promise<NamedNode | null> {
-    await store.fetcher.load(doc)
+    // A response begun before an identity transition can be recorded after it,
+    // and on rdflib 2.4.0 a plain load does not refetch a flagged document: the
+    // helper owns the load, checks it was not overtaken and repairs before
+    // anything is read (see flagAuthorizationOnTransitions.ts).
+    if (!(await loadAuthorizedDocument(store, doc))) {
+      const msg = `followOrCreateLinkWithContentOnCreate: cannot establish the authorization of ${doc.value}`
+      debug.warn(msg)
+      throw new NotEditableError(msg)
+    }
     const result = store.any(subject, predicate, null, doc)
 
     if (result) return result as NamedNode
@@ -218,7 +222,6 @@ export function createUtilityLogic(store, aclLogic, containerLogic) {
   }
 
   return {
-    recursiveDelete,
     setSinglePeerAccess,
     createEmptyRdfDoc,
     followOrCreateLink,

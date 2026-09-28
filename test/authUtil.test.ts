@@ -1,7 +1,4 @@
-/**
-* @jest-environment jsdom
-* 
-*/
+import { describe, expect, it } from 'vitest'
 import * as authUtil from '../src/authn/authUtil'
 
 describe('offlineTestID', () => {

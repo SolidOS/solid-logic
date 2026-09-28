@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest'
 import * as rdf from 'rdflib'
 import { getArchiveUrl, uniqueNodes } from '../src/util/utils'
 

@@ -1,9 +1,6 @@
-/**
-* @jest-environment jsdom
-* 
-*/
-import fetchMock from 'jest-fetch-mock'
-import { UpdateManager, sym, Fetcher, Store } from 'rdflib'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { fetchMock } from './helpers/fetch-mock'
+import { UpdateManager, sym, Fetcher, Store, NamedNode } from 'rdflib'
 import { createAclLogic } from '../src/acl/aclLogic'
 import { WebOperationError } from '../src/logic/CustomError'
 import { createContainerLogic } from '../src/util/containerLogic'
@@ -12,51 +9,65 @@ import { createUtilityLogic } from '../src/util/utilityLogic'
 import { alice, AlicePhotoFolder, AlicePhotos, AlicePreferences, AlicePreferencesFile, AlicePrivateTypeIndex, AlicePrivateTypes, AliceProfile, AlicePublicTypeIndex, AlicePublicTypes, bob, BobProfile, club, ClubPreferences, ClubPreferencesFile, ClubPrivateTypeIndex, ClubPrivateTypes, ClubProfile, ClubPublicTypeIndex, ClubPublicTypes } from './helpers/dataSetup'
 
 window.$SolidTestEnvironment = { username: alice.uri }
-const prefixes = Object.keys(ns).map(prefix => `@prefix ${prefix}: ${ns[prefix]('')}.\n`).join('') // In turtle
+
+const namespace = ns as Record<string, (value: string) => string> & {
+    space: (value: string) => any
+}
+
+const prefixes = Object.keys(namespace)
+    .map(prefix => `@prefix ${prefix}: ${namespace[prefix]('')}.
+`)
+    .join('') // In turtle
 
 describe('utilityLogic', () => {
-    let store
-    let options
-    let web = {}
+    let store!: Store
+    let options: { fetch: typeof fetch }
+    let web: Record<string, string> = {}
     let requests: Request[] = []
     let statustoBeReturned = 200
-    let utilityLogic
+    let utilityLogic: {
+        loadOrCreateIfNotExists: any
+        loadOrCreateWithContentOnCreate: any
+        followOrCreateLink: any
+        followOrCreateLinkWithContentOnCreate: any
+        setSinglePeerAccess: any
+        recursiveDelete?: (containerNode: NamedNode) => Promise<any>
+        createEmptyRdfDoc?: (doc: NamedNode, comment: string) => Promise<void>
+    }
+
     beforeEach(() => {
         fetchMock.resetMocks()
-        fetchMock.mockResponse('Not Found', {
-            status: 404,
-        })
+        fetchMock.mockResponse('Not Found', { status: 404 })
         requests = []
         statustoBeReturned = 200
 
-        fetchMock.mockIf(/^https?.*$/, async req => {
-
+        fetchMock.mockIf(/^https?.*$/, async (req: Request) => {
             if (req.method !== 'GET') {
                 requests.push(req)
                 if (req.method === 'PUT') {
                     const contents = await req.text()
-                    web[req.url] = contents // Update our dummy web
+                    web[req.url] = contents
                     console.log(`Tetst: Updated ${req.url} on PUT to <<<${web[req.url]}>>>`)
                 }
                 return { status: statustoBeReturned }
             }
+
             const contents = web[req.url]
-            if (contents !== undefined) { //
+            if (contents !== undefined) {
                 return {
-                    body: prefixes + contents, // Add namespaces to anything
+                    body: prefixes + contents,
                     status: 200,
                     headers: {
                         'Content-Type': 'text/turtle',
                         'WAC-Allow': 'user="write", public="read"',
-                        'Accept-Patch': 'application/sparql-update'
-                    }
+                        'Accept-Patch': 'application/sparql-update',
+                    },
                 }
-            } // if contents
-            return {
-                status: 404,
-                body: 'Not Found'
             }
+
+            return { status: 404, body: 'Not Found' }
         })
+
         web = {}
         web[alice.doc().uri] = AliceProfile
         web[AlicePreferencesFile.uri] = AlicePreferences
@@ -64,29 +75,28 @@ describe('utilityLogic', () => {
         web[AlicePublicTypeIndex.uri] = AlicePublicTypes
         web[AlicePhotoFolder.uri] = AlicePhotos
         web[bob.doc().uri] = BobProfile
-
         web[club.doc().uri] = ClubProfile
         web[ClubPreferencesFile.uri] = ClubPreferences
         web[ClubPrivateTypeIndex.uri] = ClubPrivateTypes
         web[ClubPublicTypeIndex.uri] = ClubPublicTypes
-    
-        options = { fetch: fetch }
+
+        options = { fetch }
         store = new Store()
         store.fetcher = new Fetcher(store, options)
         store.updater = new UpdateManager(store)
-        requests = []
-		utilityLogic = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
+        utilityLogic = createUtilityLogic(store, createAclLogic(store), createContainerLogic(store))
     })
 
     describe('loadOrCreateIfNotExists', () => {
         it('exists', () => {
             expect(utilityLogic.loadOrCreateIfNotExists).toBeInstanceOf(Function)
         })
+
         it('does nothing if existing file', async () => {
             await utilityLogic.loadOrCreateIfNotExists(alice.doc())
             expect(requests).toEqual([])
-
         })
+
         it('creates empty file if did not exist', async () => {
             const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
             await utilityLogic.loadOrCreateIfNotExists(sym(suggestion))
@@ -99,19 +109,21 @@ describe('utilityLogic', () => {
         it('exists', () => {
             expect(utilityLogic.loadOrCreateWithContentOnCreate).toBeInstanceOf(Function)
         })
+
         it('creates and seeds content when missing', async () => {
             const suggestion = 'https://bob.example.com/settings/new-index.ttl'
             const body = [
                 '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
                 '<>',
                 '  a solid:TypeIndex ;',
-                '  a solid:ListedDocument.'
+                '  a solid:ListedDocument.',
             ].join('\n')
             const created = await utilityLogic.loadOrCreateWithContentOnCreate(sym(suggestion), body)
 
             expect(created).toEqual(true)
             expect(web[suggestion]).toEqual(body)
         })
+
         it('does not overwrite existing content', async () => {
             const existing = AlicePrivateTypeIndex.uri
             const before = web[existing]
@@ -126,51 +138,67 @@ describe('utilityLogic', () => {
         it('exists', () => {
             expect(utilityLogic.followOrCreateLink).toBeInstanceOf(Function)
         })
+
         it('follows existing link', async () => {
             const suggestion = 'https://alice.example.com/settings/prefsSuggestion.ttl'
-            const result = await utilityLogic.followOrCreateLink(alice, ns.space('preferencesFile'), sym(suggestion), alice.doc())
+            const result = await utilityLogic.followOrCreateLink(
+                alice,
+                namespace.space('preferencesFile'),
+                sym(suggestion),
+                alice.doc()
+            )
             expect(result).toEqual(AlicePreferencesFile)
-
         })
+
         it('creates empty file if did not exist and new link', async () => {
             const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
-            const result = await utilityLogic.followOrCreateLink(bob, ns.space('preferencesFile'), sym(suggestion), bob.doc())
+            const result = await utilityLogic.followOrCreateLink(
+                bob,
+                namespace.space('preferencesFile'),
+                sym(suggestion),
+                bob.doc()
+            )
             expect(result).toEqual(sym(suggestion))
             expect(requests[0].method).toEqual('PATCH')
             expect(requests[0].url).toEqual(bob.doc().uri)
             expect(requests[1].method).toEqual('PUT')
             expect(requests[1].url).toEqual(suggestion)
-            expect(store.holds(bob, ns.space('preferencesFile'), sym(suggestion), bob.doc())).toEqual(true)
-        })
-        //
-        it('returns null if it cannot create the new file', async () => {
-            const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
-            statustoBeReturned = 403 // Unauthorized
-            expect(async () => {
-				await utilityLogic.followOrCreateLink(bob, ns.space('preferencesFile'), sym(suggestion), bob.doc())
-			}).rejects.toThrow(WebOperationError)
+            expect(store.holds(bob, namespace.space('preferencesFile'), sym(suggestion), bob.doc())).toEqual(true)
         })
 
+        it('returns null if it cannot create the new file', async () => {
+            const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
+            statustoBeReturned = 403
+            await expect(
+                utilityLogic.followOrCreateLink(
+                    bob,
+                    namespace.space('preferencesFile'),
+                    sym(suggestion),
+                    bob.doc()
+                )
+            ).rejects.toThrow(WebOperationError)
+        })
     })
 
     describe('followOrCreateLinkWithContentOnCreate', () => {
         it('exists', () => {
             expect(utilityLogic.followOrCreateLinkWithContentOnCreate).toBeInstanceOf(Function)
         })
+
         it('does not create target doc when link patch fails', async () => {
             const suggestion = 'https://bob.example.com/settings/prefsSuggestion.ttl'
             const body = [
                 '@prefix solid: <http://www.w3.org/ns/solid/terms#>.',
                 '<>',
                 '  a solid:TypeIndex ;',
-                '  a solid:ListedDocument.'
+                '  a solid:ListedDocument.',
             ].join('\n')
 
-            statustoBeReturned = 403 // Make PATCH fail
+            statustoBeReturned = 403
             await expect(
                 utilityLogic.followOrCreateLinkWithContentOnCreate(
                     bob,
-                    ns.space('preferencesFile'),
+                    namespace.space('preferencesFile'),
                     sym(suggestion),
                     bob.doc(),
                     body
@@ -181,54 +209,59 @@ describe('utilityLogic', () => {
         })
     })
 
-describe('setSinglePeerAccess', () => {
-	beforeEach(() => {
-		fetchMock.mockOnceIf(
-		'https://owner.com/some/resource',
-		'hello', {
-		headers: {
-			Link: '<https://owner.com/some/acl>; rel="acl"'
-		}
-		})
-		fetchMock.mockOnceIf(
-		'https://owner.com/some/acl',
-		'Created', {
-		status: 201
-		})
-	})
-	it('Creates the right ACL doc', async () => {
-		await utilityLogic.setSinglePeerAccess({
-		ownerWebId: 'https://owner.com/#me',
-		peerWebId: 'https://peer.com/#me',
-		accessToModes: 'acl:Read, acl:Control',
-		defaultModes: 'acl:Write',
-		target: 'https://owner.com/some/resource'
-		})
-		expect(fetchMock.mock.calls).toEqual([
-		[ 'https://owner.com/some/resource', fetchMock.mock.calls[0][1] ],
-		[ 'https://owner.com/some/acl', {
-			body: '@prefix acl: <http://www.w3.org/ns/auth/acl#>.\n' +
-			'\n' +
-			'<#alice> a acl:Authorization;\n' +
-			'  acl:agent <https://owner.com/#me>;\n' +
-			'  acl:accessTo <https://owner.com/some/resource>;\n' +
-			'  acl:default <https://owner.com/some/resource>;\n' +
-			'  acl:mode acl:Read, acl:Write, acl:Control.\n' +
-			'<#bobAccessTo> a acl:Authorization;\n' +
-			'  acl:agent <https://peer.com/#me>;\n' +
-			'  acl:accessTo <https://owner.com/some/resource>;\n' +
-			'  acl:mode acl:Read, acl:Control.\n' +
-			'<#bobDefault> a acl:Authorization;\n' +
-			'  acl:agent <https://peer.com/#me>;\n' +
-			'  acl:default <https://owner.com/some/resource>;\n' +
-			'  acl:mode acl:Write.\n',
-			headers: [
-				['Content-Type', 'text/turtle']
-			],
-			method: 'PUT'
-		}]
-		])
-	})
-})
+    describe('setSinglePeerAccess', () => {
+        beforeEach(() => {
+            fetchMock.mockOnceIf(
+                'https://owner.com/some/resource',
+                'hello',
+                {
+                    headers: {
+                        Link: '<https://owner.com/some/acl>; rel="acl"',
+                    },
+                }
+            )
+            fetchMock.mockOnceIf(
+                'https://owner.com/some/acl',
+                'Created',
+                {
+                    status: 201,
+                }
+            )
+        })
 
+        it('Creates the right ACL doc', async () => {
+            await utilityLogic.setSinglePeerAccess({
+                ownerWebId: 'https://owner.com/#me',
+                peerWebId: 'https://peer.com/#me',
+                accessToModes: 'acl:Read, acl:Control',
+                defaultModes: 'acl:Write',
+                target: 'https://owner.com/some/resource',
+            })
+            expect(fetchMock.mock.calls).toEqual([
+                ['https://owner.com/some/resource', fetchMock.mock.calls[0][1]],
+                [
+                    'https://owner.com/some/acl',
+                    {
+                        body: '@prefix acl: <http://www.w3.org/ns/auth/acl#>.\n' +
+                            '\n' +
+                            '<#alice> a acl:Authorization;\n' +
+                            '  acl:agent <https://owner.com/#me>;\n' +
+                            '  acl:accessTo <https://owner.com/some/resource>;\n' +
+                            '  acl:default <https://owner.com/some/resource>;\n' +
+                            '  acl:mode acl:Read, acl:Write, acl:Control.\n' +
+                            '<#bobAccessTo> a acl:Authorization;\n' +
+                            '  acl:agent <https://peer.com/#me>;\n' +
+                            '  acl:accessTo <https://owner.com/some/resource>;\n' +
+                            '  acl:mode acl:Read, acl:Control.\n' +
+                            '<#bobDefault> a acl:Authorization;\n' +
+                            '  acl:agent <https://peer.com/#me>;\n' +
+                            '  acl:default <https://owner.com/some/resource>;\n' +
+                            '  acl:mode acl:Write.\n',
+                        headers: [['Content-Type', 'text/turtle']],
+                        method: 'PUT',
+                    },
+                ],
+            ])
+        })
+    })
 })

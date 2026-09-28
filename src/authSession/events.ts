@@ -5,7 +5,7 @@
  * Wired into the auth session by authSession.ts.
  */
 
-type LegacyEventName = 'login' | 'logout' | 'sessionRestore'
+export type LegacyEventName = 'identityReplaced' | 'login' | 'logout' | 'sessionChange' | 'sessionRestore'
 type LegacyEventHandler = (...args: unknown[]) => void
 
 /**
@@ -14,7 +14,8 @@ type LegacyEventHandler = (...args: unknown[]) => void
  * continue working without modification.
  *
  * Events are emitted by SolidAuthnLogic.checkUser() (login/sessionRestore)
- * and by the sessionStateChange listener in authSession.ts (logout).
+ * and by the identity state in identityState.ts ('logout', 'sessionChange',
+ * 'identityReplaced' — the event the reload helper subscribes to).
  */
 export class SessionEvents {
   private readonly listeners: Map<string, Set<LegacyEventHandler>> = new Map()
@@ -32,4 +33,3 @@ export class SessionEvents {
     this.listeners.get(event)?.forEach(h => h(...args))
   }
 }
-

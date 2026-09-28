@@ -1,6 +1,7 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { solidLogicSingleton } from '../src/logic/solidLogicSingleton'
 import { authSession } from '../src/authSession/authSession'
-import fetchMock from 'jest-fetch-mock'
+import { fetchMock } from './helpers/fetch-mock'
 import { silenceDebugMessages } from './helpers/debugger'
 
 silenceDebugMessages()
@@ -34,7 +35,17 @@ describe('solidLogicSingleton fetch bridge', () => {
 
   let originalFetch: any
   let originalAuthFetch: any
-  let originalWebId: any
+
+  // Whose credentials a request would carry is decided by the identity state,
+  // which reads the session itself — so the test fakes the session identity,
+  // not the derived `info` shape (whose assignment is ignored on purpose).
+  // `webId`/`isActive` are prototype getters on the real session, so an own
+  // property shadows them for the duration of a test.
+  const setSessionIdentity = (webId?: string): void => {
+    const sessionAny = authSession as any
+    Object.defineProperty(sessionAny, 'isActive', { value: webId !== undefined, configurable: true })
+    Object.defineProperty(sessionAny, 'webId', { value: webId, configurable: true })
+  }
 
   beforeEach(() => {
     fetchMock.resetMocks()
@@ -42,24 +53,22 @@ describe('solidLogicSingleton fetch bridge', () => {
     const sessionAny = authSession as any
     originalFetch = sessionAny.fetch
     originalAuthFetch = sessionAny.authFetch
-    originalWebId = sessionAny.webId
 
-    // `info` is a derived read-only property (from webId/isActive), so resetting
-    // webId is sufficient to put the session in the logged-out state.
-    sessionAny.webId = undefined
+    setSessionIdentity()
   })
 
   afterEach(() => {
     const sessionAny = authSession as any
     sessionAny.fetch = originalFetch
     sessionAny.authFetch = originalAuthFetch
-    sessionAny.webId = originalWebId
+    delete sessionAny.webId
+    delete sessionAny.isActive
   })
 
   it('uses window.fetch when credentials are omit even if a session exists', async () => {
     const sessionAny = authSession as any
-    sessionAny.webId = 'https://alice.example/profile#me'
-    sessionAny.fetch = jest.fn().mockResolvedValue(new Response('session'))
+    setSessionIdentity('https://alice.example/profile#me')
+    sessionAny.fetch = vi.fn().mockResolvedValue(new Response('session'))
 
     fetchMock.mockResponseOnce('window')
 
@@ -71,9 +80,9 @@ describe('solidLogicSingleton fetch bridge', () => {
 
   it('falls back to authFetch when session.fetch is unavailable', async () => {
     const sessionAny = authSession as any
-    sessionAny.webId = 'https://alice.example/profile#me'
+    setSessionIdentity('https://alice.example/profile#me')
     sessionAny.fetch = undefined
-    sessionAny.authFetch = jest.fn().mockResolvedValue(new Response('auth'))
+    sessionAny.authFetch = vi.fn().mockResolvedValue(new Response('auth'))
 
     await singletonFetch('https://example.com/resource')
 
@@ -81,4 +90,3 @@ describe('solidLogicSingleton fetch bridge', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
-
