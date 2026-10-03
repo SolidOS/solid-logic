@@ -1,4 +1,5 @@
 import type { SessionWithLegacyEvents } from './authSession/authSession'
+import type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan } from '@dokieli/web-access-control'
 import { LiveStore, NamedNode, Statement } from 'rdflib'
 
 export type AppDetails = {
@@ -79,6 +80,12 @@ export interface ProfileLogic {
 
 export interface AclLogic {
     findAclDocUrl: (url: NamedNode) => Promise<string | undefined>,
+    findEffectiveAcl: (resourceURL: string | NamedNode) => Promise<ACLContext>,
+    findAccessGrants: (resourceURL: string | NamedNode) => Promise<Authorization[]>,
+    planGrant: (resourceURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>,
+    planRevoke: (resourceURL: string | NamedNode, subject: AccessSubject) => Promise<PatchPlan>,
+    planPublicRead: (resourceURL: string | NamedNode, enabled: boolean) => Promise<PatchPlan>,
+    applyPlan: (plan: PatchPlan) => Promise<Response>,
     setACLUserPublic: (docURI: string, me: NamedNode,
         options: {
             defaultForNew?: boolean,
@@ -92,6 +99,8 @@ export interface AclLogic {
         }
     ) => string | undefined
 }
+
+export type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan }
 
 export interface InboxLogic {
     createInboxFor: (peerWebId: string, nick: string) => Promise<string>,
@@ -132,7 +141,8 @@ export interface ResourceLogic {
     fetchMetadataWithDelete: (subject: NamedNode) => Promise<ResourceMetadataWithDelete>,
     createContainer: (url: string) => Promise<void>,
     isContainer: (resource: NamedNode) => boolean,
-    getContainerMemberCount: (resource: NamedNode) => number
+    getContainerMemberCount: (resource: NamedNode) => number,
+    isWebId: (resource: string | NamedNode) => boolean
 }
 
 export interface TypeIndexLogic {

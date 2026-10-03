@@ -63,6 +63,7 @@
     "solidos-toolkit": "dev"
   },
   "dependencies": {
+    "@dokieli/web-access-control": "^1.0.0",
     "@uvdsl/solid-oidc-client-browser": "^0.2.3",
     "solid-namespace": "^0.5.4",
     "vite": "^8.0.16",
