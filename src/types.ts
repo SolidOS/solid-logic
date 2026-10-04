@@ -1,6 +1,8 @@
 import type { SessionWithLegacyEvents } from './authSession/authSession'
 import type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan } from '@dokieli/web-access-control'
 import { LiveStore, NamedNode, Statement } from 'rdflib'
+import type { AccessControlSubject } from './acl/accessControlSubjects'
+import type { AccessRole } from './acl/aclLogic'
 
 export type AppDetails = {
     noun: string
@@ -82,6 +84,9 @@ export interface AclLogic {
     findAclDocUrl: (url: NamedNode) => Promise<string | undefined>,
     findEffectiveAcl: (resourceURL: string | NamedNode) => Promise<ACLContext>,
     findAccessGrants: (resourceURL: string | NamedNode) => Promise<Authorization[]>,
+    classifyAccessControlSubject: (principle: string) => Promise<AccessControlSubject | undefined>,
+    roleFromModes: (modes: Iterable<AccessMode>) => AccessRole,
+    modesFromRole: (role: AccessRole) => AccessMode[],
     planGrant: (resourceURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>,
     planRevoke: (resourceURL: string | NamedNode, subject: AccessSubject) => Promise<PatchPlan>,
     planPublicRead: (resourceURL: string | NamedNode, enabled: boolean) => Promise<PatchPlan>,
@@ -160,6 +165,32 @@ export interface TypeIndexLogic {
     getScopedAppsFromIndex: (scope: TypeIndexScope, theClass: NamedNode | null) => Promise<ScopedApp[]>,
 }
 
+export type DirectorySource = 'contacts' | 'friends' | 'catalog' | 'groups'
+
+export type DirectoryRelationshipLabel = 'Friend' | 'People' | 'Contact' | 'Group'
+
+export type DirectoryEntry = {
+    kind: 'person' | 'group'
+    uri: string
+    label: string
+    searchableLabels?: string[]
+    subjectType: 'agent' | 'agentGroup'
+    relationshipLabel: DirectoryRelationshipLabel
+    sources: DirectorySource[]
+}
+
+export type DirectorySearchOptions = {
+    query?: string
+    sources?: DirectorySource[]
+    catalogUrl?: string
+    user?: NamedNode | null
+    maxFoafDistance?: number
+}
+
+export interface DirectoryLogic {
+    search: (options?: DirectorySearchOptions) => Promise<DirectoryEntry[]>
+}
+
 export interface SolidLogic {
     store: LiveStore,
     authn: AuthnLogic,
@@ -169,6 +200,7 @@ export interface SolidLogic {
     inbox: InboxLogic,
     typeIndex: TypeIndexLogic,
     chat: ChatLogic,
+    directory: DirectoryLogic,
     load: (doc: NamedNode | NamedNode[] | string) => void,
     updatePromise: (del: Array<Statement>, ins: Array<Statement>) => Promise<void>,
     clearStore: () => void

@@ -4,6 +4,7 @@ import type { AclLogic } from '../types'
 import { ns as namespace } from '../util/ns'
 import * as accessControlSubjects from './accessControlSubjects'
 
+// Will remove the below comment when i'm done with the manage access work
 // Helpers available from @dokieli/web-access-control:
 // - Discovery: findEffectiveACL, parentContainer
 // - ACL context and parsing: buildACLContext, authorizationsFromDataset, parseTurtle
@@ -13,6 +14,9 @@ import * as accessControlSubjects from './accessControlSubjects'
 // - Link and allow parsing: allows, parseWacAllow, linkTargets, parseLinkHeader
 // - Terms and constants: ACCESS_MODES, ACL, Authenticated, FOAF, modeFromIRI, modeIRI, namedNode, Public, quad, RDF_TYPE, variable
 
+export const ACCESS_ROLES = ['Owner', 'Editor', 'No Access', 'Viewer', 'Poster', 'Submitter'] as const
+
+export type AccessRole = typeof ACCESS_ROLES[number]
 
 export const ACL_LINK = sym(
     'http://www.iana.org/assignments/link-relations/acl'
@@ -21,6 +25,25 @@ export const ACL_LINK = sym(
 export function createAclLogic(store): AclLogic {
 
     const ns = namespace
+    const ACCESS_ROLE_RULES: Array<{ label: AccessRole, modes: AccessMode[] }> = [
+        { label: 'Owner', modes: ['Read', 'Write', 'Control'] },
+        { label: 'Editor', modes: ['Read', 'Write'] },
+        { label: 'Poster', modes: ['Append', 'Read'] },
+        { label: 'Submitter', modes: ['Append'] },
+        { label: 'Viewer', modes: ['Read'] },
+        { label: 'No Access', modes: [] }
+    ]
+
+    function roleFromModes (modes: Iterable<AccessMode>): AccessRole {
+        const modeSet = new Set(modes)
+        const matchingRule = ACCESS_ROLE_RULES.find(rule => rule.label !== 'No Access' && rule.modes.every(mode => modeSet.has(mode)))
+
+        return matchingRule?.label ?? 'No Access'
+    }
+
+    function modesFromRole (role: AccessRole): AccessMode[] {
+        return [...(ACCESS_ROLE_RULES.find(rule => rule.label === role)?.modes ?? [])]
+    }
 
     function getFetch() {
         const fetcher = store.fetcher as {
@@ -207,6 +230,8 @@ export function createAclLogic(store): AclLogic {
         findAclDocUrl,
         findEffectiveAcl,
         findAccessGrants,
+        roleFromModes,
+        modesFromRole,
         planGrant,
         planRevoke,
         planPublicRead,

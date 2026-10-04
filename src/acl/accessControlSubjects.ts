@@ -11,7 +11,7 @@ export type AccessControlSubject = {
 const ACCESS_CONTROL_SUBJECT_GROUPS = {
     agentClass: [ns.foaf('Agent'), ns.acl('AuthenticatedAgent'), ns.rdf('Resource'), ns.owl('Thing')],
     agent: [ns.vcard('WebID'), ns.vcard('Individual'), ns.foaf('Person'), ns.foaf('Agent')],
-    group: [ns.vcard('Group')],
+    agentGroup: [ns.vcard('Group')],
     origin: [ns.solid('AppProvider'), ns.solid('AppProviderClass')]
 } as const
 
@@ -26,7 +26,10 @@ function isHttpUrl (value: string): boolean {
 function isBareOriginUrl (value: string): boolean {
     try {
         const parsed = new URL(value)
-        return parsed.pathname === '/' && !parsed.hash
+        return (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+            parsed.pathname === '/' &&
+            !parsed.search &&
+            !parsed.hash
     } catch (_error) {
         return false
     }
@@ -35,7 +38,12 @@ function isBareOriginUrl (value: string): boolean {
 function normalizeOriginUrl (value: string): string {
     try {
         const parsed = new URL(value)
-        if (parsed.pathname === '/' && !parsed.hash) {
+        if (
+            (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+            parsed.pathname === '/' &&
+            !parsed.search &&
+            !parsed.hash
+        ) {
             return `${parsed.protocol}//${parsed.host}`
         }
     } catch (_error) {
@@ -75,7 +83,7 @@ export async function classifyAccessControlSubject (store: LiveStore, principle:
         }
     }
 
-    if (ACCESS_CONTROL_SUBJECT_GROUPS.group.some(term => term.uri in types)) {
+    if (ACCESS_CONTROL_SUBJECT_GROUPS.agentGroup.some(term => term.uri in types)) {
         return { kind: 'agentGroup', subjectValue: principle }
     }
 

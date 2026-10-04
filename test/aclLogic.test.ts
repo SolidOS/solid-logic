@@ -54,6 +54,15 @@ describe('createAclLogic', () => {
     expect(ACL_LINK.value).toBe('http://www.iana.org/assignments/link-relations/acl')
   })
 
+  it('maps roles to ACL modes and back', () => {
+    expect(aclLogic.modesFromRole('Editor')).toEqual(['Read', 'Write'])
+    expect(aclLogic.modesFromRole('Owner')).toEqual(['Read', 'Write', 'Control'])
+    expect(aclLogic.modesFromRole('No Access')).toEqual([])
+    expect(aclLogic.roleFromModes(['Read', 'Write'])).toBe('Editor')
+    expect(aclLogic.roleFromModes(['Read'])).toBe('Viewer')
+    expect(aclLogic.roleFromModes([])).toBe('No Access')
+  })
+
   it('finds the ACL document URL from the discovered link', async () => {
     const resource = sym('https://example.com/resource.ttl')
     const aclDoc = sym('https://example.com/resource.ttl.acl')
@@ -134,5 +143,28 @@ describe('createAclLogic', () => {
     delete (store.fetcher as any)._fetch
 
     await expect(aclLogic.findEffectiveAcl(resource)).rejects.toThrow('Cannot find effective ACL, store has no fetcher')
+  })
+
+  it('only classifies bare HTTP(S) origins as origin subjects', async () => {
+    store.findTypeURIs = vi.fn(() => ({})) as any
+
+    await expect(aclLogic.classifyAccessControlSubject('https://example.com/')).resolves.toEqual({
+      kind: 'origin',
+      subjectValue: 'https://example.com'
+    })
+
+    await expect(aclLogic.classifyAccessControlSubject('https://example.com/?tenant=a')).resolves.toBeUndefined()
+    await expect(aclLogic.classifyAccessControlSubject('file:///')).resolves.toBeUndefined()
+  })
+
+  it('classifies vcard groups as agentGroup subjects', async () => {
+    store.findTypeURIs = vi.fn(() => ({
+      'http://www.w3.org/2006/vcard/ns#Group': true
+    })) as any
+
+    await expect(aclLogic.classifyAccessControlSubject('https://example.com/group.ttl')).resolves.toEqual({
+      kind: 'agentGroup',
+      subjectValue: 'https://example.com/group.ttl'
+    })
   })
 })

@@ -35,6 +35,8 @@ function buildResourceLogic(overrides: {
     store as any,
     {
       findAclDocUrl: vi.fn(overrides.findAclDocUrl ?? (async () => undefined)),
+      roleFromModes: vi.fn(),
+      modesFromRole: vi.fn(),
       setACLUserPublic: vi.fn(),
       genACLText: vi.fn()
     } as any,
