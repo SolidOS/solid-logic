@@ -2,6 +2,7 @@ import { applyPlan as applyAuthorizationPlan, findEffectiveACL, planGrant as pla
 import { graph, NamedNode, Namespace, serialize, sym } from 'rdflib'
 import type { AclLogic } from '../types'
 import { ns as namespace } from '../util/ns'
+import * as accessControlSubjects from './accessControlSubjects'
 
 // Helpers available from @dokieli/web-access-control:
 // - Discovery: findEffectiveACL, parentContainer
@@ -69,6 +70,10 @@ export function createAclLogic(store): AclLogic {
 
     async function applyPlan(plan: PatchPlan): Promise<Response> {
         return applyAuthorizationPlan(plan, { fetch: getFetch() })
+    }
+
+    async function classifyAccessControlSubject(principle: string) {
+        return accessControlSubjects.classifyAccessControlSubject(store, principle)
     }
     /**
      * Simple Access Control
@@ -206,6 +211,7 @@ export function createAclLogic(store): AclLogic {
         planRevoke,
         planPublicRead,
         applyPlan,
+        classifyAccessControlSubject,
         setACLUserPublic,
         genACLText
     }
