@@ -9,6 +9,7 @@ import { createInboxLogic } from '../inbox/inboxLogic'
 import { createResourceLogic } from '../resource/resourceLogic'
 import { createProfileLogic } from '../profile/profileLogic'
 import { createTypeIndexLogic } from '../typeIndex/typeIndexLogic'
+import { createDirectoryLogic } from '../directory/directoryLogic'
 import { createContainerLogic } from '../util/containerLogic'
 import { createUtilityLogic } from '../util/utilityLogic'
 import type { AuthnLogic, SolidLogic } from '../types'
@@ -50,6 +51,7 @@ export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: 
     const chat = createChatLogic(store, profile)
     const inbox = createInboxLogic(store, profile, utilityLogic, containerLogic, acl)
     const typeIndex = createTypeIndexLogic(store, authn, profile, utilityLogic)
+    const directory = createDirectoryLogic(store, authn, typeIndex)
     const resource = createResourceLogic(store, acl, containerLogic, typeIndex)
     debug.log('SolidAuthnLogic initialized')
 
@@ -86,6 +88,7 @@ export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: 
         chat,
         profile,
         typeIndex,
+        directory,
         load,
         updatePromise,
         clearStore
