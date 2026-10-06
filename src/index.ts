@@ -15,6 +15,7 @@ export { getSuggestedIssuers } from './issuer/issuerLogic'
 export { createTypeIndexLogic } from './typeIndex/typeIndexLogic'
 export { createDirectoryLogic, DEFAULT_DIRECTORY_CATALOG_URL, DEFAULT_DIRECTORY_SOURCES } from './directory/directoryLogic'
 export type { AccessControlSubjectKind, AccessControlSubject } from './acl/accessControlSubjects'
+export type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan } from './types'
 export type { AppDetails, SolidNamespace, AuthenticationContext, SolidLogic, ChatLogic, DirectoryLogic, DirectoryEntry, DirectorySearchOptions, DirectoryRelationshipLabel, DirectorySource } from './types'
 export { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError, NotEditableError, WebOperationError } from './logic/CustomError'
 
