@@ -1,8 +1,9 @@
-import { applyPlan as applyAuthorizationPlan, findEffectiveACL, planGrant as planAuthorizationGrant, planPublicRead as planAuthorizationPublicRead, planRevoke as planAuthorizationRevoke, type AccessMode, type AccessSubject, type ACLContext, type Authorization, type PatchPlan } from '@dokieli/web-access-control'
+import { applyPlan as applyAuthorizationPlan, findEffectiveACL, planGrant as planAuthorizationGrant, planPublicRead as planAuthorizationPublicRead, planRevoke as planAuthorizationRevoke, type AccessMode, type ACLContext, type Authorization, type PatchPlan } from '@dokieli/web-access-control'
 import { graph, NamedNode, Namespace, serialize, sym } from 'rdflib'
-import type { AclLogic } from '../types'
+import type { AccessSubject, AclLogic } from '../types'
 import { ns as namespace } from '../util/ns'
 import * as accessControlSubjects from './accessControlSubjects'
+import { planOriginGrant, planOriginRevoke } from './originPlanner'
 
 // Will remove the below comment when i'm done with the manage access work
 // Helpers available from @dokieli/web-access-control:
@@ -78,11 +79,13 @@ export function createAclLogic(store): AclLogic {
 
     async function planGrant(resourceURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]): Promise<PatchPlan> {
         const context = await findEffectiveAcl(resourceURL)
+        if (subject.type === 'origin') return planOriginGrant(context, subject.iri, modes)
         return planAuthorizationGrant(context, subject, modes)
     }
 
     async function planRevoke(resourceURL: string | NamedNode, subject: AccessSubject): Promise<PatchPlan> {
         const context = await findEffectiveAcl(resourceURL)
+        if (subject.type === 'origin') return planOriginRevoke(context, subject.iri)
         return planAuthorizationRevoke(context, subject)
     }
 
