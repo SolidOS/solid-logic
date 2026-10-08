@@ -28,5 +28,6 @@ describe('public ACL API', () => {
       (resource: string | import('rdflib').NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>
     >()
     expectTypeOf<AccessControlSubjectKind>().toEqualTypeOf<'agent' | 'agentGroup' | 'agentClass' | 'origin'>()
+    expectTypeOf<{ type: 'origin', iri: string }>().toExtend<AccessSubject>()
   })
 })

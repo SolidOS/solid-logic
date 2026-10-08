@@ -1,5 +1,5 @@
 import type { SessionWithLegacyEvents } from './authSession/authSession'
-import type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan } from '@dokieli/web-access-control'
+import type { ACLContext, AccessMode, AccessSubject as DokieliAccessSubject, Authorization, PatchPlan } from '@dokieli/web-access-control'
 import { LiveStore, NamedNode, Statement } from 'rdflib'
 import type { AccessControlSubject } from './acl/accessControlSubjects'
 import type { AccessRole } from './acl/aclLogic'
@@ -105,7 +105,9 @@ export interface AclLogic {
     ) => string | undefined
 }
 
-export type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan }
+export type AccessSubject = DokieliAccessSubject | { type: 'origin', iri: string }
+
+export type { ACLContext, AccessMode, Authorization, PatchPlan }
 
 export interface InboxLogic {
     createInboxFor: (peerWebId: string, nick: string) => Promise<string>,
