@@ -2,7 +2,7 @@ import type { SessionWithLegacyEvents } from './authSession/authSession'
 import type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan } from '@dokieli/web-access-control'
 import { LiveStore, NamedNode, Statement } from 'rdflib'
 import type { AccessControlSubject } from './acl/accessControlSubjects'
-import type { AccessRole } from './acl/aclLogic'
+import type { AccessRole, PublicAccessRole } from './acl/aclLogic'
 
 export type AppDetails = {
     noun: string
@@ -87,6 +87,8 @@ export interface AclLogic {
     classifyAccessControlSubject: (principle: string) => Promise<AccessControlSubject | undefined>,
     roleFromModes: (modes: Iterable<AccessMode>) => AccessRole,
     modesFromRole: (role: AccessRole) => AccessMode[],
+    publicRoleFromModes: (modes: Iterable<AccessMode>) => PublicAccessRole,
+    modesFromPublicRole: (role: PublicAccessRole) => AccessMode[],
     planGrant: (resourceURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>,
     planRevoke: (resourceURL: string | NamedNode, subject: AccessSubject) => Promise<PatchPlan>,
     planPublicRead: (resourceURL: string | NamedNode, enabled: boolean) => Promise<PatchPlan>,
@@ -103,6 +105,9 @@ export interface AclLogic {
             public?: []
         }
     ) => string | undefined
+    Authenticated: AccessSubject
+    Public: AccessSubject
+    PUBLIC_ACCESS_ROLES: readonly PublicAccessRole[]
 }
 
 export type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan }
