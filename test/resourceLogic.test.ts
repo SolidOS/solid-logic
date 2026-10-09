@@ -40,12 +40,17 @@ describe('resourceLogic', () => {
       classifyAccessControlSubject: vi.fn().mockResolvedValue(undefined),
       roleFromModes: vi.fn(),
       modesFromRole: vi.fn(),
+      publicRoleFromModes: vi.fn(),
+      modesFromPublicRole: vi.fn(),
       planGrant: vi.fn(),
       planRevoke: vi.fn(),
       planPublicRead: vi.fn(),
       applyPlan: vi.fn(),
       setACLUserPublic: vi.fn(),
-      genACLText: vi.fn()
+      genACLText: vi.fn(),
+      Authenticated: { type: 'agentClass', iri: 'http://www.w3.org/ns/auth/acl#AuthenticatedAgent' },
+      Public: { type: 'agentClass', iri: 'http://xmlns.com/foaf/0.1/Agent' },
+      PUBLIC_ACCESS_ROLES: ['No Access', 'Viewer']
     }
     containerLogic = {
       createContainer: vi.fn(),

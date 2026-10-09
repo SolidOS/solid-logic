@@ -1,4 +1,4 @@
-import { applyPlan as applyAuthorizationPlan, findEffectiveACL, planGrant as planAuthorizationGrant, planPublicRead as planAuthorizationPublicRead, planRevoke as planAuthorizationRevoke, type AccessMode, type AccessSubject, type ACLContext, type Authorization, type PatchPlan } from '@dokieli/web-access-control'
+import { applyPlan as applyAuthorizationPlan, Authenticated, findEffectiveACL, planGrant as planAuthorizationGrant, planPublicRead as planAuthorizationPublicRead, planRevoke as planAuthorizationRevoke, Public, type AccessMode, type AccessSubject, type ACLContext, type Authorization, type PatchPlan } from '@dokieli/web-access-control'
 import { graph, NamedNode, Namespace, serialize, sym } from 'rdflib'
 import type { AclLogic } from '../types'
 import { ns as namespace } from '../util/ns'
@@ -15,8 +15,11 @@ import * as accessControlSubjects from './accessControlSubjects'
 // - Terms and constants: ACCESS_MODES, ACL, Authenticated, FOAF, modeFromIRI, modeIRI, namedNode, Public, quad, RDF_TYPE, variable
 
 export const ACCESS_ROLES = ['Owner', 'Editor', 'No Access', 'Viewer', 'Poster', 'Submitter'] as const
+export const PUBLIC_ACCESS_ROLES = ['No Access', 'Viewer'] as const
+export { Authenticated, Public } from '@dokieli/web-access-control'
 
 export type AccessRole = typeof ACCESS_ROLES[number]
+export type PublicAccessRole = typeof PUBLIC_ACCESS_ROLES[number]
 
 export const ACL_LINK = sym(
     'http://www.iana.org/assignments/link-relations/acl'
@@ -33,6 +36,10 @@ export function createAclLogic(store): AclLogic {
         { label: 'Viewer', modes: ['Read'] },
         { label: 'No Access', modes: [] }
     ]
+    const PUBLIC_ROLE_RULES: Array<{ label: PublicAccessRole, modes: AccessMode[] }> = [
+        { label: 'Viewer', modes: ['Read'] },
+        { label: 'No Access', modes: [] }
+    ]
 
     function roleFromModes (modes: Iterable<AccessMode>): AccessRole {
         const modeSet = new Set(modes)
@@ -43,6 +50,17 @@ export function createAclLogic(store): AclLogic {
 
     function modesFromRole (role: AccessRole): AccessMode[] {
         return [...(ACCESS_ROLE_RULES.find(rule => rule.label === role)?.modes ?? [])]
+    }
+
+    function publicRoleFromModes (modes: Iterable<AccessMode>): PublicAccessRole {
+        const modeSet = new Set(modes)
+        const matchingRule = PUBLIC_ROLE_RULES.find(rule => rule.label !== 'No Access' && rule.modes.every(mode => modeSet.has(mode)))
+
+        return matchingRule?.label ?? 'No Access'
+    }
+
+    function modesFromPublicRole (role: PublicAccessRole): AccessMode[] {
+        return [...(PUBLIC_ROLE_RULES.find(rule => rule.label === role)?.modes ?? [])]
     }
 
     function getFetch() {
@@ -232,12 +250,17 @@ export function createAclLogic(store): AclLogic {
         findAccessGrants,
         roleFromModes,
         modesFromRole,
+        publicRoleFromModes,
+        modesFromPublicRole,
         planGrant,
         planRevoke,
         planPublicRead,
         applyPlan,
         classifyAccessControlSubject,
         setACLUserPublic,
-        genACLText
+        genACLText,
+        Authenticated,
+        Public,
+        PUBLIC_ACCESS_ROLES
     }
 }
