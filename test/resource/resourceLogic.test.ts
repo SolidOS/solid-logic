@@ -41,7 +41,7 @@ function buildResourceLogic(overrides: {
       modesFromPublicRole: vi.fn(),
       setACLUserPublic: vi.fn(),
       genACLText: vi.fn(),
-      Authenticated: { type: 'agentClass', iri: 'http://www.w3.org/ns/acl#AuthenticatedAgent' },
+      Authenticated: { type: 'agentClass', iri: 'http://www.w3.org/ns/auth/acl#AuthenticatedAgent' },
       Public: { type: 'agentClass', iri: 'http://xmlns.com/foaf/0.1/Agent' },
       PUBLIC_ACCESS_ROLES: ['No Access', 'Viewer']
     } as any,
