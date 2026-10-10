@@ -2,64 +2,33 @@ import { literal, NamedNode, st, sym } from 'rdflib'
 import { ACL_LINK } from '../acl/aclLogic'
 import { CrossOriginForbiddenError, FetchError, NotEditableError, SameOriginForbiddenError, UnauthorizedError, WebOperationError } from '../logic/CustomError'
 import * as debug from '../util/debug'
-import { ns as namespace } from '../util/ns'
+import { ns } from '../util/ns'
 import { privateTypeIndexDocument, publicTypeIndexDocument } from '../typeIndex/typeIndexDocuments'
 import { publicTypeIndexAclDocument } from '../typeIndex/typeIndexAclDocuments'
 import { preferencesFileDocument } from './profileDocuments'
 import { ownerOnlyContainerAclDocument } from './profileAclDocuments'
 import { createContainerLogic } from '../util/containerLogic'
-import { differentOrigin, suggestPreferencesFile } from '../util/utils'
+import { differentOrigin, documentDirectoryUri, suggestPreferencesFile } from '../util/utils'
+import { isMissingError } from '../resource/resourceHttp'
 import { ProfileLogic } from '../types'
+import { createProfileMutationService } from './profileMutationService'
 
 export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
-    const ns = namespace
     const containerLogic = createContainerLogic(store)
+    const profileMutationService = createProfileMutationService(store)
     const loadPreferencesInFlight = new Map<string, Promise<NamedNode>>()
     const cachedPreferencesFileByWebId = new Map<string, NamedNode>()
 
-    function isAbsoluteHttpUri(uri: string | null | undefined): boolean {
-        return !!uri && (uri.startsWith('https://') || uri.startsWith('http://'))
-    }
-
-    function docDirUri(node: NamedNode): string | null {
-        const doc = node.doc()
-        const dir = doc.dir()
-        if (dir?.uri && isAbsoluteHttpUri(dir.uri)) return dir.uri
-        const docUri = doc.uri
-        if (!docUri || !isAbsoluteHttpUri(docUri)) return null
-        const withoutFragment = docUri.split('#')[0]
-        const lastSlash = withoutFragment.lastIndexOf('/')
-        if (lastSlash === -1) return null
-        return withoutFragment.slice(0, lastSlash + 1)
-    }
-
     function suggestTypeIndexInPreferences(preferencesFile: NamedNode, filename: string): NamedNode {
-        const dirUri = docDirUri(preferencesFile)
+        const dirUri = documentDirectoryUri(preferencesFile)
         if (!dirUri) throw new Error(`Cannot derive directory for preferences file ${preferencesFile.uri}`)
         return sym(dirUri + filename)
     }
 
-    function isNotFoundError(err: any): boolean {
-        if (err?.response?.status === 404) return true
-        const text = `${err?.message || err || ''}`
-        return text.includes('404') || text.includes('Not Found')
-    }
-
-    async function ensureContainerExists(containerUri: string): Promise<void> {
-        const containerNode = sym(containerUri)
-        try {
-            await store.fetcher.load(containerNode)
-            return
-        } catch (err) {
-            if (!isNotFoundError(err)) throw err
-        }
-        await containerLogic.createContainer(containerUri)
-    }
-
     async function ensureOwnerOnlyAclForSettings(user: NamedNode, preferencesFile: NamedNode): Promise<void> {
-        const dirUri = docDirUri(preferencesFile)
+        const dirUri = documentDirectoryUri(preferencesFile)
         if (!dirUri) throw new Error(`Cannot derive settings directory from ${preferencesFile.uri}`)
-        await ensureContainerExists(dirUri)
+        await containerLogic.ensureContainer(dirUri)
 
         const containerNode = sym(dirUri)
         let aclDocUri: string | undefined
@@ -67,7 +36,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             await store.fetcher.load(containerNode)
             aclDocUri = store.any(containerNode, ACL_LINK)?.value
         } catch (err) {
-            if (!isNotFoundError(err)) throw err
+            if (!isMissingError(err)) throw err
         }
         if (!aclDocUri) {
             // Fallback for servers/tests where rel=acl is not exposed in mocked headers.
@@ -78,7 +47,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             await store.fetcher.load(aclDoc)
             return
         } catch (err) {
-            if (!isNotFoundError(err)) throw err
+            if (!isMissingError(err)) throw err
         }
 
         await store.fetcher.webOperation('PUT', aclDoc.uri, {
@@ -96,7 +65,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
             await store.fetcher.load(publicTypeIndex)
             aclDocUri = store.any(publicTypeIndex, ACL_LINK)?.value
         } catch (err) {
-            if (!isNotFoundError(err)) throw err
+            if (!isMissingError(err)) throw err
         }
         if (!aclDocUri) {
             aclDocUri = `${publicTypeIndex.uri}.acl`
@@ -336,6 +305,7 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     }
 
     return {
+        ...profileMutationService,
         loadMe,
         getPodRoot,
         getMainInbox,
