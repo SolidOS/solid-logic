@@ -1,5 +1,6 @@
 import { NamedNode, Statement, sym } from 'rdflib'
 import { ns } from './ns'
+import { isMissingError } from '../resource/resourceHttp'
 
 /**
  * Container-related class
@@ -45,12 +46,24 @@ export function createContainerLogic(store) {
             body: ' ', // work around https://github.com/michielbdejong/community-server/issues/4#issuecomment-776222863
         })
         // Treat 409 as idempotent success: another process/request already created the container.
-        if (result.status === 409) {
+        if (result.status === 409 || result.status === 412) {
             return
         }
         if (result.status.toString()[0] !== '2') {
             throw new Error(`Not OK: got ${result.status} response while creating container at ${url}`)
         }
+
+    }
+
+    async function ensureContainer(url: string): Promise<void> {
+        const containerNode = sym(url)
+        try {
+            await store.fetcher.load(containerNode)
+            return
+        } catch (error) {
+            if (!isMissingError(error)) throw error
+        }
+        await createContainer(url)
     }
 
     async function getContainerMembers(containerUrl: NamedNode): Promise<NamedNode[]> {
@@ -60,6 +73,7 @@ export function createContainerLogic(store) {
     return {
         isContainer,
         createContainer,
+        ensureContainer,
         getContainerElements,
         getContainerMembers,
         getContainerMemberCount

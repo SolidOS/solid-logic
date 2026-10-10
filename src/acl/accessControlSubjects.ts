@@ -23,7 +23,7 @@ function isHttpUrl (value: string): boolean {
     return value.startsWith('http://') || value.startsWith('https://')
 }
 
-function isBareOriginUrl (value: string): boolean {
+export function isOriginUrl (value: string): boolean {
     try {
         const parsed = new URL(value)
         return (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
@@ -57,7 +57,7 @@ export async function classifyAccessControlSubject (store: LiveStore, principle:
     const subject = sym(principle)
     let types = store.findTypeURIs(subject)
 
-    if (isBareOriginUrl(principle)) {
+    if (isOriginUrl(principle)) {
         return { kind: 'origin', subjectValue: normalizeOriginUrl(principle) }
     }
 
