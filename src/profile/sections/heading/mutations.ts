@@ -7,8 +7,16 @@ import { logAndThrowMutationError } from '../shared/mutationErrors'
 import { createIdNode } from '../shared/idNodeFactory'
 import { ContactAddressRow, ContactPointRow } from '../contactInfo/types'
 import { buildAddressStatements, buildEmailStatements, buildPhoneStatements } from '../contactInfo/rdfBuilders'
-import { headingUpdatesFailedMessageText, updaterUnsupportedStoreErrorMessageText } from '../../texts'
+import { saveHeadingUpdatesFailedMessageText, updaterUnsupportedStoreErrorMessageText } from '../../texts'
 import { trimText } from '../shared/text'
+
+const profileImagePredicates = [
+  ns.sioc('avatar'),
+  ns.foaf('img'),
+  ns.vcard('logo'),
+  ns.vcard('photo'),
+  ns.foaf('depiction')
+]
 
 function splitPronouns(value?: string): { subjectPronoun?: string, objectPronoun?: string } {
   const normalized = trimText(value)
@@ -21,12 +29,12 @@ function splitPronouns(value?: string): { subjectPronoun?: string, objectPronoun
   return { subjectPronoun, objectPronoun }
 }
 
-function findOpWithExistingEntry<T extends { entryNode: string }>(ops: T[], existingNodes: Node[]): T | undefined {
-  return ops.find((op) => Boolean(op.entryNode) && Boolean(findExistingNode(existingNodes, op.entryNode)))
+function findOpWithExistingEntry<T extends { sourceNode: string }>(ops: T[], existingNodes: Node[]): T | undefined {
+  return ops.find((op) => Boolean(op.sourceNode) && Boolean(findExistingNode(existingNodes, op.sourceNode)))
 }
 
-function findCreateOp<T extends { entryNode: string }>(ops: T[]): T | undefined {
-  return ops.find((op) => !op.entryNode)
+function findCreateOp<T extends { sourceNode: string }>(ops: T[]): T | undefined {
+  return ops.find((op) => !op.sourceNode)
 }
 
 async function mutatePhoneEntry(store: LiveStore, subject: NamedNode, phoneOps: MutationOps<ContactPointRow>) {
@@ -39,8 +47,8 @@ async function mutatePhoneEntry(store: LiveStore, subject: NamedNode, phoneOps: 
   const updatePhone = findOpWithExistingEntry(phoneOps.update, existingPhoneNodes)
   const createPhone = findCreateOp(phoneOps.create) || phoneOps.create[0]
 
-  if (removePhone?.entryNode) {
-    const existingNode = findExistingNode(existingPhoneNodes, removePhone.entryNode)
+  if (removePhone?.sourceNode) {
+    const existingNode = findExistingNode(existingPhoneNodes, removePhone.sourceNode)
     if (existingNode) {
       const linkedPhoneStatements = collectLinkedNodeStatements(store, subject, ns.vcard('hasTelephone'), doc)
       const matchingLinkStatement = linkedPhoneStatements.linkStatements.find((statement) => statement.object?.value === existingNode.value)
@@ -52,10 +60,12 @@ async function mutatePhoneEntry(store: LiveStore, subject: NamedNode, phoneOps: 
   }
 
   if (updatePhone) {
-    const existingNode = findExistingNode(existingPhoneNodes, updatePhone.entryNode)
+    const existingNode = findExistingNode(existingPhoneNodes, updatePhone.sourceNode)
     if (existingNode) {
       deletions.push(...collectNodeStatements(store, existingNode, doc))
-      insertions.push(...buildPhoneStatements(subject, doc, existingNode, updatePhone))
+      const isDirectPhoneValue = existingNode.termType === 'NamedNode' && /^tel:/i.test(existingNode.value)
+      const targetNode = isDirectPhoneValue ? createIdNode(doc) : existingNode
+      insertions.push(...buildPhoneStatements(subject, doc, targetNode, updatePhone))
     }
   }
 
@@ -65,7 +75,7 @@ async function mutatePhoneEntry(store: LiveStore, subject: NamedNode, phoneOps: 
 
   await runUpdateTransport(store, doc, deletions, insertions, {
     unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: headingUpdatesFailedMessageText,
+    failureMessage: saveHeadingUpdatesFailedMessageText,
   })
 }
 
@@ -79,8 +89,8 @@ async function mutateEmailEntry(store: LiveStore, subject: NamedNode, emailOps: 
   const updateEmail = findOpWithExistingEntry(emailOps.update, existingEmailNodes)
   const createEmail = findCreateOp(emailOps.create) || emailOps.create[0]
 
-  if (removeEmail?.entryNode) {
-    const existingNode = findExistingNode(existingEmailNodes, removeEmail.entryNode)
+  if (removeEmail?.sourceNode) {
+    const existingNode = findExistingNode(existingEmailNodes, removeEmail.sourceNode)
     if (existingNode) {
       const linkedEmailStatements = collectLinkedNodeStatements(store, subject, ns.vcard('hasEmail'), doc)
       const matchingLinkStatement = linkedEmailStatements.linkStatements.find((statement) => statement.object?.value === existingNode.value)
@@ -92,7 +102,7 @@ async function mutateEmailEntry(store: LiveStore, subject: NamedNode, emailOps: 
   }
 
   if (updateEmail) {
-    const existingNode = findExistingNode(existingEmailNodes, updateEmail.entryNode)
+    const existingNode = findExistingNode(existingEmailNodes, updateEmail.sourceNode)
     if (existingNode) {
       deletions.push(...collectNodeStatements(store, existingNode, doc))
       insertions.push(...buildEmailStatements(subject, doc, existingNode, updateEmail))
@@ -105,7 +115,7 @@ async function mutateEmailEntry(store: LiveStore, subject: NamedNode, emailOps: 
 
   await runUpdateTransport(store, doc, deletions, insertions, {
     unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: headingUpdatesFailedMessageText,
+    failureMessage: saveHeadingUpdatesFailedMessageText,
   })
 }
 
@@ -119,8 +129,8 @@ async function mutateAddressEntry(store: LiveStore, subject: NamedNode, addressO
   const updateAddress = findOpWithExistingEntry(addressOps.update, existingAddressNodes)
   const createAddress = findCreateOp(addressOps.create) || addressOps.create[0]
 
-  if (removeAddress?.entryNode) {
-    const existingNode = findExistingNode(existingAddressNodes, removeAddress.entryNode)
+  if (removeAddress?.sourceNode) {
+    const existingNode = findExistingNode(existingAddressNodes, removeAddress.sourceNode)
     if (existingNode) {
       const linkedAddressStatements = collectLinkedNodeStatements(store, subject, ns.vcard('hasAddress'), doc)
       const matchingLinkStatement = linkedAddressStatements.linkStatements.find((statement) => statement.object?.value === existingNode.value)
@@ -132,7 +142,7 @@ async function mutateAddressEntry(store: LiveStore, subject: NamedNode, addressO
   }
 
   if (updateAddress) {
-    const existingNode = findExistingNode(existingAddressNodes, updateAddress.entryNode)
+    const existingNode = findExistingNode(existingAddressNodes, updateAddress.sourceNode)
     if (existingNode) {
       deletions.push(...collectNodeStatements(store, existingNode, doc))
       insertions.push(...buildAddressStatements(subject, doc, existingNode, updateAddress))
@@ -145,7 +155,7 @@ async function mutateAddressEntry(store: LiveStore, subject: NamedNode, addressO
 
   await runUpdateTransport(store, doc, deletions, insertions, {
     unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: headingUpdatesFailedMessageText,
+    failureMessage: saveHeadingUpdatesFailedMessageText,
   })
 }
 
@@ -161,6 +171,9 @@ async function mutateBasicProfileEntry(store: LiveStore, subject: NamedNode, bas
       : (normalized.startsWith('http://') || normalized.startsWith('https://'))
         ? sym(normalized)
         : literal(normalized)
+    profileImagePredicates.forEach((predicate) => {
+      replacePredicateStatements(store, subject, predicate, doc, deletions, insertions, null)
+    })
     replacePredicateStatements(store, subject, ns.vcard('hasPhoto'), doc, deletions, insertions, nextObject)
   }
 
@@ -227,7 +240,7 @@ async function mutateBasicProfileEntry(store: LiveStore, subject: NamedNode, bas
 
   await runUpdateTransport(store, doc, deletions, insertions, {
     unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: headingUpdatesFailedMessageText,
+    failureMessage: saveHeadingUpdatesFailedMessageText,
   })
 }
 
@@ -238,6 +251,6 @@ export async function processHeadingMutations(store: LiveStore, subject: NamedNo
     await mutateEmailEntry(store, subject, mutationPlan.emailOps)
     await mutateAddressEntry(store, subject, mutationPlan.addressOps)
   } catch (error) {
-    logAndThrowMutationError(error)
+    logAndThrowMutationError(error, saveHeadingUpdatesFailedMessageText)
   }
 } 

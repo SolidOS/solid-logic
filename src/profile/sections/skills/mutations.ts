@@ -6,7 +6,7 @@ import { collectLinkedNodeStatements, collectNodeStatements, findExistingNode, r
 import { logAndThrowMutationError } from '../shared/mutationErrors'
 import { createIdNode } from '../shared/idNodeFactory'
 import { profileVocabularies } from '../shared/profileVocabularies'
-import { skillUpdatesFailedMessageText, skillUpdatesUnsupportedMessageText } from '../../texts'
+import { saveSkillsUpdatesFailedMessageText, skillUpdatesUnsupportedMessageText } from '../../texts'
 import { trimText } from '../shared/text'
 
 export type SkillMutationPlan = MutationOps<SkillRow>
@@ -20,10 +20,11 @@ function buildSkillPublicIdNode(publicId: string): RdfResourceNode {
     return blankNode(normalized.slice(2))
   }
   if (normalized.startsWith('skill:')) {
-    return sym(`${skillVocabularyUri}${normalized.slice('skill:'.length)}`)
+    return sym(normalized)
   }
   if (normalized.startsWith(skillVocabularyUri)) {
-    return sym(normalized)
+    const suffix = normalized.slice(skillVocabularyUri.length)
+    return sym(suffix ? `skill:${suffix}` : normalized)
   }
   if (!normalized.includes(':')) {
     return blankNode(normalized)
@@ -35,9 +36,9 @@ function collectSkillLinkStatementsByEntryValue(
   store: LiveStore,
   subject: NamedNode,
   doc: NamedNode,
-  entryNode: string
+  sourceNode: string
 ) {
-  const existingNode = findExistingNode(store.each(subject, ns.schema('skills'), null, doc) as Node[], entryNode)
+  const existingNode = findExistingNode(store.each(subject, ns.schema('skills'), null, doc) as Node[], sourceNode)
   return existingNode
     ? store.statementsMatching(subject, ns.schema('skills'), existingNode, doc)
     : []
@@ -67,9 +68,9 @@ async function mutateSkillsEntries(store: LiveStore, subject: NamedNode, skillOp
   }
 
   skillOps.remove.forEach((skill) => {
-    if (!skill.entryNode) return
-    const existingNode = findExistingNode(existingSkillNodes, skill.entryNode)
-    deletions.push(...collectSkillLinkStatementsByEntryValue(store, subject, doc, skill.entryNode))
+    if (!skill.sourceNode) return
+    const existingNode = findExistingNode(existingSkillNodes, skill.sourceNode)
+    deletions.push(...collectSkillLinkStatementsByEntryValue(store, subject, doc, skill.sourceNode))
     if (existingNode) {
       if (existingNode.termType !== 'Literal') {
         deletions.push(...collectNodeStatements(store, existingNode, doc))
@@ -81,13 +82,13 @@ async function mutateSkillsEntries(store: LiveStore, subject: NamedNode, skillOp
   })
 
   skillOps.update.forEach((skill) => {
-    if (!skill.entryNode) return
-    const existingNode = findExistingNode(existingSkillNodes, skill.entryNode)
+    if (!skill.sourceNode) return
+    const existingNode = findExistingNode(existingSkillNodes, skill.sourceNode)
     if (!existingNode) {
       insertions.push(...buildSkillsStatements(subject, doc, createIdNode(doc), skill))
       return
     }
-    deletions.push(...collectSkillLinkStatementsByEntryValue(store, subject, doc, skill.entryNode))
+    deletions.push(...collectSkillLinkStatementsByEntryValue(store, subject, doc, skill.sourceNode))
     if (existingNode.termType !== 'Literal') {
       deletions.push(...collectNodeStatements(store, existingNode, doc))
       if (existingNode.termType === 'NamedNode') {
@@ -107,7 +108,7 @@ async function mutateSkillsEntries(store: LiveStore, subject: NamedNode, skillOp
 
   await runUpdateTransport(store, doc, deletions, insertions, {
     unsupportedMessage: skillUpdatesUnsupportedMessageText,
-    failureMessage: skillUpdatesFailedMessageText,
+    failureMessage: saveSkillsUpdatesFailedMessageText,
   })
 }
 
@@ -115,6 +116,6 @@ export async function processSkillsMutations(store: LiveStore, subject: NamedNod
   try {
     await mutateSkillsEntries(store, subject, mutationPlan)
   } catch (error) {
-    logAndThrowMutationError(error)
+    logAndThrowMutationError(error, saveSkillsUpdatesFailedMessageText)
   }
 } 

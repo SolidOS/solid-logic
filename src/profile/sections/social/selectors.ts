@@ -18,7 +18,7 @@ export function presentSocial(
       name: nameForAccount(store, ac),
       icon: iconForAccount(store, ac),
       homepage: homepageForAccount(store, ac),
-      entryNode: ac
+      sourceNode: ac
     }
 
   }

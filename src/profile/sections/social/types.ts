@@ -8,7 +8,7 @@ export interface SocialFields {
 }
 
 export interface Account extends SocialFields {
-  entryNode: Node
+  sourceNode: Node
 }
 
 export interface SocialPresentation { 
@@ -16,7 +16,7 @@ export interface SocialPresentation {
 }
 
 export interface SocialRow extends SocialFields {
-  entryNode: string
+  sourceNode: string
   status: RowStatus
 }
 

@@ -34,9 +34,9 @@ export function collectLinkedNodeStatements (store: LiveStore, sourceNode: Node,
   }
 }
 
-export function findExistingNode (nodes: Node[], entryNode: string): Node | undefined {
-  const normalized = entryNode.startsWith('_:') ? entryNode.slice(2) : entryNode
-  return nodes.find(node => node.value === entryNode || node.value === normalized || node.value === `_:${normalized}`)
+export function findExistingNode (nodes: Node[], sourceNode: string): Node | undefined {
+  const normalized = sourceNode.startsWith('_:') ? sourceNode.slice(2) : sourceNode
+  return nodes.find(node => node.value === sourceNode || node.value === normalized || node.value === `_:${normalized}`)
 }
 
 export function replacePredicateStatements (store: LiveStore, subject: NamedNode, predicate: NamedNode, doc: NamedNode, deletions: RdfStatement[], insertions: RdfStatement[], nextObject?: Node | null): void {
@@ -87,7 +87,9 @@ export async function runUpdateTransport (
   options: UpdateTransportOptions = {}
 ): Promise<void> {
   if (!store.updater || typeof store.updater.update !== 'function') throw new Error(options.unsupportedMessage || updaterUnsupportedStoreErrorMessageText)
-  if (!store.updater.editable(doc)) throw new NotEditableError(`Cannot edit profile document ${doc.value}`)
+  if (typeof store.updater.editable === 'function' && !store.updater.editable(doc)) {
+    throw new NotEditableError(`Cannot edit profile document ${doc.value}`)
+  }
   if (!deletions.length && !insertions.length) return
   await new Promise<void>((resolve, reject) => {
     let settled = false

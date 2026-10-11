@@ -7,10 +7,10 @@ export interface SkillFields {
 }
 
 export interface SkillDetails extends SkillFields {
-  entryNode: Node
+  sourceNode: Node
 }
 
 export interface SkillRow extends SkillFields {
-  entryNode: string
+  sourceNode: string
   status: RowStatus
 }

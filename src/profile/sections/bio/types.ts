@@ -7,11 +7,11 @@ export interface BioFields {
 }
 
 export interface BioDetails extends BioFields {
-  entryNode: Node
+  sourceNode: Node
 }
 
 export interface BioRow extends BioFields {
-  entryNode: string
+  sourceNode: string
   status: RowStatus
 }
 

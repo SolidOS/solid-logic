@@ -10,7 +10,7 @@ import { isRdfListNode } from '../shared/rdfList'
 import { rdfNodeKey } from '../shared/rdfMutationHelpers'
 import { runUpdateTransport } from '../shared/rdfMutationHelpers'
 import { logAndThrowMutationError } from '../shared/mutationErrors'
-import { projectUpdatesFailedMessageText, projectUpdatesUnsupportedMessageText } from '../../texts'
+import { saveProjectsUpdatesFailedMessageText, projectUpdatesUnsupportedMessageText } from '../../texts'
 import { trimText } from '../shared/text'
 
 function parseProjectUrl(value: string | null | undefined): URL | null {
@@ -140,11 +140,10 @@ async function mutateProjectEntries(store: LiveStore, subject: NamedNode, projec
 	}
 
 	projectOps.remove.forEach((project) => {
-		const entryKey = normalizeProjectUrlKey(project.entryNode || '')
+		const entryKey = normalizeProjectUrlKey(project.sourceNode || '')
 		const urlKey = normalizeProjectUrlKey(project.url)
 		if (entryKey) {
-			removeExistingUrl(entryKey)
-			return
+			if (removeExistingUrl(entryKey) || !urlKey) return
 		}
 		if (urlKey) {
 			removeExistingUrl(urlKey)
@@ -153,7 +152,7 @@ async function mutateProjectEntries(store: LiveStore, subject: NamedNode, projec
 
 	projectOps.update.forEach((project) => {
 		const newLink = toProjectUrlNode(project)
-		const entryKey = normalizeProjectUrlKey(project.entryNode || '')
+		const entryKey = normalizeProjectUrlKey(project.sourceNode || '')
 		const urlKey = normalizeProjectUrlKey(project.url)
 		const removedDoc = (entryKey && removeExistingUrl(entryKey)) || (urlKey && removeExistingUrl(urlKey)) || doc
 		if (newLink) {
@@ -173,7 +172,7 @@ async function mutateProjectEntries(store: LiveStore, subject: NamedNode, projec
 		const insertions = Array.from(batch.currentUrlsByKey.values()).map((url) => st(subject, ns.solid('community'), sym(url), batch.doc))
 		await runUpdateTransport(store, batch.doc, batch.cleanupStatements, insertions, {
 			unsupportedMessage: projectUpdatesUnsupportedMessageText,
-			failureMessage: projectUpdatesFailedMessageText,
+			failureMessage: saveProjectsUpdatesFailedMessageText,
 		})
 	}
 }
@@ -182,6 +181,6 @@ export async function processProjectsMutations(store: LiveStore, subject: NamedN
 	try {
 		await mutateProjectEntries(store, subject, mutationPlan)
 	} catch (err) {
-		logAndThrowMutationError(err)
+		logAndThrowMutationError(err, saveProjectsUpdatesFailedMessageText)
 	}
 }

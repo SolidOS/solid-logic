@@ -13,6 +13,15 @@ import type { ResumeMutationPlan } from './profile/sections/resume/mutations'
 import type { SkillMutationPlan } from './profile/sections/skills/mutations'
 import type { SocialMutationPlan, SocialRow } from './profile/sections/social/types'
 import type { ContactMutationPlan } from './profile/sections/contactInfo/types'
+import type { BioDetails } from './profile/sections/bio/types'
+import type { ContactInfo } from './profile/sections/contactInfo/types'
+import type { EducationDetails } from './profile/sections/education/types'
+import type { LanguageDetails } from './profile/sections/languages/types'
+import type { SkillDetails } from './profile/sections/skills/types'
+import type { ProfileDetails } from './profile/sections/heading/types'
+import type { ProjectDetails } from './profile/sections/projects/types'
+import type { RoleDetails } from './profile/sections/resume/types'
+import type { SocialPresentation } from './profile/sections/social/types'
 
 export type AppDetails = {
     noun: string
@@ -96,7 +105,17 @@ export interface ProfileLogic {
     processProjectsMutations: (subject: NamedNode, mutationPlan: ProjectMutationPlan) => Promise<void>,
     processResumeMutations: (subject: NamedNode, mutationPlan: ResumeMutationPlan) => Promise<void>,
     processSkillsMutations: (subject: NamedNode, mutationPlan: SkillMutationPlan) => Promise<void>,
-    processSocialMutations: (subject: NamedNode, mutationPlan: SocialMutationPlan, orderedRows?: SocialRow[]) => Promise<void>
+    processSocialMutations: (subject: NamedNode, mutationPlan: SocialMutationPlan, orderedRows?: SocialRow[]) => Promise<void>,
+    getBio: (subject: NamedNode) => BioDetails,
+    getContactInfo: (subject: NamedNode) => ContactInfo,
+    getEducation: (subject: NamedNode) => EducationDetails[],
+    getLanguages: (subject: NamedNode) => LanguageDetails[],
+    getSkillDetails: (subject: NamedNode) => SkillDetails[],
+    getSkills: (subject: NamedNode) => string[],
+    getHeading: (subject: NamedNode) => ProfileDetails,
+    getResume: (subject: NamedNode) => RoleDetails[],
+    getProjects: (subject: NamedNode) => Promise<ProjectDetails[]>,
+    getSocial: (subject: NamedNode) => SocialPresentation
 }
 
 export interface ProfileMutationService {
@@ -110,6 +129,7 @@ export interface ProfileMutationService {
     processSkillsMutations: (subject: NamedNode, mutationPlan: SkillMutationPlan) => Promise<void>
     processSocialMutations: (subject: NamedNode, mutationPlan: SocialMutationPlan, orderedRows?: SocialRow[]) => Promise<void>
 }
+
 
 export interface AclLogic {
     findAclDocUrl: (url: NamedNode) => Promise<string | undefined>,

@@ -4,11 +4,11 @@ import { RowStatus } from '../shared/types'
 export interface ResumeDetails extends RoleDetails {}
 
 export interface RoleDetails extends Role {
-  entryNode: Node
+  sourceNode: Node
 }
 
 export interface ResumeRow extends Role {
-  entryNode: string
+  sourceNode: string
   status: RowStatus
 }
 

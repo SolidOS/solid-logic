@@ -27,8 +27,13 @@ export function expandRdfList(store: Store, node: Node): Node[] {
     if (!first) return [currentNode]
 
     const items: Node[] = []
+    const visitedListNodes = new Set<string>()
     let listNode: Node | null = currentNode
     while (listNode) {
+      const listNodeKey = rdfNodeKey(listNode)
+      if (visitedListNodes.has(listNodeKey)) break
+      visitedListNodes.add(listNodeKey)
+
       const listValue = store.any(listNode as NamedNode, ns.rdf('first')) as Node | null
       if (listValue) items.push(...inner(listValue))
       const rest = store.any(listNode as NamedNode, ns.rdf('rest')) as Node | null
