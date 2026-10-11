@@ -15,11 +15,11 @@ export interface ProjectFields {
 }
 
 export interface ProjectDetails extends ProjectFields {
-  entryNode: Node
+  sourceNode: Node
 }
 
 export interface ProjectRow extends ProjectFields {
-  entryNode: string
+  sourceNode: string
   status: RowStatus
 }
 

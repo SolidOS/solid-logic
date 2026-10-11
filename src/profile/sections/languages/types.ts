@@ -8,10 +8,10 @@ export interface LanguageFields {
 }
 
 export interface LanguageDetails extends LanguageFields {
-  entryNode: Node
+  sourceNode: Node
 }
 
 export interface LanguageRow extends LanguageFields {
-  entryNode: string
+  sourceNode: string
   status: RowStatus
 }

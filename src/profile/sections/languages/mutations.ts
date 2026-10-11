@@ -1,4 +1,4 @@
-import { Collection, LiveStore, NamedNode, st, sym, literal } from 'rdflib'
+import { LiveStore, NamedNode, st, sym, literal } from 'rdflib'
 import { ns } from '../../../util/ns'
 import { LanguageRow } from './types'
 import { MutationOps, RdfResourceNode, RdfStatement } from '../shared/types'
@@ -7,7 +7,7 @@ import { expandRdfList } from '../shared/rdfList'
 import { createIdNode } from '../shared/idNodeFactory'
 import { findExistingNode, isNamedOrBlankNode, rdfNodeKey, runUpdateTransport } from '../shared/rdfMutationHelpers'
 import { logAndThrowMutationError } from '../shared/mutationErrors'
-import { languageUpdatesFailedMessageText, languageUpdatesUnsupportedMessageText } from '../../texts'
+import { saveLanguageUpdatesFailedMessageText, languageUpdatesUnsupportedMessageText } from '../../texts'
 import { trimText } from '../shared/text'
 import { ianaLanguageVocabularyUri, languageCodeFromPublicId } from './normalization'
 
@@ -17,13 +17,13 @@ export type LanguageMutationPlan = MutationOps<LanguageRow>
 function rowsFromOrderedInput(orderedRows: LanguageRow[]): LanguageRow[] {
   return (orderedRows || [])
     .filter((row) => row.status !== 'deleted')
-    .filter((row) => Boolean(trimText(row.publicId) || trimText(row.name) || trimText(row.entryNode)))
+    .filter((row) => Boolean(trimText(row.publicId) || trimText(row.name) || trimText(row.sourceNode)))
     .map((row) => ({
       ...row,
       name: trimText(row.name),
       publicId: trimText(row.publicId),
       proficiency: trimText(row.proficiency),
-      entryNode: trimText(row.entryNode)
+      sourceNode: trimText(row.sourceNode)
     }))
 }
 
@@ -38,17 +38,17 @@ function buildLanguageStatements(
     .map((row) => ({
       name: trimText(row.name),
       publicId: languageCodeFromPublicId(row.publicId),
-      entryNode: trimText(row.entryNode)
+      sourceNode: trimText(row.sourceNode)
     }))
     .filter((row) => Boolean(row.publicId))
 
   if (languageRows.length === 0) {
-    return { statements: [] as RdfStatement[], entryNodes: [] as RdfResourceNode[] }
+    return { statements: [] as RdfStatement[], sourceNodes: [] as RdfResourceNode[] }
   }
 
-  const entryNodes = languageRows.map<RdfResourceNode>((row) => {
-    const existingNode = row.entryNode
-      ? findExistingNode(existingLanguageNodes, row.entryNode)
+  const sourceNodes = languageRows.map<RdfResourceNode>((row) => {
+    const existingNode = row.sourceNode
+      ? findExistingNode(existingLanguageNodes, row.sourceNode)
       : null
 
     if (isNamedOrBlankNode(existingNode)) {
@@ -59,18 +59,28 @@ function buildLanguageStatements(
   })
   const statements: RdfStatement[] = []
 
-  statements.push(st(subject, ns.schema('knowsLanguage'), new Collection(entryNodes), doc))
+  const listNodes = sourceNodes.map(() => createIdNode(doc))
+  statements.push(st(subject, ns.schema('knowsLanguage'), listNodes[0], doc))
+  listNodes.forEach((listNode, index) => {
+    statements.push(st(listNode, ns.rdf('first'), sourceNodes[index], doc))
+    statements.push(st(
+      listNode,
+      ns.rdf('rest'),
+      listNodes[index + 1] || ns.rdf('nil'),
+      doc
+    ))
+  })
 
-  entryNodes.forEach((entryNode, index) => {
+  sourceNodes.forEach((sourceNode, index) => {
     const publicIdNode = sym(`${ianaLanguageVocabularyUri}${languageRows[index].publicId}`)
-    statements.push(st(entryNode, ns.solid('publicId'), publicIdNode, doc))
+    statements.push(st(sourceNode, ns.solid('publicId'), publicIdNode, doc))
     const existingNameStatement = store.holds(publicIdNode, ns.schema('name'), literal(languageRows[index].name, 'en'), doc)
     if (languageRows[index].name && !existingNameStatement) {
       statements.push(st(publicIdNode, ns.schema('name'), literal(languageRows[index].name, 'en'), doc))
     }
   })
 
-  return { statements, entryNodes }
+  return { statements, sourceNodes }
 }
 
 function collectListChainNodes(store: LiveStore, listHead: NamedNode, doc: NamedNode): NamedNode[] {
@@ -97,18 +107,18 @@ function collectListChainNodes(store: LiveStore, listHead: NamedNode, doc: Named
 function mergeLanguageOps(existingRows: LanguageRow[], languageOps: MutationOps<LanguageRow>): LanguageRow[] {
   const byEntryNode = new Map<string, LanguageRow>()
   existingRows.forEach((row) => {
-    byEntryNode.set(row.entryNode, row)
+    byEntryNode.set(row.sourceNode, row)
   })
 
   languageOps.remove.forEach((row) => {
-    if (!row.entryNode) return
-    byEntryNode.delete(row.entryNode)
+    if (!row.sourceNode) return
+    byEntryNode.delete(row.sourceNode)
   })
 
   languageOps.update.forEach((row) => {
-    if (!row.entryNode) return
-    if (!byEntryNode.has(row.entryNode)) return
-    byEntryNode.set(row.entryNode, row)
+    if (!row.sourceNode) return
+    if (!byEntryNode.has(row.sourceNode)) return
+    byEntryNode.set(row.sourceNode, row)
   })
 
   languageOps.create.forEach((row) => {
@@ -147,7 +157,7 @@ async function mutateLanguageEntries(
     name: trimText(detail.name),
     publicId: trimText(detail.publicId),
     proficiency: trimText(detail.proficiency),
-    entryNode: detail.entryNode.value,
+    sourceNode: detail.sourceNode.value,
     status: 'existing' as const
   }))
   const nextRows = orderedRows && orderedRows.length
@@ -176,7 +186,7 @@ async function mutateLanguageEntries(
 
   const {
     statements: insertions,
-    entryNodes: nextEntryNodes
+    sourceNodes: nextEntryNodes
   } = buildLanguageStatements(store, subject, doc, nextRows, existingLanguageNodes)
 
   const retainedEntryNodeKeys = new Set(nextEntryNodes.map(rdfNodeKey))
@@ -206,7 +216,7 @@ async function mutateLanguageEntries(
 
   await runUpdateTransport(store, doc, deletions, insertions, {
     unsupportedMessage: languageUpdatesUnsupportedMessageText,
-    failureMessage: languageUpdatesFailedMessageText,
+    failureMessage: saveLanguageUpdatesFailedMessageText,
   })
 }
 
@@ -219,6 +229,6 @@ export async function processLanguageMutations(
   try {
     await mutateLanguageEntries(store, subject, mutationPlan, orderedRows)
   } catch (error) {
-    logAndThrowMutationError(error)
+    logAndThrowMutationError(error, saveLanguageUpdatesFailedMessageText)
   }
 } 

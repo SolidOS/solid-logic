@@ -12,11 +12,11 @@ export interface EducationFields {
 }
 
 export interface EducationDetails extends EducationFields {
-  entryNode: Node
+  sourceNode: Node
 }
 
 export interface EducationRow extends EducationFields {
-  entryNode: string
+  sourceNode: string
   status: RowStatus
 }
 

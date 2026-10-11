@@ -4,7 +4,7 @@ import { EducationMutationPlan, EducationRow } from './types'
 import { MutationOps } from '../shared/types'
 import { collectNodeStatements, findExistingNode, runUpdateTransport } from '../shared/rdfMutationHelpers'
 import { logAndThrowMutationError } from '../shared/mutationErrors'
-import { educationUpdatesFailedMessageText, updaterUnsupportedStoreErrorMessageText } from '../../texts'
+import { saveEducationUpdatesFailedMessageText, updaterUnsupportedStoreErrorMessageText } from '../../texts'
 
 const educationMembershipType = ns.schema('EducationalOccupationalCredential')
 
@@ -40,16 +40,16 @@ async function mutateEducationEntries(store: LiveStore, subject: NamedNode, educ
   const insertions: any[] = []
 
   educationOps.remove.forEach((education) => {
-    if (!education.entryNode) return
-    const existingNode = findExistingNode(existingEducationNodes, education.entryNode)
+    if (!education.sourceNode) return
+    const existingNode = findExistingNode(existingEducationNodes, education.sourceNode)
     if (existingNode) {
       deletions.push(...collectNodeStatements(store, existingNode, doc))
     }
   })
 
   educationOps.update.forEach((education) => {
-    if (!education.entryNode) return
-    const existingNode = findExistingNode(existingEducationNodes, education.entryNode)
+    if (!education.sourceNode) return
+    const existingNode = findExistingNode(existingEducationNodes, education.sourceNode)
     if (!existingNode) {
       insertions.push(...buildEducationStatements(subject, doc, store.bnode(), education))
       return
@@ -64,7 +64,7 @@ async function mutateEducationEntries(store: LiveStore, subject: NamedNode, educ
 
   await runUpdateTransport(store, doc, deletions, insertions, {
     unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: educationUpdatesFailedMessageText,
+    failureMessage: saveEducationUpdatesFailedMessageText,
   })
 }
 
@@ -72,6 +72,6 @@ export async function processEducationMutations(store: LiveStore, subject: Named
   try {
     await mutateEducationEntries(store, subject, mutationPlan)
   } catch (error) {
-    logAndThrowMutationError(error)
+    logAndThrowMutationError(error, saveEducationUpdatesFailedMessageText)
   }
 } 

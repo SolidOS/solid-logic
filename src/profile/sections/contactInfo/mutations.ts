@@ -5,7 +5,7 @@ import { MutationOps } from '../shared/types'
 import { collectLinkedNodeStatements, collectNodeStatements, findExistingNode, runUpdateTransport } from '../shared/rdfMutationHelpers'
 import { logAndThrowMutationError } from '../shared/mutationErrors'
 import { createIdNode } from '../shared/idNodeFactory'
-import { contactInfoUpdatesFailedMessageText, updaterUnsupportedStoreErrorMessageText } from '../../texts'
+import { saveContactUpdatesFailedMessageText, updaterUnsupportedStoreErrorMessageText } from '../../texts'
 import { buildAddressStatements, buildEmailStatements, buildPhoneStatements } from './rdfBuilders'
 
 async function mutatePhoneEntries(store: LiveStore, subject: NamedNode, phoneOps: MutationOps<ContactPointRow>) {
@@ -15,8 +15,8 @@ async function mutatePhoneEntries(store: LiveStore, subject: NamedNode, phoneOps
   const insertions: any[] = []
 
   phoneOps.remove.forEach((phone) => {
-    if (!phone.entryNode) return
-    const existingNode = findExistingNode(existingPhoneNodes, phone.entryNode)
+    if (!phone.sourceNode) return
+    const existingNode = findExistingNode(existingPhoneNodes, phone.sourceNode)
     if (existingNode) {
       const linkedPhoneStatements = collectLinkedNodeStatements(store, subject, ns.vcard('hasTelephone'), doc)
       const matchingLinkStatement = linkedPhoneStatements.linkStatements.find((statement) => statement.object?.value === existingNode.value)
@@ -28,8 +28,8 @@ async function mutatePhoneEntries(store: LiveStore, subject: NamedNode, phoneOps
   })
 
   phoneOps.update.forEach((phone) => {
-    if (!phone.entryNode) return
-    const existingNode = findExistingNode(existingPhoneNodes, phone.entryNode)
+    if (!phone.sourceNode) return
+    const existingNode = findExistingNode(existingPhoneNodes, phone.sourceNode)
     if (!existingNode) {
       insertions.push(...buildPhoneStatements(subject, doc, createIdNode(doc), phone))
       return
@@ -40,7 +40,9 @@ async function mutatePhoneEntries(store: LiveStore, subject: NamedNode, phoneOps
       deletions.push(matchingLinkStatement)
     }
     deletions.push(...collectNodeStatements(store, existingNode, doc))
-    insertions.push(...buildPhoneStatements(subject, doc, existingNode, phone))
+    const isDirectPhoneValue = existingNode.termType === 'NamedNode' && /^tel:/i.test(existingNode.value)
+    const targetNode = isDirectPhoneValue ? createIdNode(doc) : existingNode
+    insertions.push(...buildPhoneStatements(subject, doc, targetNode, phone))
   })
 
   phoneOps.create.forEach((phone) => {
@@ -49,7 +51,7 @@ async function mutatePhoneEntries(store: LiveStore, subject: NamedNode, phoneOps
 
   await runUpdateTransport(store, doc, deletions, insertions, {
     unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: contactInfoUpdatesFailedMessageText,
+    failureMessage: saveContactUpdatesFailedMessageText,
   })
 }
 
@@ -60,8 +62,8 @@ async function mutateEmailEntries(store: LiveStore, subject: NamedNode, emailOps
   const insertions: any[] = []
 
   emailOps.remove.forEach((email) => {
-    if (!email.entryNode) return
-    const existingNode = findExistingNode(existingEmailNodes, email.entryNode)
+    if (!email.sourceNode) return
+    const existingNode = findExistingNode(existingEmailNodes, email.sourceNode)
     if (existingNode) {
       const linkedEmailStatements = collectLinkedNodeStatements(store, subject, ns.vcard('hasEmail'), doc)
       const matchingLinkStatement = linkedEmailStatements.linkStatements.find((statement) => statement.object?.value === existingNode.value)
@@ -73,8 +75,8 @@ async function mutateEmailEntries(store: LiveStore, subject: NamedNode, emailOps
   })
 
   emailOps.update.forEach((email) => {
-    if (!email.entryNode) return
-    const existingNode = findExistingNode(existingEmailNodes, email.entryNode)
+    if (!email.sourceNode) return
+    const existingNode = findExistingNode(existingEmailNodes, email.sourceNode)
     if (!existingNode) {
       insertions.push(...buildEmailStatements(subject, doc, createIdNode(doc), email))
       return
@@ -89,7 +91,7 @@ async function mutateEmailEntries(store: LiveStore, subject: NamedNode, emailOps
 
   await runUpdateTransport(store, doc, deletions, insertions, {
     unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: contactInfoUpdatesFailedMessageText,
+    failureMessage: saveContactUpdatesFailedMessageText,
   })
 }
 
@@ -100,8 +102,8 @@ async function mutateAddressEntries(store: LiveStore, subject: NamedNode, addres
   const insertions: any[] = []
 
   addressOps.remove.forEach((address) => {
-    if (!address.entryNode) return
-    const existingNode = findExistingNode(existingAddressNodes, address.entryNode)
+    if (!address.sourceNode) return
+    const existingNode = findExistingNode(existingAddressNodes, address.sourceNode)
     if (existingNode) {
       const linkedAddressStatements = collectLinkedNodeStatements(store, subject, ns.vcard('hasAddress'), doc)
       const matchingLinkStatement = linkedAddressStatements.linkStatements.find((statement) => statement.object?.value === existingNode.value)
@@ -113,8 +115,8 @@ async function mutateAddressEntries(store: LiveStore, subject: NamedNode, addres
   })
 
   addressOps.update.forEach((address) => {
-    if (!address.entryNode) return
-    const existingNode = findExistingNode(existingAddressNodes, address.entryNode)
+    if (!address.sourceNode) return
+    const existingNode = findExistingNode(existingAddressNodes, address.sourceNode)
     if (!existingNode) {
       insertions.push(...buildAddressStatements(subject, doc, createIdNode(doc), address))
       return
@@ -129,7 +131,7 @@ async function mutateAddressEntries(store: LiveStore, subject: NamedNode, addres
 
   await runUpdateTransport(store, doc, deletions, insertions, {
     unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: contactInfoUpdatesFailedMessageText,
+    failureMessage: saveContactUpdatesFailedMessageText,
   })
 }
 
@@ -139,6 +141,6 @@ export async function processContactInfoMutations(store: LiveStore, subject: Nam
     await mutateEmailEntries(store, subject, mutationPlan.emailOps)
     await mutateAddressEntries(store, subject, mutationPlan.addressOps)
   } catch (error) {
-    logAndThrowMutationError(error)
+    logAndThrowMutationError(error, saveContactUpdatesFailedMessageText)
   }
 } 

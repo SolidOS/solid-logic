@@ -12,6 +12,15 @@ import { differentOrigin, documentDirectoryUri, suggestPreferencesFile } from '.
 import { isMissingError } from '../resource/resourceHttp'
 import { ProfileLogic } from '../types'
 import { createProfileMutationService } from './profileMutationService'
+import { getBio } from './sections/bio/selectors'
+import { getContactInfo } from './sections/contactInfo/selectors'
+import { getEducation } from './sections/education/selectors'
+import { presentLanguages } from './sections/languages/selectors'
+import { getSkillDetails, getSkills } from './sections/skills/selectors'
+import { getHeading } from './sections/heading/selectors'
+import { presentProjects } from './sections/projects/selectors'
+import { presentCV } from './sections/resume/selectors'
+import { getSocialAccounts } from './sections/social/read'
 
 export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
     const containerLogic = createContainerLogic(store)
@@ -306,6 +315,16 @@ export function createProfileLogic(store, authn, utilityLogic): ProfileLogic {
 
     return {
         ...profileMutationService,
+        getBio: (subject: NamedNode) => getBio(subject, store),
+        getContactInfo: (subject: NamedNode) => getContactInfo(subject, store),
+        getEducation: (subject: NamedNode) => getEducation(subject, store),
+        getLanguages: (subject: NamedNode) => presentLanguages(subject, store),
+        getSkillDetails: (subject: NamedNode) => getSkillDetails(subject, store),
+        getSkills: (subject: NamedNode) => getSkills(subject, store),
+        getHeading: (subject: NamedNode) => getHeading(subject, store),
+        getResume: (subject: NamedNode) => presentCV(subject, store),
+        getProjects: (subject: NamedNode) => presentProjects(subject, store),
+        getSocial: (subject: NamedNode) => getSocialAccounts(subject, store),
         loadMe,
         getPodRoot,
         getMainInbox,

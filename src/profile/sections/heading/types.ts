@@ -17,11 +17,11 @@ export interface ProfilePresentation {
 }
 
 export interface ProfileDetails extends ProfilePresentation {
-  entryNode: Node
+  sourceNode: Node
 }
 
 export interface ProfileRow extends ProfilePresentation {
-  entryNode: string
+  sourceNode: string
   status: RowStatus
 }
 
@@ -31,7 +31,7 @@ export type ProfileBasicFields = Omit<
 >
 
 export type ProfileBasicRow = ProfileBasicFields & {
-  entryNode: string
+  sourceNode: string
   status: RowStatus
 }
 

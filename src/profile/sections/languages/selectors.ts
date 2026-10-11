@@ -125,7 +125,7 @@ export function presentLanguages(subject: NamedNode, store: LiveStore): Language
       name: languageAsText(store, lan),
       publicId: toStoredPublicIdValue(lan, store.any(lan as NamedNode, ns.solid('publicId')) || undefined),
       proficiency: store.anyValue(lan as NamedNode, ns.schema('proficiencyLevel')) || undefined,
-      entryNode: lan
+      sourceNode: lan
     }))
     .filter((item) => Boolean(item.name))
 

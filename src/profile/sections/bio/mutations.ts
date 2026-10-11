@@ -4,7 +4,7 @@ import { BioMutationPlan, BioRow } from './types'
 import { MutationOps } from '../shared/types'
 import { replaceLiteralPredicateStatements, runUpdateTransport } from '../shared/rdfMutationHelpers'
 import { logAndThrowMutationError } from '../shared/mutationErrors'
-import { bioUpdatesFailedMessageText, updaterUnsupportedStoreErrorMessageText } from '../../texts'
+import { saveBioUpdatesFailedMessageText, updaterUnsupportedStoreErrorMessageText } from '../../texts'
 
 async function mutateBioEntry(store: LiveStore, subject: NamedNode, bioOps: MutationOps<BioRow>) {
   const doc = subject.doc()
@@ -32,7 +32,7 @@ async function mutateBioEntry(store: LiveStore, subject: NamedNode, bioOps: Muta
 
   await runUpdateTransport(store, doc, deletions, insertions, {
     unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: bioUpdatesFailedMessageText,
+    failureMessage: saveBioUpdatesFailedMessageText,
   })
 }
 
@@ -40,6 +40,6 @@ export async function processBioMutations(store: LiveStore, subject: NamedNode, 
   try {
     await mutateBioEntry(store, subject, mutationPlan)
   } catch (error) {
-    logAndThrowMutationError(error)
+    logAndThrowMutationError(error, saveBioUpdatesFailedMessageText)
   }
 } 

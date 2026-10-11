@@ -1,4 +1,4 @@
-import { Collection, LiveStore, NamedNode, Node, st, literal, sym } from 'rdflib'
+import { LiveStore, NamedNode, Node, st, literal, sym } from 'rdflib'
 import { ns } from '../../../util/ns'
 import { SocialAccountOption, SocialMutationPlan, SocialRow } from './types'
 import { MutationOps, RdfStatement } from '../shared/types'
@@ -11,9 +11,9 @@ import {
 	uniqueStatements
 } from '../shared/rdfMutationHelpers'
 import { logAndThrowMutationError } from '../shared/mutationErrors'
-import { socialUpdatesFailedMessageText, socialUpdatesUnsupportedMessageText } from '../../texts'
+import { saveSocialUpdatesFailedMessageText, socialUpdatesUnsupportedMessageText } from '../../texts'
 import { findSocialAccountOption, getSocialAccountOptions } from './helpers'
-import { presentSocial } from './selectors'
+import { getSocialAccounts } from './read'
 import { expandRdfList } from '../shared/rdfList'
 import { trimText } from '../shared/text'
 
@@ -69,14 +69,18 @@ function toAccountNameFromHomepage(homepage: string, profilePrefix?: string): st
 }
 
 function buildSocialStatements(
+	store: LiveStore,
 	doc: NamedNode,
 	node: NamedNode,
 	row: SocialRow,
-	accountOption?: SocialAccountOption
+	accountOption?: SocialAccountOption,
+	existingNode?: NamedNode
 ) {
 	const inserts: RdfStatement[] = []
 	if (accountOption?.classUri) {
 		inserts.push(st(node, ns.rdf('type'), sym(accountOption.classUri), doc))
+	} else if (existingNode) {
+		inserts.push(...store.statementsMatching(existingNode, ns.rdf('type'), null, doc))
 	}
 
 	const normalizedName = trimText(row.name)
@@ -128,20 +132,20 @@ function collectListChainNodes(store: LiveStore, listHead: Node, doc: NamedNode)
 function mergeSocialOps(existingRows: SocialRow[], socialOps: MutationOps<SocialRow>): SocialRow[] {
 	const removeKeys = new Set(
 		socialOps.remove
-			.map((row) => trimText(row.entryNode))
+			.map((row) => trimText(row.sourceNode))
 			.filter(Boolean)
 	)
 
 	const updateByKey = new Map(
 		socialOps.update
-			.map((row) => [trimText(row.entryNode), row] as const)
+			.map((row) => [trimText(row.sourceNode), row] as const)
 			.filter(([key]) => Boolean(key))
 	)
 
 	const mergedExisting = existingRows
-		.filter((row) => !removeKeys.has(trimText(row.entryNode)))
+		.filter((row) => !removeKeys.has(trimText(row.sourceNode)))
 		.map((row) => {
-			const key = trimText(row.entryNode)
+			const key = trimText(row.sourceNode)
 			return updateByKey.get(key) || row
 		})
 
@@ -155,12 +159,12 @@ function mergeSocialOps(existingRows: SocialRow[], socialOps: MutationOps<Social
 function rowsFromOrderedInput(orderedRows: SocialRow[]): SocialRow[] {
 	return (orderedRows || [])
 		.filter((row) => row.status !== 'deleted')
-		.filter((row) => Boolean(trimText(row.name) || trimText(row.homepage) || trimText(row.icon) || trimText(row.entryNode)))
+		.filter((row) => Boolean(trimText(row.name) || trimText(row.homepage) || trimText(row.icon) || trimText(row.sourceNode)))
 		.map((row) => ({
 			name: trimText(row.name),
 			icon: trimText(row.icon),
 			homepage: trimText(row.homepage),
-			entryNode: trimText(row.entryNode),
+			sourceNode: trimText(row.sourceNode),
 			status: row.status
 		}))
 }
@@ -175,11 +179,11 @@ async function mutateSocialEntries(
 	const accountOptions = getSocialAccountOptions(store)
 	const optionForRow = (row: SocialRow) => findSocialAccountOption(accountOptions, trimText(row.name))
 
-	const existingRows: SocialRow[] = presentSocial(subject, store).accounts.map((account) => ({
+	const existingRows: SocialRow[] = getSocialAccounts(subject, store).accounts.map((account) => ({
 		name: trimText(account.name),
 		icon: trimText(account.icon),
 		homepage: trimText(account.homepage),
-		entryNode: account.entryNode.value,
+		sourceNode: account.sourceNode.value,
 		status: 'existing'
 	}))
 
@@ -203,8 +207,8 @@ async function mutateSocialEntries(
 	).values())
 
 	const rowEntryNodes = nextRows.map((row) => {
-		if (trimText(row.entryNode)) {
-			const existing = findExistingNode(existingAccountNodes as Node[], row.entryNode)
+		if (trimText(row.sourceNode)) {
+			const existing = findExistingNode(existingAccountNodes as Node[], row.sourceNode)
 			if (existing && existing.termType === 'NamedNode') return existing as NamedNode
 		}
 		return createIdNode(doc)
@@ -216,11 +220,22 @@ async function mutateSocialEntries(
 
 	const insertions: RdfStatement[] = []
 	if (rowEntryNodes.length > 0) {
-		insertions.push(st(subject, ns.foaf('account'), new Collection(rowEntryNodes), doc))
+		const listNodes = rowEntryNodes.map(() => createIdNode(doc))
+		insertions.push(st(subject, ns.foaf('account'), listNodes[0], doc))
+		listNodes.forEach((listNode, index) => {
+			insertions.push(st(listNode, ns.rdf('first'), rowEntryNodes[index], doc))
+			insertions.push(st(
+				listNode,
+				ns.rdf('rest'),
+				listNodes[index + 1] || ns.rdf('nil'),
+				doc
+			))
+		})
 	}
 
 	nextRows.forEach((row, index) => {
-		insertions.push(...buildSocialStatements(doc, rowEntryNodes[index], row, optionForRow(row)))
+		const existingNode = existingAccountNodes.find((node) => rdfNodeKey(node) === rdfNodeKey(rowEntryNodes[index]))
+		insertions.push(...buildSocialStatements(store, doc, rowEntryNodes[index], row, optionForRow(row), existingNode))
 	})
 
 	const deletions = uniqueStatements([
@@ -238,7 +253,7 @@ async function mutateSocialEntries(
 
 	await runUpdateTransport(store, doc, deletions, uniqueStatements(insertions), {
 		unsupportedMessage: socialUpdatesUnsupportedMessageText,
-		failureMessage: socialUpdatesFailedMessageText,
+		failureMessage: saveSocialUpdatesFailedMessageText,
 	})
 }
 
@@ -251,6 +266,6 @@ export async function processSocialMutations(
 	try {
 		await mutateSocialEntries(store, subject, mutationPlan, orderedRows)
 	} catch (error) {
-		logAndThrowMutationError(error)
+		logAndThrowMutationError(error, saveSocialUpdatesFailedMessageText)
 	}
 }
