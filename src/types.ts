@@ -3,6 +3,25 @@ import type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan } 
 import { LiveStore, NamedNode, Statement } from 'rdflib'
 import type { AccessControlSubject } from './acl/accessControlSubjects'
 import type { AccessRole, PublicAccessRole } from './acl/aclLogic'
+import type { HeadingMutationPlan } from './profile/sections/heading/types'
+import type { BioMutationPlan } from './profile/sections/bio/types'
+import type { EducationMutationPlan } from './profile/sections/education/types'
+import type { LanguageMutationPlan } from './profile/sections/languages/mutations'
+import type { LanguageRow } from './profile/sections/languages/types'
+import type { ProjectMutationPlan } from './profile/sections/projects/types'
+import type { ResumeMutationPlan } from './profile/sections/resume/mutations'
+import type { SkillMutationPlan } from './profile/sections/skills/mutations'
+import type { SocialMutationPlan, SocialRow } from './profile/sections/social/types'
+import type { ContactMutationPlan } from './profile/sections/contactInfo/types'
+import type { BioDetails } from './profile/sections/bio/types'
+import type { ContactInfo } from './profile/sections/contactInfo/types'
+import type { EducationDetails } from './profile/sections/education/types'
+import type { LanguageDetails } from './profile/sections/languages/types'
+import type { SkillDetails } from './profile/sections/skills/types'
+import type { ProfileDetails } from './profile/sections/heading/types'
+import type { ProjectDetails } from './profile/sections/projects/types'
+import type { RoleDetails } from './profile/sections/resume/types'
+import type { SocialPresentation } from './profile/sections/social/types'
 
 export type AppDetails = {
     noun: string
@@ -77,8 +96,40 @@ export interface ProfileLogic {
     loadMe: () => Promise<NamedNode>,
     getPodRoot: (user: NamedNode) => NamedNode,
     getMainInbox: (user: NamedNode) => Promise<NamedNode>,
-    findStorage: (me: NamedNode) => Node | null
+    findStorage: (me: NamedNode) => Node | null,
+    processHeadingMutations: (subject: NamedNode, mutationPlan: HeadingMutationPlan) => Promise<void>,
+    processContactInfoMutations: (subject: NamedNode, mutationPlan: ContactMutationPlan) => Promise<void>,
+    processBioMutations: (subject: NamedNode, mutationPlan: BioMutationPlan) => Promise<void>,
+    processEducationMutations: (subject: NamedNode, mutationPlan: EducationMutationPlan) => Promise<void>,
+    processLanguageMutations: (subject: NamedNode, mutationPlan: LanguageMutationPlan, orderedRows?: LanguageRow[]) => Promise<void>,
+    processProjectsMutations: (subject: NamedNode, mutationPlan: ProjectMutationPlan) => Promise<void>,
+    processResumeMutations: (subject: NamedNode, mutationPlan: ResumeMutationPlan) => Promise<void>,
+    processSkillsMutations: (subject: NamedNode, mutationPlan: SkillMutationPlan) => Promise<void>,
+    processSocialMutations: (subject: NamedNode, mutationPlan: SocialMutationPlan, orderedRows?: SocialRow[]) => Promise<void>,
+    getBio: (subject: NamedNode) => BioDetails,
+    getContactInfo: (subject: NamedNode) => ContactInfo,
+    getEducation: (subject: NamedNode) => EducationDetails[],
+    getLanguages: (subject: NamedNode) => LanguageDetails[],
+    getSkillDetails: (subject: NamedNode) => SkillDetails[],
+    getSkills: (subject: NamedNode) => string[],
+    getHeading: (subject: NamedNode) => ProfileDetails,
+    getResume: (subject: NamedNode) => RoleDetails[],
+    getProjects: (subject: NamedNode) => Promise<ProjectDetails[]>,
+    getSocial: (subject: NamedNode) => SocialPresentation
 }
+
+export interface ProfileMutationService {
+    processHeadingMutations: (subject: NamedNode, mutationPlan: HeadingMutationPlan) => Promise<void>
+    processContactInfoMutations: (subject: NamedNode, mutationPlan: ContactMutationPlan) => Promise<void>
+    processBioMutations: (subject: NamedNode, mutationPlan: BioMutationPlan) => Promise<void>
+    processEducationMutations: (subject: NamedNode, mutationPlan: EducationMutationPlan) => Promise<void>
+    processLanguageMutations: (subject: NamedNode, mutationPlan: LanguageMutationPlan, orderedRows?: LanguageRow[]) => Promise<void>
+    processProjectsMutations: (subject: NamedNode, mutationPlan: ProjectMutationPlan) => Promise<void>
+    processResumeMutations: (subject: NamedNode, mutationPlan: ResumeMutationPlan) => Promise<void>
+    processSkillsMutations: (subject: NamedNode, mutationPlan: SkillMutationPlan) => Promise<void>
+    processSocialMutations: (subject: NamedNode, mutationPlan: SocialMutationPlan, orderedRows?: SocialRow[]) => Promise<void>
+}
+
 
 export interface AclLogic {
     findAclDocUrl: (url: NamedNode) => Promise<string | undefined>,
