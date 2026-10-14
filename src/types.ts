@@ -151,7 +151,12 @@ export interface ResourceLogic {
     fetchMetadataWithDelete: (subject: NamedNode) => Promise<ResourceMetadataWithDelete>,
     createContainer: (url: string) => Promise<void>,
     isContainer: (resource: NamedNode) => boolean,
+    getContainerMembers: (resource: NamedNode) => NamedNode[],
     getContainerMemberCount: (resource: NamedNode) => number,
+    getContainerIndexThing: (container: NamedNode) => NamedNode,
+    containerHasIndexDocument: (container: NamedNode) => boolean,
+    isStorageRoot: (resource: NamedNode) => boolean,
+    isHiddenFile: (resource: NamedNode) => boolean,
     isWebId: (resource: string | NamedNode) => boolean
 }
 

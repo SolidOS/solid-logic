@@ -19,6 +19,42 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     return containerLogic.getContainerMemberCount(resourceNode)
   }
 
+  function getContainerMembers(resourceNode: NamedNode) {
+    return containerLogic.getContainerElements(resourceNode)
+  }
+
+  function getContainerIndexThing(containerNode: NamedNode) {
+    const folderUri = containerNode.uri.endsWith('/') ? containerNode.uri : `${containerNode.uri}/`
+    return store.sym(`${folderUri}index.ttl#this`)
+  }
+
+  function containerHasIndexDocument(containerNode: NamedNode) {
+    return store.holds(
+      containerNode,
+      ns.ldp('contains'),
+      getContainerIndexThing(containerNode).doc()
+    )
+  }
+
+  function isStorageRoot(resourceNode: NamedNode) {
+    return store.holds(
+      resourceNode,
+      ns.rdf('type'),
+      ns.space('Storage'),
+      resourceNode.doc()
+    )
+  }
+
+  function isHiddenFile(resourceNode: NamedNode) {
+    const directory = resourceNode.dir()
+    if (!directory) {
+      return false
+    }
+
+    const pathEnd = resourceNode.uri.slice(directory.uri.length)
+    return pathEnd.startsWith('.') || pathEnd.endsWith('.acl') || pathEnd.endsWith('~')
+  }
+
   function isWebId(resource: string | NamedNode) {
     const uri = typeof resource === 'string' ? resource : resource.value
 
@@ -187,7 +223,12 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     fetchMetadataWithDelete,
     createContainer,
     isContainer,
+    getContainerMembers,
     getContainerMemberCount,
+    getContainerIndexThing,
+    containerHasIndexDocument,
+    isStorageRoot,
+    isHiddenFile,
     isWebId
   }
 }

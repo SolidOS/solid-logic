@@ -1,5 +1,6 @@
 import { LiveStore, sym } from 'rdflib'
 import { ns } from '../util/ns'
+import * as debug from '../util/debug'
 
 export type AccessControlSubjectKind = 'agent' | 'agentGroup' | 'agentClass' | 'origin'
 
@@ -27,9 +28,12 @@ function isBareOriginUrl (value: string): boolean {
     try {
         const parsed = new URL(value)
         return (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+            Boolean(parsed.hostname) &&
             parsed.pathname === '/' &&
             !parsed.search &&
-            !parsed.hash
+            !parsed.hash &&
+            !parsed.username &&
+            !parsed.password
     } catch (_error) {
         return false
     }
@@ -40,9 +44,12 @@ function normalizeOriginUrl (value: string): string {
         const parsed = new URL(value)
         if (
             (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+            parsed.hostname &&
             parsed.pathname === '/' &&
             !parsed.search &&
-            !parsed.hash
+            !parsed.hash &&
+            !parsed.username &&
+            !parsed.password
         ) {
             return `${parsed.protocol}//${parsed.host}`
         }
@@ -65,7 +72,7 @@ export async function classifyAccessControlSubject (store: LiveStore, principle:
         try {
             await store.fetcher.load(subject.doc())
         } catch (error) {
-            console.error(`Failed to load access target ${principle}`, error)
+            debug.error(`Failed to load access target ${principle}`, error)
         }
 
         types = store.findTypeURIs(subject)
