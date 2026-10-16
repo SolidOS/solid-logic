@@ -144,11 +144,17 @@ export type ResourceMetadataWithDelete = ResourceMetadata & {
     access: ResourceAccessWithDelete
 }
 
+export type ResourceContent = {
+    content: string
+    metadata: ResourceMetadata
+}
+
 export interface ResourceLogic {
     recursiveDelete: (resource: NamedNode, options?: ResourceDeleteOptions) => Promise<any>,
     deleteResourceAndTypeIndexIfExists: (resource: NamedNode, user?: NamedNode | null) => Promise<void>,
     fetchMetadata: (subject: NamedNode) => Promise<ResourceMetadata>,
     fetchMetadataWithDelete: (subject: NamedNode) => Promise<ResourceMetadataWithDelete>,
+    fetchContentAndMetadata: (subject: NamedNode) => Promise<ResourceContent>,
     createContainer: (url: string) => Promise<void>,
     isContainer: (resource: NamedNode) => boolean,
     getContainerMembers: (resource: NamedNode) => NamedNode[],

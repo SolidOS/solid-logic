@@ -3,7 +3,7 @@ import { ACL_LINK } from '../acl/aclLogic'
 import { ns } from '../util/ns'
 import { assertSuccessfulHttpResponse, isMissingError } from './resourceHttp'
 import { readWacAccessInfo } from './resourceMetadata'
-import { type ResourceAccess, type ResourceAccessWithDelete, type ResourceDeleteOptions, type ResourceLogic, type ResourceMetadata, type ResourceMetadataWithDelete, type TypeIndexLogic } from '../types'
+import { type ResourceAccess, type ResourceAccessWithDelete, type ResourceContent, type ResourceDeleteOptions, type ResourceLogic, type ResourceMetadata, type ResourceMetadataWithDelete, type TypeIndexLogic } from '../types'
 import type { AclLogic } from '../types'
 
 export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, typeIndexLogic: TypeIndexLogic): ResourceLogic {
@@ -147,6 +147,27 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     return fetchHeadMetadata(subject)
   }
 
+  async function fetchContentAndMetadata(subject: NamedNode): Promise<ResourceContent> {
+    try {
+      const response = await store.fetcher.webOperation('GET', subject.uri)
+      assertSuccessfulHttpResponse(response, 'GET')
+
+      const content = (response as Response & { responseText?: string }).responseText
+      if (content === undefined) {
+        throw new Error('No text in response object')
+      }
+
+      const metadata = readMetadata(subject, response)
+      if (!metadata.contentType) {
+        throw new Error('No content-type available')
+      }
+
+      return { content, metadata }
+    } catch (error) {
+      throw new Error(`Error reading file: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
   async function fetchMetadataWithDelete(subject: NamedNode): Promise<ResourceMetadataWithDelete> {
     let resourceMetadata: ResourceMetadata
 
@@ -221,6 +242,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     deleteResourceAndTypeIndexIfExists,
     fetchMetadata,
     fetchMetadataWithDelete,
+    fetchContentAndMetadata,
     createContainer,
     isContainer,
     getContainerMembers,

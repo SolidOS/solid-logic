@@ -67,6 +67,39 @@ describe('createResourceLogic', () => {
     expect(resourceLogic.getContainerMemberCount(resource)).toBe(0)
   })
 
+  it('fetches resource content with its metadata', async () => {
+    const subjectUri = 'https://example.com/workspace/doc.ttl'
+    const { resourceLogic, store } = buildResourceLogic({
+      webOperation: async (method: string, uri: string) => {
+        if (method === 'GET' && uri === subjectUri) {
+          return {
+            ok: true,
+            headers: new Headers({
+              'content-type': 'text/turtle; charset=utf-8',
+              'wac-allow': 'user="read write", public="read"',
+              etag: '"abc"'
+            }),
+            responseText: '<> a <#Thing>.'
+          }
+        }
+
+        throw new Error(`unexpected request: ${method} ${uri}`)
+      }
+    })
+
+    await expect(resourceLogic.fetchContentAndMetadata(sym(subjectUri))).resolves.toEqual({
+      content: '<> a <#Thing>.',
+      metadata: {
+        contentType: 'text/turtle',
+        access: { canEdit: true, isPublic: true },
+        aclUri: undefined,
+        eTag: '"abc"',
+        modified: '2026-08-10T00:00:00Z'
+      }
+    })
+    expect(store.fetcher.webOperation).toHaveBeenCalledWith('GET', subjectUri)
+  })
+
   it('returns resource metadata even when delete access probing fails for the container', async () => {
     const subjectUri = 'https://example.com/workspace/doc.ttl'
     const containerUri = 'https://example.com/workspace/'
