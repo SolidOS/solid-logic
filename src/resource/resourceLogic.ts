@@ -52,7 +52,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     }
 
     const pathEnd = resourceNode.uri.slice(directory.uri.length)
-    return pathEnd.startsWith('.') || pathEnd.endsWith('.acl') || pathEnd.endsWith('~')
+    return pathEnd.startsWith('.') || pathEnd.endsWith('.acl') || pathEnd.endsWith('.meta') || pathEnd.endsWith('~')
   }
 
   function isWebId(resource: string | NamedNode) {
