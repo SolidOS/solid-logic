@@ -303,6 +303,99 @@ describe('createAclLogic', () => {
     expect(plan.inserts).toEqual([])
   })
 
+  it('splits a shared contents authorization when downgrading one subject', async () => {
+    const resource = sym('https://example.com/alice/')
+    const alice = 'https://example.com/alice#me'
+    const bob = 'https://example.com/bob#me'
+    const authorization = namedNode('https://example.com/alice/.acl#shared')
+    const statements = [
+      quad(authorization, namedNode(ACL + 'type'), namedNode(ACL + 'Authorization')),
+      quad(authorization, namedNode(ACL + 'default'), resource),
+      quad(authorization, namedNode(ACL + 'agent'), namedNode(alice)),
+      quad(authorization, namedNode(ACL + 'agent'), namedNode(bob)),
+      quad(authorization, namedNode(ACL + 'mode'), namedNode(ACL + 'Read')),
+      quad(authorization, namedNode(ACL + 'mode'), namedNode(ACL + 'Write'))
+    ]
+    vi.mocked(findEffectiveACL).mockResolvedValue({
+      resource: resource.value,
+      defaultACLResource: resource.value + '.acl',
+      inherited: false,
+      authorizations: [{
+        id: authorization.value,
+        agent: [alice, bob],
+        agentClass: [],
+        agentGroup: [],
+        origin: [],
+        mode: ['Read', 'Write'],
+        default: [resource.value],
+        accessTo: [],
+        condition: [],
+        blankNode: false
+      }],
+      dataset: statements
+    } as any)
+
+    const plan = await aclLogic.planGrantContainerContents(resource, { type: 'agent', iri: alice }, ['Read'])
+    expect(plan.deletes).toEqual(statements)
+
+    const aliceRule = plan.inserts.find(statement =>
+      statement.predicate.value === ACL + 'agent' && statement.object.value === alice)?.subject
+    const bobRule = plan.inserts.find(statement =>
+      statement.predicate.value === ACL + 'agent' && statement.object.value === bob)?.subject
+    expect(aliceRule).toBeDefined()
+    expect(bobRule).toBeDefined()
+    expect(plan.inserts.filter(statement => statement.subject.equals(aliceRule!))
+      .some(statement => statement.predicate.value === ACL + 'mode' && statement.object.value === ACL + 'Read')).toBe(true)
+    expect(plan.inserts.filter(statement => statement.subject.equals(aliceRule!))
+      .some(statement => statement.predicate.value === ACL + 'mode' && statement.object.value === ACL + 'Write')).toBe(false)
+    expect(plan.inserts.filter(statement => statement.subject.equals(bobRule!))
+      .some(statement => statement.predicate.value === ACL + 'mode' && statement.object.value === ACL + 'Write')).toBe(true)
+  })
+
+  it('preserves other subjects when revoking one subject from a shared contents authorization', async () => {
+    const resource = sym('https://example.com/alice/')
+    const alice = 'https://example.com/alice#me'
+    const bob = 'https://example.com/bob#me'
+    const authorization = namedNode('https://example.com/alice/.acl#shared')
+    const statements = [
+      quad(authorization, namedNode(ACL + 'type'), namedNode(ACL + 'Authorization')),
+      quad(authorization, namedNode(ACL + 'default'), resource),
+      quad(authorization, namedNode(ACL + 'agent'), namedNode(alice)),
+      quad(authorization, namedNode(ACL + 'agent'), namedNode(bob)),
+      quad(authorization, namedNode(ACL + 'mode'), namedNode(ACL + 'Read'))
+    ]
+    vi.mocked(findEffectiveACL).mockResolvedValue({
+      resource: resource.value,
+      defaultACLResource: resource.value + '.acl',
+      inherited: false,
+      authorizations: [{
+        id: authorization.value,
+        agent: [alice, bob],
+        agentClass: [],
+        agentGroup: [],
+        origin: [],
+        mode: ['Read'],
+        default: [resource.value],
+        accessTo: [],
+        condition: [],
+        blankNode: false
+      }],
+      dataset: statements
+    } as any)
+
+    const plan = await aclLogic.planRevokeContainerContents(resource, { type: 'agent', iri: alice })
+    expect(plan.deletes).toEqual(statements)
+    expect(plan.inserts.some(statement =>
+      statement.predicate.value === ACL + 'agent' && statement.object.value === bob
+    )).toBe(true)
+    expect(plan.inserts.some(statement =>
+      statement.predicate.value === ACL + 'agent' && statement.object.value === alice
+    )).toBe(false)
+    expect(plan.inserts.some(statement =>
+      statement.predicate.value === ACL + 'default' && statement.object.value === resource.value
+    )).toBe(true)
+  })
+
   it('keeps inherited folder access without an acl:default when revoking contents', async () => {
     const resource = sym('https://example.com/alice/')
     const subject = { type: 'agent', iri: 'https://example.com/person#me' }
@@ -452,6 +545,62 @@ describe('createAclLogic', () => {
       const subjectRule = quadsFor(plan, subject.iri, ACL + 'agent')[0].subject.value
       expect(quadsFor(plan, resource.value, ACL + 'accessTo').some(q => q.subject.value === subjectRule)).toBe(true)
       expect(quadsFor(plan, resource.value, ACL + 'default').some(q => q.subject.value === subjectRule)).toBe(false)
+    })
+
+    it('preserves supported conditions while materializing an inherited authorization', async () => {
+      const resource = sym('https://example.com/conditioned/')
+      const subject = { type: 'agent' as const, iri: 'https://example.com/owner#me' }
+      const authorization = namedNode('https://example.com/.acl#conditioned')
+      const condition = namedNode('https://example.com/.acl#condition-1')
+      const conditionType = namedNode(ACL + 'ClientCondition')
+      const conditionClient = namedNode(ACL + 'client')
+      const conditionValue = namedNode('https://example.com/client')
+      const dataset = [
+        quad(authorization, namedNode(ACL + 'condition'), condition),
+        quad(condition, namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), conditionType),
+        quad(condition, conditionClient, conditionValue)
+      ]
+      vi.mocked(findEffectiveACL).mockResolvedValue(inheritedContext(resource.value, [{
+        id: authorization.value,
+        agent: [subject.iri], agentClass: [], agentGroup: [], origin: [],
+        mode: ['Read'], default: [root], accessTo: [],
+        condition: [{
+          id: condition.value,
+          blankNode: false,
+          properties: {
+            [conditionClient.value]: [conditionValue.value]
+          }
+        }]
+      }], dataset))
+
+      const plan = await aclLogic.planGrantContainer(resource, subject, ['Read', 'Write'])
+      expect(plan.inserts.some(statement =>
+        statement.predicate.value === ACL + 'condition'
+      )).toBe(true)
+      expect(plan.inserts.some(statement =>
+        statement.predicate.value === conditionClient.value &&
+        statement.object.value === conditionValue.value
+      )).toBe(true)
+    })
+
+    it('rejects unsupported condition properties instead of silently dropping them', async () => {
+      const resource = sym('https://example.com/unsupported-condition/')
+      const subject = { type: 'agent' as const, iri: 'https://example.com/owner#me' }
+      vi.mocked(findEffectiveACL).mockResolvedValue(inheritedContext(resource.value, [{
+        id: 'https://example.com/.acl#unsupported-condition',
+        agent: [subject.iri], agentClass: [], agentGroup: [], origin: [],
+        mode: ['Read'], default: [root], accessTo: [],
+        condition: [{
+          id: 'https://example.com/.acl#condition-unsupported',
+          blankNode: false,
+          properties: {
+            'https://example.com/unsupported-condition-property': ['https://example.com/value']
+          }
+        }]
+      }]))
+
+      await expect(aclLogic.planGrantContainer(resource, subject, ['Read', 'Write']))
+        .rejects.toThrow('Unsupported ACL condition')
     })
 
     it('materializes an inherited contents-only grant with only acl:default', async () => {

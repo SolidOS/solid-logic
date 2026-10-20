@@ -345,6 +345,16 @@ export function createAclLogic(store): AclLogic {
             throw new Error('Applying access to the contents of a protected storage resource is not allowed.')
         }
         if (context.inherited) return materializeInheritedContainer(context, subject, modes, 'contents')
+        const sharedAuthorization = context.authorizations.find(authorization =>
+            authorization.default?.includes(context.resource) &&
+            subjectMatchesAuthorization(subject, authorization) &&
+            ['agent', 'agentClass', 'agentGroup', 'origin'].reduce((count, key) =>
+                count + authorization[key].length, 0) > 1)
+
+        if (sharedAuthorization) {
+            return splitDirectContainerContentsAuthorization(context, sharedAuthorization, subject, modes)
+        }
+
         const existingDefaultOnly = context.authorizations.find(authorization =>
             authorization.default?.includes(context.resource) &&
             !authorization.accessTo?.includes(context.resource) &&
@@ -381,6 +391,16 @@ export function createAclLogic(store): AclLogic {
 
         const defaultPredicate = ACL + 'default'
         if (!context.inherited) {
+            const sharedAuthorization = context.authorizations.find(authorization =>
+                authorization.default?.includes(context.resource) &&
+                subjectMatchesAuthorization(subject, authorization) &&
+                ['agent', 'agentClass', 'agentGroup', 'origin'].reduce((count, key) =>
+                    count + authorization[key].length, 0) > 1)
+
+            if (sharedAuthorization) {
+                return splitDirectContainerContentsAuthorization(context, sharedAuthorization, subject)
+            }
+
             const deletes = context.dataset.filter(statement =>
                 statement.predicate.value === defaultPredicate &&
                 statement.object.value === context.resource &&
@@ -398,6 +418,52 @@ export function createAclLogic(store): AclLogic {
             throw new Error(`No default authorization found for ${subject.iri}`)
         }
         return plan
+    }
+
+    function splitDirectContainerContentsAuthorization (
+        context: ACLContext,
+        authorization: Authorization,
+        subject: AccessSubject,
+        modes?: AccessMode[]
+    ): PatchPlan {
+        const subjectKeys = ['agent', 'agentClass', 'agentGroup', 'origin'] as const
+        const subjects = subjectKeys.flatMap(key =>
+            authorization[key].map(iri => ({ key, iri }))
+        )
+        const remainingSubjects = subjects.filter(({ key, iri }) =>
+            !(key === subject.type && iri === subject.iri))
+        const target = namedNode(context.defaultACLResource + `#split-${Math.random().toString(36).slice(2)}`)
+        const retained = namedNode(context.defaultACLResource + `#retained-${Math.random().toString(36).slice(2)}`)
+        const inserts: PatchPlan['inserts'] = []
+        const addRule = (
+            rule: ReturnType<typeof namedNode>,
+            ruleSubjects: Array<{ key: typeof subjectKeys[number], iri: string }>,
+            ruleModes: AccessMode[],
+            includeAccessTo: boolean,
+            includeDefault: boolean
+        ) => {
+            if (!ruleSubjects.length || (!includeAccessTo && !includeDefault)) return
+            inserts.push(
+                quad(rule, namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), namedNode(ACL + 'Authorization')),
+                ...(includeAccessTo ? [quad(rule, namedNode(ACL + 'accessTo'), namedNode(context.resource))] : []),
+                ...(includeDefault ? [quad(rule, namedNode(ACL + 'default'), namedNode(context.resource))] : []),
+                ...ruleModes.map(mode => quad(rule, namedNode(ACL + 'mode'), namedNode(`http://www.w3.org/ns/auth/acl#${mode}`))),
+                ...ruleSubjects.map(({ key, iri }) => quad(rule, namedNode(ACL + key), namedNode(iri)))
+            )
+        }
+
+        const hasAccessTo = authorization.accessTo.includes(context.resource)
+        const hasDefault = authorization.default.includes(context.resource)
+        addRule(retained, remainingSubjects, authorization.mode, hasAccessTo, hasDefault)
+        if (modes) {
+            addRule(target, [{ key: subject.type, iri: subject.iri }], modes, hasAccessTo, hasDefault)
+        }
+
+        return {
+            target: context.defaultACLResource,
+            deletes: context.dataset.filter(statement => statement.subject.value === authorization.id),
+            inserts
+        }
     }
 
     async function planRevoke(resourceURL: string | NamedNode, subject: AccessSubject): Promise<PatchPlan> {
