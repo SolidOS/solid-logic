@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Fetcher, Store, namedNode, sym, UpdateManager } from 'rdflib'
+import { Fetcher, Store, literal, namedNode, sym, UpdateManager } from 'rdflib'
 import { ACL, applyPlan, buildACLContext, findEffectiveACL, parseTurtle, planGrant, planPublicRead, planRevoke, Public, quad, type PatchPlan, type Quad } from '@dokieli/web-access-control'
 import { ACL_LINK, WRITE_LOCKED_OWNER_ROLE, analyzeContainerAccessScope, classifyAuthorizationScope, classifyContainerAccessScope, createAclLogic, filterAuthorizationsByContainerScope } from '../src/acl/aclLogic'
 
@@ -336,13 +336,16 @@ describe('createAclLogic', () => {
     const alice = 'https://example.com/alice#me'
     const bob = 'https://example.com/bob#me'
     const authorization = namedNode('https://example.com/alice/.acl#shared')
+    const condition = namedNode('https://example.com/alice/.acl#trusted-client')
     const statements = [
       quad(authorization, namedNode(ACL + 'type'), namedNode(ACL + 'Authorization')),
+      quad(authorization, namedNode(ACL + 'condition'), condition),
       quad(authorization, namedNode(ACL + 'default'), resource),
       quad(authorization, namedNode(ACL + 'agent'), namedNode(alice)),
       quad(authorization, namedNode(ACL + 'agent'), namedNode(bob)),
       quad(authorization, namedNode(ACL + 'mode'), namedNode(ACL + 'Read')),
-      quad(authorization, namedNode(ACL + 'mode'), namedNode(ACL + 'Write'))
+      quad(authorization, namedNode(ACL + 'mode'), namedNode(ACL + 'Write')),
+      quad(condition, namedNode(ACL + 'description'), literal('trusted client only', 'en'))
     ]
     vi.mocked(findEffectiveACL).mockResolvedValue({
       resource: resource.value,
@@ -357,14 +360,18 @@ describe('createAclLogic', () => {
         mode: ['Read', 'Write'],
         default: [resource.value],
         accessTo: [],
-        condition: [],
+        condition: [{
+          id: condition.value,
+          blankNode: false,
+          properties: { [ACL + 'description']: ['trusted client only'] }
+        }],
         blankNode: false
       }],
       dataset: statements
     } as any)
 
     const plan = await aclLogic.planGrantContainerContents(resource, { type: 'agent', iri: alice }, ['Read'])
-    expect(plan.deletes).toEqual(statements)
+    expect(plan.deletes).toEqual(statements.filter(statement => statement.subject.equals(authorization)))
 
     const aliceRule = plan.inserts.find(statement =>
       statement.predicate.value === ACL + 'agent' && statement.object.value === alice)?.subject
@@ -378,6 +385,133 @@ describe('createAclLogic', () => {
       .some(statement => statement.predicate.value === ACL + 'mode' && statement.object.value === ACL + 'Write')).toBe(false)
     expect(plan.inserts.filter(statement => statement.subject.equals(bobRule!))
       .some(statement => statement.predicate.value === ACL + 'mode' && statement.object.value === ACL + 'Write')).toBe(true)
+    expect(plan.inserts.filter(statement => statement.subject.equals(aliceRule!))
+      .some(statement => statement.predicate.value === ACL + 'condition' && statement.object.equals(condition))).toBe(true)
+    expect(plan.inserts.filter(statement => statement.subject.equals(bobRule!))
+      .some(statement => statement.predicate.value === ACL + 'condition' && statement.object.equals(condition))).toBe(true)
+  })
+
+  it('processes every matching default authorization for a subject', async () => {
+    const resource = sym('https://example.com/alice/')
+    const alice = 'https://example.com/alice#me'
+    const bob = 'https://example.com/bob#me'
+    const carol = 'https://example.com/carol#me'
+    const first = namedNode(resource.value + '.acl#alice-bob')
+    const second = namedNode(resource.value + '.acl#alice-carol')
+    const statements = [first, second].flatMap((authorization, index) => [
+      quad(authorization, namedNode(ACL + 'type'), namedNode(ACL + 'Authorization')),
+      quad(authorization, namedNode(ACL + 'default'), resource),
+      quad(authorization, namedNode(ACL + 'agent'), namedNode(alice)),
+      quad(authorization, namedNode(ACL + 'agent'), namedNode(index === 0 ? bob : carol)),
+      quad(authorization, namedNode(ACL + 'mode'), namedNode(ACL + 'Read')),
+      quad(authorization, namedNode(ACL + 'mode'), namedNode(ACL + 'Write'))
+    ])
+    vi.mocked(findEffectiveACL).mockResolvedValue({
+      resource: resource.value,
+      defaultACLResource: resource.value + '.acl',
+      inherited: false,
+      authorizations: [bob, carol].map((other, index) => ({
+        id: [first, second][index].value,
+        agent: [alice, other],
+        agentClass: [],
+        agentGroup: [],
+        origin: [],
+        mode: ['Read', 'Write'],
+        default: [resource.value],
+        accessTo: [],
+        condition: [],
+        blankNode: false
+      })),
+      dataset: statements
+    } as any)
+
+    const plan = await aclLogic.planGrantContainerContents(resource, { type: 'agent', iri: alice }, ['Read'])
+    expect(plan.deletes).toEqual(statements)
+    expect(plan.inserts.filter(statement =>
+      statement.predicate.value === ACL + 'agent' &&
+      [bob, carol].includes(statement.object.value))).toHaveLength(2)
+    const aliceRules = new Set(plan.inserts
+      .filter(statement => statement.predicate.value === ACL + 'agent' && statement.object.value === alice)
+      .map(statement => statement.subject.value))
+    expect(aliceRules).toHaveLength(2)
+    for (const rule of aliceRules) {
+      expect(plan.inserts.some(statement =>
+        statement.subject.value === rule &&
+        statement.predicate.value === ACL + 'mode' &&
+        statement.object.value === ACL + 'Read')).toBe(true)
+      expect(plan.inserts.some(statement =>
+        statement.subject.value === rule &&
+        statement.predicate.value === ACL + 'mode' &&
+        statement.object.value === ACL + 'Write')).toBe(false)
+    }
+  })
+
+  it('splits a single-subject folder-and-contents rule when changing contents access', async () => {
+    const resource = sym('https://example.com/alice/')
+    const alice = 'https://example.com/alice#me'
+    const unrelatedFolder = 'https://example.com/other-folder/'
+    const unrelatedContents = 'https://example.com/other/'
+    const authorization = namedNode(resource.value + '.acl#alice')
+    const statements = [
+      quad(authorization, namedNode(ACL + 'type'), namedNode(ACL + 'Authorization')),
+      quad(authorization, namedNode(ACL + 'accessTo'), resource),
+      quad(authorization, namedNode(ACL + 'accessTo'), namedNode(unrelatedFolder)),
+      quad(authorization, namedNode(ACL + 'default'), resource),
+      quad(authorization, namedNode(ACL + 'default'), namedNode(unrelatedContents)),
+      quad(authorization, namedNode(ACL + 'agent'), namedNode(alice)),
+      quad(authorization, namedNode(ACL + 'mode'), namedNode(ACL + 'Read')),
+      quad(authorization, namedNode(ACL + 'mode'), namedNode(ACL + 'Write'))
+    ]
+    vi.mocked(findEffectiveACL).mockResolvedValue({
+      resource: resource.value,
+      defaultACLResource: resource.value + '.acl',
+      inherited: false,
+      authorizations: [{
+        id: authorization.value,
+        agent: [alice],
+        agentClass: [],
+        agentGroup: [],
+        origin: [],
+        mode: ['Read', 'Write'],
+        accessTo: [resource.value, unrelatedFolder],
+        default: [resource.value, unrelatedContents],
+        condition: [],
+        blankNode: false
+      }],
+      dataset: statements
+    } as any)
+
+    const plan = await aclLogic.planGrantContainerContents(resource, { type: 'agent', iri: alice }, ['Read'])
+    expect(plan.deletes).toEqual(statements)
+    const aliceRules = [...new Set(plan.inserts
+      .filter(statement => statement.predicate.value === ACL + 'agent' && statement.object.value === alice)
+      .map(statement => statement.subject.value))]
+    expect(aliceRules).toHaveLength(2)
+    const folderRule = aliceRules.find(rule => plan.inserts.some(statement =>
+      statement.subject.value === rule &&
+      statement.predicate.value === ACL + 'accessTo'))
+    const contentsRule = aliceRules.find(rule => plan.inserts.some(statement =>
+      statement.subject.value === rule &&
+      statement.predicate.value === ACL + 'default' &&
+      statement.object.value === resource.value))
+    expect(folderRule).toBeDefined()
+    expect(contentsRule).toBeDefined()
+    expect(plan.inserts.some(statement =>
+      statement.subject.value === folderRule &&
+      statement.predicate.value === ACL + 'mode' &&
+      statement.object.value === ACL + 'Write')).toBe(true)
+    expect(plan.inserts.some(statement =>
+      statement.subject.value === folderRule &&
+      statement.predicate.value === ACL + 'accessTo' &&
+      statement.object.value === unrelatedFolder)).toBe(true)
+    expect(plan.inserts.some(statement =>
+      statement.subject.value === folderRule &&
+      statement.predicate.value === ACL + 'default' &&
+      statement.object.value === unrelatedContents)).toBe(true)
+    expect(plan.inserts.some(statement =>
+      statement.subject.value === contentsRule &&
+      statement.predicate.value === ACL + 'mode' &&
+      statement.object.value === ACL + 'Write')).toBe(false)
   })
 
   it('allocates deterministic, collision-free IDs when splitting a shared authorization', async () => {
@@ -507,19 +641,101 @@ describe('createAclLogic', () => {
     } as any)).rejects.toThrow('No default authorization found')
   })
 
+  it('rejects inherited contents revocation when only unrelated defaults match', async () => {
+    const resource = sym('https://example.com/alice/')
+    const subject = { type: 'agent', iri: 'https://example.com/person#me' }
+    vi.mocked(findEffectiveACL).mockResolvedValue({
+      resource: resource.value,
+      defaultACLResource: resource.value + '.acl',
+      inherited: true,
+      authorizations: [{
+        id: 'https://example.com/.acl#owner',
+        agent: ['https://example.com/owner#me'],
+        agentClass: [],
+        agentGroup: [],
+        origin: [],
+        mode: ['Read'],
+        default: [resource.value],
+        accessTo: [],
+        condition: [],
+        blankNode: false
+      }],
+      dataset: []
+    } as any)
+
+    await expect(aclLogic.planRevokeContainerContents(resource, subject as any))
+      .rejects.toThrow('No default authorization found')
+  })
+
   it('keeps the last Control authorization on a protected resource', async () => {
     const resource = sym('https://example.com/alice/')
     const subject = { type: 'agent', iri: 'https://example.com/profile/card#me' }
     store.holds.mockReturnValue(true)
     vi.mocked(findEffectiveACL).mockResolvedValue({
       resource: resource.value,
+      defaultACLResource: resource.value + '.acl',
+      inherited: false,
+      dataset: [],
       authorizations: [{
+        id: resource.value + '.acl#owner',
         agent: [subject.iri],
-        mode: ['Read', 'Write', 'Control']
+        agentClass: [],
+        agentGroup: [],
+        origin: [],
+        mode: ['Read', 'Write', 'Control'],
+        accessTo: [resource.value],
+        default: [],
+        condition: [],
+        blankNode: false
       }]
     } as any)
 
+    const controlRule = namedNode(resource.value + '.acl#owner')
+    const deletedControl = quad(controlRule, namedNode(ACL + 'mode'), namedNode(ACL + 'Control'))
+    vi.mocked(planGrant).mockReturnValue({ target: resource.value + '.acl', deletes: [deletedControl], inserts: [] })
+    vi.mocked(planRevoke).mockReturnValue({ target: resource.value + '.acl', deletes: [deletedControl], inserts: [] })
     await expect(aclLogic.planGrant(resource, subject as any, ['Read'])).rejects.toThrow('retain at least one Control')
+    await expect(aclLogic.planRevoke(resource, subject as any)).rejects.toThrow('retain at least one Control')
+  })
+
+  it('does not count duplicate inherited Control rules as surviving control', async () => {
+    const resource = sym('https://example.com/alice/')
+    const subject = { type: 'agent', iri: 'https://example.com/profile/card#me' }
+    store.holds.mockReturnValue(true)
+    vi.mocked(findEffectiveACL).mockResolvedValue({
+      resource: resource.value,
+      defaultACLResource: 'https://example.com/.acl',
+      inherited: true,
+      dataset: [],
+      authorizations: [
+        {
+          id: 'https://example.com/.acl#owner-folder',
+          agent: [subject.iri],
+          agentClass: [],
+          agentGroup: [],
+          origin: [],
+          mode: ['Control'],
+          accessTo: [resource.value],
+          default: [],
+          condition: [],
+          blankNode: false
+        },
+        {
+          id: 'https://example.com/.acl#owner-contents',
+          agent: [subject.iri],
+          agentClass: [],
+          agentGroup: [],
+          origin: [],
+          mode: ['Control'],
+          accessTo: [],
+          default: [resource.value],
+          condition: [],
+          blankNode: false
+        }
+      ]
+    } as any)
+    vi.mocked(planRevoke).mockImplementation(actualPlanRevoke as any)
+
     await expect(aclLogic.planRevoke(resource, subject as any)).rejects.toThrow('retain at least one Control')
   })
 
@@ -659,6 +875,16 @@ describe('createAclLogic', () => {
         statement.predicate.value === conditionClient.value &&
         statement.object.value === conditionValue.value
       )).toBe(true)
+      const replacementRules = new Set(plan.inserts
+        .filter(statement =>
+          statement.predicate.value === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' &&
+          statement.object.value === ACL + 'Authorization')
+        .map(statement => statement.subject.value))
+      for (const rule of replacementRules) {
+        expect(plan.inserts.some(statement =>
+          statement.subject.value === rule &&
+          statement.predicate.value === ACL + 'condition')).toBe(true)
+      }
     })
 
     it('rejects unsupported condition properties instead of silently dropping them', async () => {
@@ -718,6 +944,8 @@ describe('createAclLogic', () => {
       const subject = { type: 'agent' as const, iri: 'https://example.com/viewer#me' }
       const collidingId = resource.value + '.acl#inherited-1'
       const conditionId = 'https://example.com/.acl#client-condition'
+      const conditionNode = namedNode(conditionId)
+      const description = literal('only from the trusted client', 'en')
       vi.mocked(findEffectiveACL).mockResolvedValue(inheritedContext(resource.value, [{
         id: collidingId,
         agent: ['https://example.com/owner#me'], agentClass: [], agentGroup: [], origin: [],
@@ -730,7 +958,11 @@ describe('createAclLogic', () => {
           }
         }],
         blankNode: false
-      }], [quad(namedNode(collidingId), namedNode(ACL + 'Authorization'), namedNode(ACL + 'Authorization'))]))
+      }], [
+        quad(namedNode(collidingId), namedNode(ACL + 'Authorization'), namedNode(ACL + 'Authorization')),
+        quad(conditionNode, namedNode(ACL + 'ClientCondition'), namedNode('https://example.com/client')),
+        quad(conditionNode, namedNode(ACL + 'description'), description)
+      ]))
 
       const plan = await aclLogic.planGrantContainer(resource, subject, ['Read'])
       const ruleIds = new Set(plan.inserts
@@ -742,9 +974,13 @@ describe('createAclLogic', () => {
       expect(plan.inserts.some(statement =>
         statement.predicate.value === ACL + 'condition' &&
         statement.object.value !== conditionId)).toBe(true)
-      expect(plan.inserts.some(statement =>
-        statement.predicate.value === ACL + 'description' &&
-        statement.object.value === 'only from the trusted client')).toBe(true)
+      const descriptionStatement = plan.inserts.find(statement =>
+        statement.predicate.value === ACL + 'description')
+      if (!descriptionStatement || descriptionStatement.object.termType !== 'Literal') {
+        throw new Error('Expected the cloned description to remain an RDF literal')
+      }
+      expect(descriptionStatement.object.value).toBe(description.value)
+      expect(descriptionStatement.object.language).toBe('en')
     })
 
     it('preserves inherited default access when materializing a contents-only grant', async () => {

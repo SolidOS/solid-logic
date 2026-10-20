@@ -23,9 +23,6 @@ export interface ContainerAccessScopeResult {
     primaryScope: ContainerAccessScope
     mixed: boolean
 }
-/** @deprecated Use ContainerAccessScopeResult. */
-export type ContainerAccessScopeAnalysis = ContainerAccessScopeResult
-
 export function classifyAuthorizationScope (
     resource: string,
     authorization: Authorization,
@@ -194,17 +191,33 @@ export function createAclLogic(store): AclLogic {
         return authorization[predicateByType[subject.type]]?.includes(subject.iri) ?? false
     }
 
-    function assertProtectedControlPreserved(context: ACLContext, subject: AccessSubject, modes?: AccessMode[]): void {
+    function assertProtectedControlPreserved(context: ACLContext, plan: PatchPlan): void {
         if (!isProtectedResource(context.resource)) {
             return
         }
 
-        const hasControl = context.authorizations.some(authorization =>
-            authorization.mode.includes('Control') && subjectMatchesAuthorization(subject, authorization))
-        const controlCount = context.authorizations.filter(authorization => authorization.mode.includes('Control')).length
-        const keepsControl = modes?.includes('Control') ?? false
+        const deletedAuthorizationIds = new Set(plan.deletes.map(statement => statement.subject.value))
+        const insertedAuthorizations = new Map<string, { modes: string[], accessTo: string[] }>()
+        for (const statement of plan.inserts) {
+            const authorization = insertedAuthorizations.get(statement.subject.value) ?? { modes: [], accessTo: [] }
+            if (statement.predicate.value === ACL + 'mode') {
+                authorization.modes.push(statement.object.value)
+            } else if (statement.predicate.value === ACL + 'accessTo') {
+                authorization.accessTo.push(statement.object.value)
+            }
+            insertedAuthorizations.set(statement.subject.value, authorization)
+        }
 
-        if (hasControl && controlCount <= 1 && !keepsControl) {
+        const survivingControl = !context.inherited && context.authorizations.some(authorization =>
+            !deletedAuthorizationIds.has(authorization.id) &&
+            authorization.mode.includes('Control') &&
+            authorization.accessTo.includes(context.resource)
+        ) || [...insertedAuthorizations.values()].some(authorization =>
+            authorization.modes.includes(ACL + 'Control') &&
+            authorization.accessTo.includes(context.resource)
+        )
+
+        if (!survivingControl) {
             throw new Error('The protected storage resource must retain at least one Control authorization.')
         }
     }
@@ -226,11 +239,14 @@ export function createAclLogic(store): AclLogic {
 
     async function planGrant(resourceURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]): Promise<PatchPlan> {
         const context = await findEffectiveAcl(resourceURL)
-        assertProtectedControlPreserved(context, subject, modes)
         if (context.inherited && new URL(context.resource).pathname.endsWith('/')) {
-            return materializeInheritedContainer(context, subject, modes, 'folder')
+            const plan = materializeInheritedContainer(context, subject, modes, 'folder')
+            assertProtectedControlPreserved(context, plan)
+            return plan
         }
-        return planAuthorizationGrant(context, subject, modes)
+        const plan = planAuthorizationGrant(context, subject, modes)
+        assertProtectedControlPreserved(context, plan)
+        return plan
     }
 
     function assertContainer(context: ACLContext): void {
@@ -327,10 +343,16 @@ export function createAclLogic(store): AclLogic {
                     ...(authorization.condition ?? []).flatMap(condition => {
                         const conditionId = freshId(`${id}-condition`)
                         const conditionNode = namedNode(conditionId)
+                        const conditionStatements = context.dataset
+                            .filter(statement => statement.subject.value === condition.id)
+                            .map(statement => quad(
+                                conditionNode,
+                                statement.predicate,
+                                statement.object
+                            ))
                         return [
                             quad(rule, namedNode(ACL + 'condition'), conditionNode),
-                            ...Object.entries(condition.properties).flatMap(([predicate, values]) =>
-                                values.map(value => quad(conditionNode, namedNode(predicate), namedNode(value))))
+                            ...conditionStatements
                         ]
                     })
                 )
@@ -367,10 +389,14 @@ export function createAclLogic(store): AclLogic {
                 })
             })
             if (!revoke) {
+                const selectedAuthorization = context.authorizations.find(authorization =>
+                    authorization[subjectKey]?.includes(subject.iri) &&
+                    (authorization.default?.length ?? 0) > 0)
                 const newAuthorization: Authorization = {
                     id: `${context.defaultACLResource}#inherited-new-source`,
                     blankNode: false,
-                    accessTo: [], default: [], agent: [], agentClass: [], agentGroup: [], origin: [], mode: [], condition: []
+                    accessTo: [], default: [], agent: [], agentClass: [], agentGroup: [], origin: [], mode: [],
+                    condition: selectedAuthorization?.condition ?? []
                 }
                 addRule(onlySubject(newAuthorization), `${context.defaultACLResource}#inherited-new`, {
                     accessTo: scope !== 'contents',
@@ -383,17 +409,21 @@ export function createAclLogic(store): AclLogic {
     async function planGrantContainer(containerURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]): Promise<PatchPlan> {
         const context = await findEffectiveAcl(containerURL)
         assertContainer(context)
-        assertProtectedControlPreserved(context, subject, modes)
-        if (context.inherited) return materializeInheritedContainer(context, subject, modes, 'folder')
-        return planAuthorizationGrant(context, subject, modes)
+        const plan = context.inherited
+            ? materializeInheritedContainer(context, subject, modes, 'folder')
+            : planAuthorizationGrant(context, subject, modes)
+        assertProtectedControlPreserved(context, plan)
+        return plan
     }
 
     async function planGrantContainerAndContents(containerURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]): Promise<PatchPlan> {
         const context = await findEffectiveAcl(containerURL)
         assertContainer(context)
-        assertProtectedControlPreserved(context, subject, modes)
-        if (context.inherited) return materializeInheritedContainer(context, subject, modes, 'folder+contents')
-        return withContainerDefaults(context, planAuthorizationGrant(context, subject, modes))
+        const plan = context.inherited
+            ? materializeInheritedContainer(context, subject, modes, 'folder+contents')
+            : withContainerDefaults(context, planAuthorizationGrant(context, subject, modes))
+        assertProtectedControlPreserved(context, plan)
+        return plan
     }
 
     async function planGrantContainerContents(containerURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]): Promise<PatchPlan> {
@@ -403,26 +433,12 @@ export function createAclLogic(store): AclLogic {
             throw new Error('Applying access to the contents of a protected storage resource is not allowed.')
         }
         if (context.inherited) return materializeInheritedContainer(context, subject, modes, 'contents')
-        const sharedAuthorization = context.authorizations.find(authorization =>
+        const matchingAuthorizations = context.authorizations.filter(authorization =>
             authorization.default?.includes(context.resource) &&
-            subjectMatchesAuthorization(subject, authorization) &&
-            ['agent', 'agentClass', 'agentGroup', 'origin'].reduce((count, key) =>
-                count + authorization[key].length, 0) > 1)
+            subjectMatchesAuthorization(subject, authorization))
 
-        if (sharedAuthorization) {
-            return splitDirectContainerContentsAuthorization(context, sharedAuthorization, subject, modes)
-        }
-
-        const existingDefaultOnly = context.authorizations.find(authorization =>
-            authorization.default?.includes(context.resource) &&
-            !authorization.accessTo?.includes(context.resource) &&
-            authorization[subject.type]?.includes(subject.iri) &&
-            (authorization.agent.length + authorization.agentClass.length + authorization.agentGroup.length + authorization.origin.length) === 1)
-
-        if (existingDefaultOnly && !context.inherited) {
-            // The upstream planner can safely update a default-only rule in
-            // place; unlike a resource grant it will not add acl:accessTo.
-            return planAuthorizationGrant(context, subject, modes)
+        if (matchingAuthorizations.length) {
+            return splitDirectContainerContentsAuthorizations(context, matchingAuthorizations, subject, modes)
         }
 
         const subjectKey = subject.type
@@ -449,14 +465,12 @@ export function createAclLogic(store): AclLogic {
 
         const defaultPredicate = ACL + 'default'
         if (!context.inherited) {
-            const sharedAuthorization = context.authorizations.find(authorization =>
+            const matchingAuthorizations = context.authorizations.filter(authorization =>
                 authorization.default?.includes(context.resource) &&
-                subjectMatchesAuthorization(subject, authorization) &&
-                ['agent', 'agentClass', 'agentGroup', 'origin'].reduce((count, key) =>
-                    count + authorization[key].length, 0) > 1)
+                subjectMatchesAuthorization(subject, authorization))
 
-            if (sharedAuthorization) {
-                return splitDirectContainerContentsAuthorization(context, sharedAuthorization, subject)
+            if (matchingAuthorizations.length) {
+                return splitDirectContainerContentsAuthorizations(context, matchingAuthorizations, subject)
             }
 
             const deletes = context.dataset.filter(statement =>
@@ -471,66 +485,103 @@ export function createAclLogic(store): AclLogic {
             return { target: context.defaultACLResource, deletes, inserts: [] }
         }
 
-        const plan = materializeInheritedContainer(context, subject, undefined, 'contents', true)
-        if (!plan.inserts.length) {
+        const hasInheritedDefault = context.authorizations.some(authorization =>
+            authorization.default?.includes(context.resource) &&
+            subjectMatchesAuthorization(subject, authorization))
+        if (!hasInheritedDefault) {
             throw new Error(`No default authorization found for ${subject.iri}`)
         }
+        const plan = materializeInheritedContainer(context, subject, undefined, 'contents', true)
         return plan
     }
 
-    function splitDirectContainerContentsAuthorization (
+    function splitDirectContainerContentsAuthorizations (
         context: ACLContext,
-        authorization: Authorization,
+        authorizations: Authorization[],
         subject: AccessSubject,
         modes?: AccessMode[]
     ): PatchPlan {
         const freshId = createAuthorizationIdAllocator(context)
-        const subjects = subjectKeys.flatMap(key =>
-            authorization[key].map(iri => ({ key, iri }))
-        )
-        const remainingSubjects = subjects.filter(({ key, iri }) =>
-            !(key === subject.type && iri === subject.iri))
-        const target = namedNode(freshId(`${context.defaultACLResource}#split-1`))
-        const retained = namedNode(freshId(`${context.defaultACLResource}#retained-1`))
         const inserts: PatchPlan['inserts'] = []
         const addRule = (
             rule: ReturnType<typeof namedNode>,
             ruleSubjects: Array<{ key: typeof subjectKeys[number], iri: string }>,
             ruleModes: AccessMode[],
-            includeAccessTo: boolean,
-            includeDefault: boolean
+            accessTo: string[],
+            defaults: string[],
+            conditions: string[]
         ) => {
-            if (!ruleSubjects.length || (!includeAccessTo && !includeDefault)) return
+            if (!ruleSubjects.length || (!accessTo.length && !defaults.length)) return
             inserts.push(
                 quad(rule, namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), namedNode(ACL + 'Authorization')),
-                ...(includeAccessTo ? [quad(rule, namedNode(ACL + 'accessTo'), namedNode(context.resource))] : []),
-                ...(includeDefault ? [quad(rule, namedNode(ACL + 'default'), namedNode(context.resource))] : []),
+                ...accessTo.map(target => quad(rule, namedNode(ACL + 'accessTo'), namedNode(target))),
+                ...defaults.map(target => quad(rule, namedNode(ACL + 'default'), namedNode(target))),
                 ...ruleModes.map(mode => quad(rule, namedNode(ACL + 'mode'), namedNode(`http://www.w3.org/ns/auth/acl#${mode}`))),
+                ...conditions.map(condition => quad(rule, namedNode(ACL + 'condition'), namedNode(condition))),
                 ...ruleSubjects.map(({ key, iri }) => quad(rule, namedNode(ACL + key), namedNode(iri)))
             )
         }
 
-        const hasAccessTo = authorization.accessTo.includes(context.resource)
-        const hasDefault = authorization.default.includes(context.resource)
-        addRule(retained, remainingSubjects, authorization.mode, hasAccessTo, hasDefault)
-        if (modes) {
-            addRule(target, [{ key: subject.type, iri: subject.iri }], modes, hasAccessTo, hasDefault)
-        }
+        const deletes: PatchPlan['deletes'] = []
+        authorizations.forEach((authorization, index) => {
+            const subjects = subjectKeys.flatMap(key =>
+                authorization[key].map(iri => ({ key, iri }))
+            )
+            const remainingSubjects = subjects.filter(({ key, iri }) =>
+                !(key === subject.type && iri === subject.iri))
+            const baseId = `${context.defaultACLResource}#split-${index + 1}`
+
+            if (!modes && subjects.length === 1 && remainingSubjects.length === 0) {
+                deletes.push(...context.dataset.filter(statement =>
+                    statement.subject.value === authorization.id &&
+                    statement.predicate.value === ACL + 'default' &&
+                    statement.object.value === context.resource))
+                return
+            }
+
+            deletes.push(...context.dataset.filter(statement => statement.subject.value === authorization.id))
+            const conditions = (authorization.condition ?? []).map(condition => condition.id)
+            addRule(namedNode(freshId(`${context.defaultACLResource}#retained-${index + 1}`)), remainingSubjects, authorization.mode, authorization.accessTo, authorization.default, conditions)
+            const retainedDefaults = authorization.default.filter(target => target !== context.resource)
+            if (authorization.accessTo.length || retainedDefaults.length) {
+                addRule(
+                    namedNode(freshId(`${baseId}-retained`)),
+                    [{ key: subject.type, iri: subject.iri }],
+                    authorization.mode,
+                    authorization.accessTo,
+                    retainedDefaults,
+                    conditions
+                )
+            }
+            if (modes) {
+                addRule(
+                    namedNode(freshId(`${baseId}`)),
+                    [{ key: subject.type, iri: subject.iri }],
+                    modes,
+                    [],
+                    authorization.default.filter(target => target === context.resource),
+                    conditions
+                )
+            }
+        })
 
         return {
             target: context.defaultACLResource,
-            deletes: context.dataset.filter(statement => statement.subject.value === authorization.id),
+            deletes,
             inserts
         }
     }
 
     async function planRevoke(resourceURL: string | NamedNode, subject: AccessSubject): Promise<PatchPlan> {
         const context = await findEffectiveAcl(resourceURL)
-        assertProtectedControlPreserved(context, subject)
         if (context.inherited && new URL(context.resource).pathname.endsWith('/')) {
-            return materializeInheritedContainer(context, subject, undefined, 'folder+contents', true)
+            const plan = materializeInheritedContainer(context, subject, undefined, 'folder+contents', true)
+            assertProtectedControlPreserved(context, plan)
+            return plan
         }
-        return withContainerDefaults(context, planAuthorizationRevoke(context, subject))
+        const plan = withContainerDefaults(context, planAuthorizationRevoke(context, subject))
+        assertProtectedControlPreserved(context, plan)
+        return plan
     }
 
     async function planPublicRead(resourceURL: string | NamedNode, enabled: boolean): Promise<PatchPlan> {
