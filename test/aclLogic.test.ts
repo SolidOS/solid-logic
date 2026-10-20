@@ -352,6 +352,56 @@ describe('createAclLogic', () => {
       .some(statement => statement.predicate.value === ACL + 'mode' && statement.object.value === ACL + 'Write')).toBe(true)
   })
 
+  it('allocates deterministic, collision-free IDs when splitting a shared authorization', async () => {
+    const resource = sym('https://example.com/alice/')
+    const alice = 'https://example.com/alice#me'
+    const bob = 'https://example.com/bob#me'
+    const aclResource = resource.value + '.acl'
+    const authorization = namedNode(aclResource + '#shared')
+    const statements = [
+      quad(authorization, namedNode(ACL + 'type'), namedNode(ACL + 'Authorization')),
+      quad(authorization, namedNode(ACL + 'default'), resource),
+      quad(authorization, namedNode(ACL + 'agent'), namedNode(alice)),
+      quad(authorization, namedNode(ACL + 'agent'), namedNode(bob)),
+      quad(authorization, namedNode(ACL + 'mode'), namedNode(ACL + 'Read')),
+      quad(namedNode(aclResource + '#split'), namedNode(ACL + 'type'), namedNode(ACL + 'Authorization')),
+      quad(namedNode(aclResource + '#retained'), namedNode(ACL + 'type'), namedNode(ACL + 'Authorization'))
+    ]
+    const context = {
+      resource: resource.value,
+      defaultACLResource: aclResource,
+      inherited: false,
+      authorizations: [{
+        id: authorization.value,
+        agent: [alice, bob],
+        agentClass: [],
+        agentGroup: [],
+        origin: [],
+        mode: ['Read'],
+        default: [resource.value],
+        accessTo: [],
+        condition: [],
+        blankNode: false
+      }],
+      dataset: statements
+    } as any
+    vi.mocked(findEffectiveACL).mockResolvedValue(context)
+
+    const first = await aclLogic.planGrantContainerContents(resource, { type: 'agent', iri: alice }, ['Read'])
+    const second = await aclLogic.planGrantContainerContents(resource, { type: 'agent', iri: alice }, ['Read'])
+    const insertedAuthorizationIds = (plan: PatchPlan) => [...new Set(plan.inserts
+      .filter(statement =>
+        statement.predicate.value === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' &&
+        statement.object.value === ACL + 'Authorization')
+      .map(statement => statement.subject.value))]
+
+    expect(insertedAuthorizationIds(first)).toEqual([
+      aclResource + '#retained-1',
+      aclResource + '#split-1'
+    ])
+    expect(insertedAuthorizationIds(second)).toEqual(insertedAuthorizationIds(first))
+  })
+
   it('preserves other subjects when revoking one subject from a shared contents authorization', async () => {
     const resource = sym('https://example.com/alice/')
     const alice = 'https://example.com/alice#me'
@@ -730,6 +780,28 @@ describe('createAclLogic', () => {
         statement.predicate.value === ACL + 'accessTo' &&
         statement.object.value === container
       )).toBe(false)
+    })
+
+    it('allocates a deterministic ID for a new direct contents authorization', async () => {
+      const resource = sym('https://example.com/alice/')
+      const aclResource = resource.value + '.acl'
+      vi.mocked(findEffectiveACL).mockResolvedValue({
+        resource: resource.value,
+        defaultACLResource: aclResource,
+        inherited: false,
+        authorizations: [],
+        dataset: [
+          quad(namedNode(aclResource + '#contents'), namedNode(ACL + 'type'), namedNode(ACL + 'Authorization'))
+        ]
+      } as any)
+
+      const subject = { type: 'agent' as const, iri: 'https://example.com/person#me' }
+      const first = await aclLogic.planGrantContainerContents(resource, subject, ['Read'])
+      const second = await aclLogic.planGrantContainerContents(resource, subject, ['Read'])
+
+      expect(first.inserts[0]?.subject.value).toBe(aclResource + '#contents-1')
+      expect(second.inserts.map(statement => statement.subject.value))
+        .toEqual(first.inserts.map(statement => statement.subject.value))
     })
 
     it('keeps the inherited owner on the folder itself when materializing a first ACL', async () => {

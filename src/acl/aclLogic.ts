@@ -227,6 +227,64 @@ export function createAclLogic(store): AclLogic {
         }
     }
 
+    const subjectKeys = ['agent', 'agentClass', 'agentGroup', 'origin'] as const
+    const rdfType = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+    const supportedConditionPredicates = new Set([
+        rdfType,
+        ACL + 'client',
+        ACL + 'clientClass',
+        ACL + 'clientGroup',
+        ACL + 'issuer',
+        ACL + 'issuerClass',
+        ACL + 'issuerGroup',
+        ACL + 'description',
+        // Some older ACL contexts expose the condition type as a property key
+        // rather than retaining it under rdf:type.
+        ACL + 'ClientCondition',
+        ACL + 'IssuerCondition'
+    ])
+    const supportedConditionTypes = new Set([
+        ACL + 'ClientCondition',
+        ACL + 'IssuerCondition'
+    ])
+
+    function createAuthorizationIdAllocator(context: ACLContext): (base: string) => string {
+        const takenIds = new Set<string>([
+            ...(context.dataset ?? []).map(statement => statement.subject.value),
+            ...context.authorizations.flatMap(authorization => [
+                authorization.id,
+                ...(authorization.condition ?? []).map(condition => condition.id)
+            ])
+        ])
+
+        return (base: string): string => {
+            let id = base
+            let suffix = 1
+            while (takenIds.has(id)) {
+                id = `${base}-${suffix++}`
+            }
+            takenIds.add(id)
+            return id
+        }
+    }
+
+    function assertSupportedConditions(context: ACLContext): void {
+        for (const authorization of context.authorizations) {
+            for (const condition of authorization.condition ?? []) {
+                const conditionTypes = condition.properties[rdfType] ?? []
+                if (conditionTypes.length > 1 ||
+                    (conditionTypes.length === 1 && !supportedConditionTypes.has(conditionTypes[0]))) {
+                    throw new Error(`Unsupported ACL condition type on ${condition.id}`)
+                }
+                for (const predicate of Object.keys(condition.properties)) {
+                    if (!supportedConditionPredicates.has(predicate)) {
+                        throw new Error(`Unsupported ACL condition property: ${predicate}`)
+                    }
+                }
+            }
+        }
+    }
+
     function materializeInheritedContainer (
             context: ACLContext,
             subject: AccessSubject,
@@ -236,23 +294,8 @@ export function createAclLogic(store): AclLogic {
         ): PatchPlan {
             const inserts: PatchPlan['inserts'] = []
             const subjectKey = subject.type
-            const subjectKeys = ['agent', 'agentClass', 'agentGroup', 'origin'] as const
-            const takenIds = new Set<string>([
-                ...(context.dataset ?? []).map(statement => statement.subject.value),
-                ...context.authorizations.flatMap(authorization => [
-                    authorization.id,
-                    ...(authorization.condition ?? []).map(condition => condition.id)
-                ])
-            ])
-            const freshId = (base: string): string => {
-                let id = base
-                let suffix = 1
-                while (takenIds.has(id)) {
-                    id = `${base}-${suffix++}`
-                }
-                takenIds.add(id)
-                return id
-            }
+            const freshId = createAuthorizationIdAllocator(context)
+            assertSupportedConditions(context)
             const addRule = (
                 authorization: Authorization,
                 baseId: string,
@@ -264,7 +307,7 @@ export function createAclLogic(store): AclLogic {
                 const id = freshId(baseId)
                 const rule = namedNode(id)
                 inserts.push(
-                    quad(rule, namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), namedNode(ACL + 'Authorization')),
+                    quad(rule, namedNode(rdfType), namedNode(ACL + 'Authorization')),
                     ...(targets.accessTo ? [quad(rule, namedNode(ACL + 'accessTo'), namedNode(context.resource))] : []),
                     ...(targets.default ? [quad(rule, namedNode(ACL + 'default'), namedNode(context.resource))] : []),
                     ...(modeOverride ?? authorization.mode).map(mode => quad(rule, namedNode(ACL + 'mode'), namedNode(`http://www.w3.org/ns/auth/acl#${mode}`))),
@@ -312,9 +355,12 @@ export function createAclLogic(store): AclLogic {
                 })
             })
             if (!revoke) {
-                addRule(onlySubject({
+                const newAuthorization: Authorization = {
+                    id: `${context.defaultACLResource}#inherited-new-source`,
+                    blankNode: false,
                     accessTo: [], default: [], agent: [], agentClass: [], agentGroup: [], origin: [], mode: [], condition: []
-                } as unknown as Authorization), `${context.defaultACLResource}#inherited-new`, {
+                }
+                addRule(onlySubject(newAuthorization), `${context.defaultACLResource}#inherited-new`, {
                     accessTo: scope !== 'contents',
                     default: scope !== 'folder'
                 }, modes ?? [])
@@ -368,11 +414,11 @@ export function createAclLogic(store): AclLogic {
         }
 
         const subjectKey = subject.type
-        const id = `${context.defaultACLResource}#contents-${Math.random().toString(36).slice(2)}`
+        const id = createAuthorizationIdAllocator(context)(`${context.defaultACLResource}#contents-1`)
         const rule = namedNode(id)
         const subjectQuad = quad(rule, namedNode(ACL + subjectKey), namedNode(subject.iri))
         const fresh = [
-            quad(rule, namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), namedNode(ACL + 'Authorization')),
+            quad(rule, namedNode(rdfType), namedNode(ACL + 'Authorization')),
             quad(rule, namedNode(ACL + 'default'), namedNode(context.resource)),
             ...modes.map(mode => quad(rule, namedNode(ACL + 'mode'), namedNode(`http://www.w3.org/ns/auth/acl#${mode}`))),
             subjectQuad
@@ -426,14 +472,14 @@ export function createAclLogic(store): AclLogic {
         subject: AccessSubject,
         modes?: AccessMode[]
     ): PatchPlan {
-        const subjectKeys = ['agent', 'agentClass', 'agentGroup', 'origin'] as const
+        const freshId = createAuthorizationIdAllocator(context)
         const subjects = subjectKeys.flatMap(key =>
             authorization[key].map(iri => ({ key, iri }))
         )
         const remainingSubjects = subjects.filter(({ key, iri }) =>
             !(key === subject.type && iri === subject.iri))
-        const target = namedNode(context.defaultACLResource + `#split-${Math.random().toString(36).slice(2)}`)
-        const retained = namedNode(context.defaultACLResource + `#retained-${Math.random().toString(36).slice(2)}`)
+        const target = namedNode(freshId(`${context.defaultACLResource}#split-1`))
+        const retained = namedNode(freshId(`${context.defaultACLResource}#retained-1`))
         const inserts: PatchPlan['inserts'] = []
         const addRule = (
             rule: ReturnType<typeof namedNode>,
