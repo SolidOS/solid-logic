@@ -4,11 +4,13 @@ import {
   Authenticated,
   PUBLIC_ACCESS_ROLES,
   Public,
+  WRITE_LOCKED_OWNER_ROLE,
   solidLogicSingleton,
   type ACLContext,
   type AccessControlSubjectKind,
   type AccessMode,
   type AccessRole,
+  type ContainerAccessScopeResult,
   type AccessSubject,
   type Authorization,
   type PatchPlan,
@@ -19,6 +21,7 @@ describe('public ACL API', () => {
   it('exports the role list and exposes mapping through the singleton', () => {
     expect(ACCESS_ROLES).toEqual(['Owner', 'Editor', 'No Access', 'Viewer', 'Poster', 'Submitter'])
     expect(PUBLIC_ACCESS_ROLES).toEqual(['No Access', 'Viewer'])
+    expect(WRITE_LOCKED_OWNER_ROLE).toBe('Owner (write locked)')
     expect(Authenticated).toMatchObject({ type: 'agentClass', iri: 'http://www.w3.org/ns/auth/acl#AuthenticatedAgent' })
     expect(Public).toMatchObject({ type: 'agentClass', iri: 'http://xmlns.com/foaf/0.1/Agent' })
     for (const role of ACCESS_ROLES) {
@@ -40,5 +43,10 @@ describe('public ACL API', () => {
     expectTypeOf(solidLogicSingleton.acl.publicRoleFromModes).toEqualTypeOf<(modes: Iterable<AccessMode>) => PublicAccessRole>()
     expectTypeOf(solidLogicSingleton.acl.modesFromPublicRole).toEqualTypeOf<(role: PublicAccessRole) => AccessMode[]>()
     expectTypeOf<AccessControlSubjectKind>().toEqualTypeOf<'agent' | 'agentGroup' | 'agentClass' | 'origin'>()
+    expectTypeOf<ContainerAccessScopeResult>().toEqualTypeOf<{
+      distinctScopes: ('folder+contents' | 'folder' | 'contents')[]
+      primaryScope: 'folder+contents' | 'folder' | 'contents'
+      mixed: boolean
+    }>()
   })
 })

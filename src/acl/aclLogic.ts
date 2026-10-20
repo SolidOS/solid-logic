@@ -6,16 +6,25 @@ import * as accessControlSubjects from './accessControlSubjects'
 
 export const ACCESS_ROLES = ['Owner', 'Editor', 'No Access', 'Viewer', 'Poster', 'Submitter'] as const
 export const PUBLIC_ACCESS_ROLES = ['No Access', 'Viewer'] as const
+/**
+ * A Control grant without Write is the legacy "write locked" owner grant.
+ *
+ * It is intentionally not part of ACCESS_ROLES yet: that list is consumed by
+ * the existing UI, whose selector will be updated in a later change.
+ */
+export const WRITE_LOCKED_OWNER_ROLE = 'Owner (write locked)' as const
 export { Authenticated, Public } from '@dokieli/web-access-control'
 
-export type AccessRole = typeof ACCESS_ROLES[number]
+export type AccessRole = typeof ACCESS_ROLES[number] | typeof WRITE_LOCKED_OWNER_ROLE
 export type PublicAccessRole = typeof PUBLIC_ACCESS_ROLES[number]
 export type ContainerAccessScope = 'folder+contents' | 'folder' | 'contents'
-export interface ContainerAccessScopeAnalysis {
+export interface ContainerAccessScopeResult {
     distinctScopes: ContainerAccessScope[]
     primaryScope: ContainerAccessScope
     mixed: boolean
 }
+/** @deprecated Use ContainerAccessScopeResult. */
+export type ContainerAccessScopeAnalysis = ContainerAccessScopeResult
 
 export function classifyAuthorizationScope (
     resource: string,
@@ -53,7 +62,7 @@ export function classifyContainerAccessScope (context: ACLContext): ContainerAcc
     return analyzeContainerAccessScope(context).primaryScope
 }
 
-export function analyzeContainerAccessScope (context: ACLContext): ContainerAccessScopeAnalysis {
+export function analyzeContainerAccessScope (context: ACLContext): ContainerAccessScopeResult {
     const scopes = new Set<ContainerAccessScope>()
     for (const authorization of context.authorizations ?? []) {
         const scope = classifyAuthorizationScope(context.resource, authorization, context.inherited)
@@ -97,6 +106,7 @@ export function createAclLogic(store): AclLogic {
     const ns = namespace
     const ACCESS_ROLE_RULES: Array<{ label: AccessRole, modes: AccessMode[] }> = [
         { label: 'Owner', modes: ['Read', 'Write', 'Control'] },
+        { label: WRITE_LOCKED_OWNER_ROLE, modes: ['Read', 'Control'] },
         { label: 'Editor', modes: ['Read', 'Write'] },
         { label: 'Poster', modes: ['Append', 'Read'] },
         { label: 'Submitter', modes: ['Append'] },
@@ -110,7 +120,9 @@ export function createAclLogic(store): AclLogic {
 
     function roleFromModes (modes: Iterable<AccessMode>): AccessRole {
         const modeSet = new Set(modes)
-        const matchingRule = ACCESS_ROLE_RULES.find(rule => rule.label !== 'No Access' && rule.modes.every(mode => modeSet.has(mode)))
+        const matchingRule = ACCESS_ROLE_RULES.find(rule =>
+            rule.modes.length === modeSet.size &&
+            rule.modes.every(mode => modeSet.has(mode)))
 
         return matchingRule?.label ?? 'No Access'
     }
