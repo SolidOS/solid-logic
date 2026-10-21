@@ -6,8 +6,8 @@ const authn = solidLogicSingleton.authn
 const authSession = solidLogicSingleton.authn.authSession
 const store = solidLogicSingleton.store
 
-export { ACL_LINK, ACCESS_ROLES, PUBLIC_ACCESS_ROLES, Authenticated, Public } from './acl/aclLogic'
-export type { AccessRole, PublicAccessRole } from './acl/aclLogic'
+export { ACL_LINK, ACCESS_ROLES, PUBLIC_ACCESS_ROLES, WRITE_LOCKED_OWNER_ROLE, Authenticated, Public, classifyContainerAccessScope, analyzeContainerAccessScope, classifyAuthorizationScope, filterAuthorizationsByContainerScope } from './acl/aclLogic'
+export type { AccessRole, ContainerAccessScope, ContainerAccessScopeResult, PublicAccessRole } from './acl/aclLogic'
 export { offlineTestID, appContext } from './authn/authUtil'
 export { performServerSideLogout } from './authn/serverLogout'
 export { reloadOnIdentityReplaced } from './authSession/identityState'
