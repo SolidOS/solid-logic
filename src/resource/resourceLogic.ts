@@ -70,6 +70,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     let contentType: string | undefined
     let canEdit = false
     let isPublic = false
+    let isPublicKnown = false
     let eTag: string | undefined
     let modified: string | undefined
 
@@ -80,6 +81,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
       const accessFlags = readWacAccessInfo(response.headers.get('wac-allow'))
       canEdit = accessFlags.canEdit
       isPublic = accessFlags.isPublic
+      isPublicKnown = accessFlags.isPublicKnown
       eTag = response.headers.get('etag') ?? undefined
       modified = store.anyValue(subject as any, ns.dct('modified')) || store.anyValue(subject as any, ns.dc('modified')) || undefined
     }
@@ -105,6 +107,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
           const accessFlags = readWacAccessInfo(wacAllow)
           canEdit = canEdit || accessFlags.canEdit
           isPublic = isPublic || accessFlags.isPublic
+          isPublicKnown = isPublicKnown || accessFlags.isPublicKnown
           const responseETag = store.anyValue(responseNode as any, ns.httph('etag')) || undefined
           if (eTag === undefined) {
             eTag = responseETag
@@ -115,7 +118,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     }
 
     const aclUri = store.any(subject, ACL_LINK)?.value || undefined
-    const access: ResourceAccess = { canEdit, isPublic }
+    const access: ResourceAccess = { canEdit, isPublic, isPublicKnown }
     return { contentType, access, aclUri, eTag, modified }
   }
 

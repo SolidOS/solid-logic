@@ -126,6 +126,8 @@ export type ResourceDeleteOptions = {
 export type ResourceAccess = {
     canEdit: boolean
     isPublic: boolean
+    /** False when the server did not provide WAC-Allow metadata. */
+    isPublicKnown?: boolean
 }
 
 export type ResourceAccessWithDelete = ResourceAccess & {
