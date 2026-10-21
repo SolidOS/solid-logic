@@ -4,6 +4,7 @@ import { createResourceLogic } from '../../src/resource/resourceLogic'
 
 function buildResourceLogic(overrides: {
   webOperation?: (method: string, uri: string) => Promise<any>
+  getContainerElements?: (resource: any) => any[]
   getContainerMembers?: (resource: any) => Promise<string[]>
   isContainer?: (resource: any) => boolean
   findAclDocUrl?: (resource: any) => Promise<string | undefined>
@@ -50,7 +51,7 @@ function buildResourceLogic(overrides: {
       createContainer: vi.fn(async () => undefined),
       isContainer: vi.fn(overrides.isContainer ?? (() => false)),
       getContainerMemberCount: vi.fn().mockReturnValue(0),
-      getContainerElements: vi.fn(overrides.getContainerMembers ?? (async () => [])),
+      getContainerElements: vi.fn(overrides.getContainerElements ?? (() => [])),
       getContainerMembers: vi.fn(overrides.getContainerMembers ?? (async () => []))
     } as any,
     typeIndexLogic as any
@@ -61,16 +62,16 @@ function buildResourceLogic(overrides: {
 
 describe('createResourceLogic', () => {
   it('delegates container helpers', async () => {
-    const members = ['https://example.com/workspace/item.ttl']
+    const members = [sym('https://example.com/workspace/item.ttl')]
     const { resourceLogic } = buildResourceLogic({
-      getContainerMembers: async () => members
+      getContainerElements: () => members
     })
     const resource = sym('https://example.com/workspace/')
 
     expect(await resourceLogic.createContainer('https://example.com/workspace/new/')).toBeUndefined()
     expect(resourceLogic.isContainer(resource)).toBe(false)
     expect(resourceLogic.getContainerMemberCount(resource)).toBe(0)
-    await expect(resourceLogic.getContainerMembers(resource)).resolves.toEqual(members)
+    expect(resourceLogic.getContainerMembers(resource)).toEqual(members)
   })
 
   it('fetches resource content with its metadata', async () => {
@@ -97,7 +98,7 @@ describe('createResourceLogic', () => {
       content: '<> a <#Thing>.',
       metadata: {
         contentType: 'text/turtle',
-        access: { canEdit: true, isPublic: true },
+        access: { canEdit: true, isPublic: true, isPublicKnown: true },
         aclUri: undefined,
         eTag: '"abc"',
         modified: '2026-08-10T00:00:00Z'
@@ -208,6 +209,7 @@ describe('createResourceLogic', () => {
     expect(metadata.access).toEqual({
       canEdit: true,
       isPublic: true,
+      isPublicKnown: true,
       canDelete: false
     })
     expect(metadata.contentType).toBe('text/turtle')
@@ -239,10 +241,29 @@ describe('createResourceLogic', () => {
     expect(metadata.access).toEqual({
       canEdit: true,
       isPublic: true,
+      isPublicKnown: true,
       canDelete: false
     })
     expect(metadata.contentType).toBeUndefined()
     expect(metadata.eTag).toBe('"abc"')
+  })
+
+  it('returns unknown public access when the metadata request fails', async () => {
+    const subjectUri = 'https://example.com/workspace/doc.ttl'
+    const { resourceLogic } = buildResourceLogic({
+      webOperation: async () => {
+        throw new Error('HEAD failed')
+      }
+    })
+
+    const metadata = await resourceLogic.fetchMetadataWithDelete(sym(subjectUri))
+
+    expect(metadata.access).toEqual({
+      canEdit: false,
+      isPublic: false,
+      isPublicKnown: false,
+      canDelete: false
+    })
   })
 
   it('fetches metadata through the guarded HEAD request', async () => {

@@ -2,7 +2,7 @@ import type { SessionWithLegacyEvents } from './authSession/authSession'
 import type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan } from '@dokieli/web-access-control'
 import { LiveStore, NamedNode, Statement } from 'rdflib'
 import type { AccessControlSubject } from './acl/accessControlSubjects'
-import type { AccessRole, PublicAccessRole } from './acl/aclLogic'
+import type { AccessRole, ContainerAccessScope, PublicAccessRole } from './acl/aclLogic'
 
 export type AppDetails = {
     noun: string
@@ -84,14 +84,21 @@ export interface AclLogic {
     findAclDocUrl: (url: NamedNode) => Promise<string | undefined>,
     findEffectiveAcl: (resourceURL: string | NamedNode) => Promise<ACLContext>,
     findAccessGrants: (resourceURL: string | NamedNode) => Promise<Authorization[]>,
+    classifyContainerScope: (context: ACLContext) => ContainerAccessScope,
+    isProtectedResource: (resourceURL: string | NamedNode) => boolean,
     classifyAccessControlSubject: (principle: string) => Promise<AccessControlSubject | undefined>,
     roleFromModes: (modes: Iterable<AccessMode>) => AccessRole,
     modesFromRole: (role: AccessRole) => AccessMode[],
     publicRoleFromModes: (modes: Iterable<AccessMode>) => PublicAccessRole,
     modesFromPublicRole: (role: PublicAccessRole) => AccessMode[],
     planGrant: (resourceURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>,
+    planGrantContainer: (containerURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>,
+    planGrantContainerAndContents: (containerURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>,
+    planGrantContainerContents: (containerURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>,
+    planRevokeContainerContents: (containerURL: string | NamedNode, subject: AccessSubject) => Promise<PatchPlan>,
     planRevoke: (resourceURL: string | NamedNode, subject: AccessSubject) => Promise<PatchPlan>,
     planPublicRead: (resourceURL: string | NamedNode, enabled: boolean) => Promise<PatchPlan>,
+    resetToDefault: (resourceURL: string | NamedNode) => Promise<Response>,
     applyPlan: (plan: PatchPlan) => Promise<Response>,
     setACLUserPublic: (docURI: string, me: NamedNode,
         options: {
@@ -125,6 +132,7 @@ export type ResourceDeleteOptions = {
 
 export type ResourceAccess = {
     canEdit: boolean
+    canManageAccess: boolean
     isPublic: boolean
     /** False when the server did not provide WAC-Allow metadata. */
     isPublicKnown?: boolean

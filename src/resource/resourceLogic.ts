@@ -69,6 +69,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
   function readMetadata(subject: NamedNode, response: Response): ResourceMetadata {
     let contentType: string | undefined
     let canEdit = false
+    let canManageAccess = false
     let isPublic = false
     let isPublicKnown = false
     let eTag: string | undefined
@@ -80,6 +81,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
 
       const accessFlags = readWacAccessInfo(response.headers.get('wac-allow'))
       canEdit = accessFlags.canEdit
+      canManageAccess = accessFlags.canManageAccess
       isPublic = accessFlags.isPublic
       isPublicKnown = accessFlags.isPublicKnown
       eTag = response.headers.get('etag') ?? undefined
@@ -106,6 +108,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
             (store.anyValue(responseNode as any, ns.httph('WAC-Allow')) as string | undefined)
           const accessFlags = readWacAccessInfo(wacAllow)
           canEdit = canEdit || accessFlags.canEdit
+          canManageAccess = canManageAccess || accessFlags.canManageAccess
           isPublic = isPublic || accessFlags.isPublic
           isPublicKnown = isPublicKnown || accessFlags.isPublicKnown
           const responseETag = store.anyValue(responseNode as any, ns.httph('etag')) || undefined
@@ -118,7 +121,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     }
 
     const aclUri = store.any(subject, ACL_LINK)?.value || undefined
-    const access: ResourceAccess = { canEdit, isPublic, isPublicKnown }
+    const access: ResourceAccess = { canEdit, canManageAccess, isPublic, isPublicKnown }
     return { contentType, access, aclUri, eTag, modified }
   }
 
@@ -179,7 +182,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     } catch (_error) {
       resourceMetadata = {
         contentType: undefined,
-        access: { canEdit: false, isPublic: false },
+        access: { canEdit: false, canManageAccess: false, isPublic: false },
         aclUri: undefined,
         eTag: undefined,
         modified: undefined
@@ -189,7 +192,9 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     const canDelete = await userCanDeleteResource(subject)
     const access: ResourceAccessWithDelete = {
       canEdit: resourceMetadata.access?.canEdit ?? false,
+      canManageAccess: resourceMetadata.access?.canManageAccess ?? false,
       isPublic: resourceMetadata.access?.isPublic ?? false,
+      isPublicKnown: resourceMetadata.access?.isPublicKnown ?? false,
       canDelete
     }
     return { ...resourceMetadata, access }
