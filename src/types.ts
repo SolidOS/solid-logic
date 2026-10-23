@@ -132,7 +132,10 @@ export type ResourceDeleteOptions = {
 
 export type ResourceAccess = {
     canEdit: boolean
+    canManageAccess: boolean
     isPublic: boolean
+    /** False when the server did not provide WAC-Allow metadata. */
+    isPublicKnown?: boolean
 }
 
 export type ResourceAccessWithDelete = ResourceAccess & {
@@ -151,14 +154,25 @@ export type ResourceMetadataWithDelete = ResourceMetadata & {
     access: ResourceAccessWithDelete
 }
 
+export type ResourceContent = {
+    content: string
+    metadata: ResourceMetadata
+}
+
 export interface ResourceLogic {
     recursiveDelete: (resource: NamedNode, options?: ResourceDeleteOptions) => Promise<any>,
     deleteResourceAndTypeIndexIfExists: (resource: NamedNode, user?: NamedNode | null) => Promise<void>,
     fetchMetadata: (subject: NamedNode) => Promise<ResourceMetadata>,
     fetchMetadataWithDelete: (subject: NamedNode) => Promise<ResourceMetadataWithDelete>,
+    fetchContentAndMetadata: (subject: NamedNode) => Promise<ResourceContent>,
     createContainer: (url: string) => Promise<void>,
     isContainer: (resource: NamedNode) => boolean,
+    getContainerMembers: (resource: NamedNode) => NamedNode[],
     getContainerMemberCount: (resource: NamedNode) => number,
+    getContainerIndexThing: (container: NamedNode) => NamedNode,
+    containerHasIndexDocument: (container: NamedNode) => boolean,
+    isStorageRoot: (resource: NamedNode) => boolean,
+    isHiddenFile: (resource: NamedNode) => boolean,
     isWebId: (resource: string | NamedNode) => boolean
 }
 

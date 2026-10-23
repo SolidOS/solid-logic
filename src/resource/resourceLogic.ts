@@ -3,7 +3,7 @@ import { ACL_LINK } from '../acl/aclLogic'
 import { ns } from '../util/ns'
 import { assertSuccessfulHttpResponse, isMissingError } from './resourceHttp'
 import { readWacAccessInfo } from './resourceMetadata'
-import { type ResourceAccess, type ResourceAccessWithDelete, type ResourceDeleteOptions, type ResourceLogic, type ResourceMetadata, type ResourceMetadataWithDelete, type TypeIndexLogic } from '../types'
+import { type ResourceAccess, type ResourceAccessWithDelete, type ResourceContent, type ResourceDeleteOptions, type ResourceLogic, type ResourceMetadata, type ResourceMetadataWithDelete, type TypeIndexLogic } from '../types'
 import type { AclLogic } from '../types'
 
 export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, typeIndexLogic: TypeIndexLogic): ResourceLogic {
@@ -17,6 +17,42 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
 
   function getContainerMemberCount(resourceNode: NamedNode) {
     return containerLogic.getContainerMemberCount(resourceNode)
+  }
+
+  function getContainerMembers(resourceNode: NamedNode) {
+    return containerLogic.getContainerElements(resourceNode)
+  }
+
+  function getContainerIndexThing(containerNode: NamedNode) {
+    const folderUri = containerNode.uri.endsWith('/') ? containerNode.uri : `${containerNode.uri}/`
+    return store.sym(`${folderUri}index.ttl#this`)
+  }
+
+  function containerHasIndexDocument(containerNode: NamedNode) {
+    return store.holds(
+      containerNode,
+      ns.ldp('contains'),
+      getContainerIndexThing(containerNode).doc()
+    )
+  }
+
+  function isStorageRoot(resourceNode: NamedNode) {
+    return store.holds(
+      resourceNode,
+      ns.rdf('type'),
+      ns.space('Storage'),
+      resourceNode.doc()
+    )
+  }
+
+  function isHiddenFile(resourceNode: NamedNode) {
+    const directory = resourceNode.dir()
+    if (!directory) {
+      return false
+    }
+
+    const pathEnd = resourceNode.uri.slice(directory.uri.length)
+    return pathEnd.startsWith('.') || pathEnd.endsWith('.acl') || pathEnd.endsWith('.meta') || pathEnd.endsWith('~')
   }
 
   function isWebId(resource: string | NamedNode) {
@@ -33,7 +69,9 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
   function readMetadata(subject: NamedNode, response: Response): ResourceMetadata {
     let contentType: string | undefined
     let canEdit = false
+    let canManageAccess = false
     let isPublic = false
+    let isPublicKnown = false
     let eTag: string | undefined
     let modified: string | undefined
 
@@ -43,7 +81,9 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
 
       const accessFlags = readWacAccessInfo(response.headers.get('wac-allow'))
       canEdit = accessFlags.canEdit
+      canManageAccess = accessFlags.canManageAccess
       isPublic = accessFlags.isPublic
+      isPublicKnown = accessFlags.isPublicKnown
       eTag = response.headers.get('etag') ?? undefined
       modified = store.anyValue(subject as any, ns.dct('modified')) || store.anyValue(subject as any, ns.dc('modified')) || undefined
     }
@@ -68,7 +108,9 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
             (store.anyValue(responseNode as any, ns.httph('WAC-Allow')) as string | undefined)
           const accessFlags = readWacAccessInfo(wacAllow)
           canEdit = canEdit || accessFlags.canEdit
+          canManageAccess = canManageAccess || accessFlags.canManageAccess
           isPublic = isPublic || accessFlags.isPublic
+          isPublicKnown = isPublicKnown || accessFlags.isPublicKnown
           const responseETag = store.anyValue(responseNode as any, ns.httph('etag')) || undefined
           if (eTag === undefined) {
             eTag = responseETag
@@ -79,7 +121,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     }
 
     const aclUri = store.any(subject, ACL_LINK)?.value || undefined
-    const access: ResourceAccess = { canEdit, isPublic }
+    const access: ResourceAccess = { canEdit, canManageAccess, isPublic, isPublicKnown }
     return { contentType, access, aclUri, eTag, modified }
   }
 
@@ -111,6 +153,27 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     return fetchHeadMetadata(subject)
   }
 
+  async function fetchContentAndMetadata(subject: NamedNode): Promise<ResourceContent> {
+    try {
+      const response = await store.fetcher.webOperation('GET', subject.uri)
+      assertSuccessfulHttpResponse(response, 'GET')
+
+      const content = (response as Response & { responseText?: string }).responseText
+      if (content === undefined) {
+        throw new Error('No text in response object')
+      }
+
+      const metadata = readMetadata(subject, response)
+      if (!metadata.contentType) {
+        throw new Error('No content-type available')
+      }
+
+      return { content, metadata }
+    } catch (error) {
+      throw new Error(`Error reading file: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
   async function fetchMetadataWithDelete(subject: NamedNode): Promise<ResourceMetadataWithDelete> {
     let resourceMetadata: ResourceMetadata
 
@@ -119,7 +182,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     } catch (_error) {
       resourceMetadata = {
         contentType: undefined,
-        access: { canEdit: false, isPublic: false },
+        access: { canEdit: false, canManageAccess: false, isPublic: false },
         aclUri: undefined,
         eTag: undefined,
         modified: undefined
@@ -129,7 +192,9 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     const canDelete = await userCanDeleteResource(subject)
     const access: ResourceAccessWithDelete = {
       canEdit: resourceMetadata.access?.canEdit ?? false,
+      canManageAccess: resourceMetadata.access?.canManageAccess ?? false,
       isPublic: resourceMetadata.access?.isPublic ?? false,
+      isPublicKnown: resourceMetadata.access?.isPublicKnown ?? false,
       canDelete
     }
     return { ...resourceMetadata, access }
@@ -185,9 +250,15 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     deleteResourceAndTypeIndexIfExists,
     fetchMetadata,
     fetchMetadataWithDelete,
+    fetchContentAndMetadata,
     createContainer,
     isContainer,
+    getContainerMembers,
     getContainerMemberCount,
+    getContainerIndexThing,
+    containerHasIndexDocument,
+    isStorageRoot,
+    isHiddenFile,
     isWebId
   }
 }

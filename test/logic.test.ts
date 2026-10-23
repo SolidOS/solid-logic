@@ -89,4 +89,17 @@ describe('solidLogicSingleton fetch bridge', () => {
     expect(sessionAny.authFetch).toHaveBeenCalledTimes(1)
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it('prefers authFetch over an unauthenticated session fetch', async () => {
+    const sessionAny = authSession as any
+    setSessionIdentity('https://alice.example/profile#me')
+    sessionAny.fetch = vi.fn().mockResolvedValue(new Response('unauthenticated'))
+    sessionAny.authFetch = vi.fn().mockResolvedValue(new Response('authenticated'))
+
+    const response = await singletonFetch('https://example.com/resource')
+
+    expect(await response.text()).toBe('authenticated')
+    expect(sessionAny.authFetch).toHaveBeenCalledTimes(1)
+    expect(sessionAny.fetch).not.toHaveBeenCalled()
+  })
 })

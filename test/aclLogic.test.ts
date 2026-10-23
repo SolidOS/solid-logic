@@ -793,6 +793,7 @@ describe('createAclLogic', () => {
     })
 
     await expect(aclLogic.classifyAccessControlSubject('https://example.com/?tenant=a')).resolves.toBeUndefined()
+    await expect(aclLogic.classifyAccessControlSubject('https://user:password@example.com/')).resolves.toBeUndefined()
     await expect(aclLogic.classifyAccessControlSubject('file:///')).resolves.toBeUndefined()
   })
 
