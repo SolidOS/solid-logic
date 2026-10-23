@@ -15,9 +15,9 @@ const _fetch = async (url, requestInit) => {
         : (sessionAny?.info?.webId || sessionAny?.webId)
     if (sessionWebId && !omitCreds) { // see https://github.com/solidos/solidos/issues/114
         // In fact fetch should respect credentials omit itself
-        const authenticatedFetch = (typeof sessionAny.fetch === 'function')
-            ? sessionAny.fetch.bind(sessionAny)
-            : (typeof sessionAny.authFetch === 'function' ? sessionAny.authFetch.bind(sessionAny) : null)
+        const authenticatedFetch = (typeof sessionAny.authFetch === 'function')
+            ? sessionAny.authFetch.bind(sessionAny)
+            : (typeof sessionAny.fetch === 'function' ? sessionAny.fetch.bind(sessionAny) : null)
         if (authenticatedFetch) {
             return authenticatedFetch(url, requestInit)
         }
