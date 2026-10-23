@@ -98,7 +98,7 @@ describe('createResourceLogic', () => {
       content: '<> a <#Thing>.',
       metadata: {
         contentType: 'text/turtle',
-        access: { canEdit: true, isPublic: true, isPublicKnown: true },
+        access: { canEdit: true, canManageAccess: false, isPublic: true, isPublicKnown: true },
         aclUri: undefined,
         eTag: '"abc"',
         modified: '2026-08-10T00:00:00Z'
@@ -208,6 +208,7 @@ describe('createResourceLogic', () => {
 
     expect(metadata.access).toEqual({
       canEdit: true,
+      canManageAccess: false,
       isPublic: true,
       isPublicKnown: true,
       canDelete: false
@@ -240,6 +241,7 @@ describe('createResourceLogic', () => {
 
     expect(metadata.access).toEqual({
       canEdit: true,
+      canManageAccess: false,
       isPublic: true,
       isPublicKnown: true,
       canDelete: false
@@ -260,6 +262,7 @@ describe('createResourceLogic', () => {
 
     expect(metadata.access).toEqual({
       canEdit: false,
+      canManageAccess: false,
       isPublic: false,
       isPublicKnown: false,
       canDelete: false
