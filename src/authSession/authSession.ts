@@ -13,6 +13,7 @@
 import type { Session as OidcSession } from '@uvdsl/solid-oidc-client-browser/core'
 import { _session } from './session'
 import { resolveIssuerForLogin } from './issuer'
+import { loginCallbackUrl } from './loginCallback'
 import { SessionEvents } from './events'
 import { legacySessionInfo, restoreSession, subscribeIdentity, type SessionLike } from './identityState'
 
@@ -72,18 +73,21 @@ const originalLogin = typeof sessionAny.login === 'function'
   : undefined
 
 if (originalLogin) {
+  // Container and root callbacks are moved to a child path; see loginCallback.ts.
+  const callbackUrl = (redirectUrl?: string) =>
+    typeof redirectUrl === 'string' ? loginCallbackUrl(redirectUrl) : redirectUrl
   const compatLogin = async (idpOrOptions: any, redirectUri?: string): Promise<unknown> => {
     if (idpOrOptions && typeof idpOrOptions === 'object' && !Array.isArray(idpOrOptions)) {
       const oidcIssuer = idpOrOptions.oidcIssuer ?? idpOrOptions.idp ?? idpOrOptions.issuer
       const redirectUrl = idpOrOptions.redirectUrl ?? idpOrOptions.redirect_uri ?? idpOrOptions.redirectUri
       if (typeof oidcIssuer === 'string' && typeof redirectUrl === 'string') {
-        return originalLogin(await resolveIssuerForLogin(oidcIssuer), redirectUrl)
+        return originalLogin(await resolveIssuerForLogin(oidcIssuer), callbackUrl(redirectUrl))
       }
     }
     if (typeof idpOrOptions === 'string') {
-      return originalLogin(await resolveIssuerForLogin(idpOrOptions), redirectUri)
+      return originalLogin(await resolveIssuerForLogin(idpOrOptions), callbackUrl(redirectUri))
     }
-    return originalLogin(idpOrOptions, redirectUri)
+    return originalLogin(idpOrOptions, callbackUrl(redirectUri))
   }
   sessionAny.login = compatLogin as LoginCompat
 }

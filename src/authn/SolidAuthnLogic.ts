@@ -1,6 +1,7 @@
 import { namedNode, NamedNode, sym } from 'rdflib'
 import { appContext, offlineTestID } from './authUtil'
 import * as debug from '../util/debug'
+import { restorePageAfterLoginCallback } from '../authSession/loginCallback'
 import {
   effectiveIdentity,
   restoreSession,
@@ -144,62 +145,69 @@ export class SolidAuthnLogic implements AuthnLogic {
   private async resolveCurrentUser (): Promise<NamedNode | null> {
     const sessionAny = this.session as any
 
-    /**
-     * Handle a successful authentication redirect
-     */
-    const redirectUrl = new URL(window.location.href)
-    redirectUrl.hash = ''
-    if (typeof sessionAny?.handleIncomingRedirect === 'function') {
-      await sessionAny.handleIncomingRedirect({
-        restorePreviousSession: true,
-        url: redirectUrl.href
-      })
-    } else {
-      // uvdsl-style session (no handleIncomingRedirect): restore then handle redirect.
-      //
-      // The worker-backed session (WebWorkerSession) resolves restore() ONLY
-      // when the SharedWorker posts a message back. If the worker asset can't
-      // be fetched — local/dev servers that don't serve the RefreshWorker
-      // chunk at the resolved URL, wrong MIME type, CSP, or a worker that
-      // fails before `onconnect` — the promise never settles and the login
-      // UI would spin forever. Race it against a timeout and treat a stall
-      // as "no previous session" so the page can render the login button.
-      const wasActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
-      // The shared restore lock also covers this call: a refocus resync can be
-      // in flight at the same time, and two overlapping restores could write an
-      // older identity back over a newer one.
-      const restoring = restoreSession(sessionAny)
-      if (restoring) {
-        try {
-          await withRestoreTimeout(restoring)
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          // A failed restore on an inactive session just means "no usable
-          // session to restore" — whether that's "No session to restore.",
-          // a stale refresh token / dead client_id returning HTTP 400, or a
-          // missing session database. Never let it block the login UI: log
-          // and continue as logged-out so the page renders the login button.
-          // Only re-throw when the session actually became active, which is
-          // an unexpected refresh failure worth surfacing.
-          const isNowActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
-          if (isNowActive && !/no session to restore/i.test(message)) {
-            throw error
-          }
-          debug.log(`Session restore failed, continuing logged-out: ${message}`)
-        }
-        const isNowActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
-        if (!wasActive && isNowActive) {
-          sessionAny.events?.emit('sessionRestore', window.location.href)
-        }
-      }
-      if (typeof sessionAny?.handleRedirectFromLogin === 'function') {
+    try {
+      /**
+       * Handle a successful authentication redirect
+       */
+      const redirectUrl = new URL(window.location.href)
+      redirectUrl.hash = ''
+      if (typeof sessionAny?.handleIncomingRedirect === 'function') {
+        await sessionAny.handleIncomingRedirect({
+          restorePreviousSession: true,
+          url: redirectUrl.href
+        })
+      } else {
+        // uvdsl-style session (no handleIncomingRedirect): restore then handle redirect.
+        //
+        // The worker-backed session (WebWorkerSession) resolves restore() ONLY
+        // when the SharedWorker posts a message back. If the worker asset can't
+        // be fetched — local/dev servers that don't serve the RefreshWorker
+        // chunk at the resolved URL, wrong MIME type, CSP, or a worker that
+        // fails before `onconnect` — the promise never settles and the login
+        // UI would spin forever. Race it against a timeout and treat a stall
+        // as "no previous session" so the page can render the login button.
         const wasActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
-        await sessionAny.handleRedirectFromLogin()
-        const isNowActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
-        if (!wasActive && isNowActive) {
-          sessionAny.events?.emit('login')
+        // The shared restore lock also covers this call: a refocus resync can be
+        // in flight at the same time, and two overlapping restores could write an
+        // older identity back over a newer one.
+        const restoring = restoreSession(sessionAny)
+        if (restoring) {
+          try {
+            await withRestoreTimeout(restoring)
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            // A failed restore on an inactive session just means "no usable
+            // session to restore" — whether that's "No session to restore.",
+            // a stale refresh token / dead client_id returning HTTP 400, or a
+            // missing session database. Never let it block the login UI: log
+            // and continue as logged-out so the page renders the login button.
+            // Only re-throw when the session actually became active, which is
+            // an unexpected refresh failure worth surfacing.
+            const isNowActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
+            if (isNowActive && !/no session to restore/i.test(message)) {
+              throw error
+            }
+            debug.log(`Session restore failed, continuing logged-out: ${message}`)
+          }
+          const isNowActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
+          if (!wasActive && isNowActive) {
+            sessionAny.events?.emit('sessionRestore', window.location.href)
+          }
+        }
+        if (typeof sessionAny?.handleRedirectFromLogin === 'function') {
+          const wasActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
+          await sessionAny.handleRedirectFromLogin()
+          const isNowActive = sessionAny?.isActive ?? Boolean(sessionAny?.webId)
+          if (!wasActive && isNowActive) {
+            sessionAny.events?.emit('login')
+          }
         }
       }
+
+    } finally {
+      // A container or root login came back on its callback path (see loginCallback.ts);
+      // show the original URL again before the page decides what to display.
+      restorePageAfterLoginCallback()
     }
 
     // Check to see if a hash was stored in local storage
