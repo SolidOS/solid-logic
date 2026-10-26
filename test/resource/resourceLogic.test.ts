@@ -17,6 +17,7 @@ function buildResourceLogic(overrides: {
     fetcher: {
       webOperation: vi.fn(overrides.webOperation ?? (async () => { throw new Error('unexpected webOperation') })),
       _fetch: vi.fn(async (..._args: any[]) => ({ ok: true })),
+      getHeader: vi.fn().mockReturnValue([]),
       load: vi.fn(),
       unload: vi.fn()
     },
@@ -28,6 +29,7 @@ function buildResourceLogic(overrides: {
     any: vi.fn().mockReturnValue(undefined),
     holds: vi.fn().mockReturnValue(false),
     each: vi.fn().mockReturnValue([]),
+    findTypeURIs: vi.fn().mockReturnValue({}),
     removeMatches: vi.fn(),
     removeDocument: vi.fn(),
     sym
@@ -142,6 +144,35 @@ describe('createResourceLogic', () => {
     expect(resourceLogic.isHiddenFile(sym('https://example.com/workspace/file.meta'))).toBe(true)
     expect(resourceLogic.isHiddenFile(sym('https://example.com/workspace/file~'))).toBe(true)
     expect(resourceLogic.isHiddenFile(sym('https://example.com/workspace/file.ttl'))).toBe(false)
+  })
+
+  it('recognizes media from RDF types and cached content-type headers without fetching', () => {
+    const { resourceLogic, store } = buildResourceLogic()
+    const image = sym('https://example.com/workspace/image.png')
+    const audio = sym('https://example.com/workspace/audio.mp3')
+    const video = sym('https://example.com/workspace/video.mp4')
+
+    store.fetcher.getHeader.mockImplementation((resource: any) => {
+      if (resource.uri === image.uri) return ['image/png; charset=binary']
+      if (resource.uri === audio.uri) return ['audio/mpeg']
+      return []
+    })
+
+    expect(resourceLogic.isImage(image)).toBe(true)
+    expect(resourceLogic.isAudio(audio)).toBe(true)
+    expect(resourceLogic.isVideo(video)).toBe(false)
+    expect(store.fetcher.webOperation).not.toHaveBeenCalled()
+  })
+
+  it('recognizes RDF media types when no content-type header is cached', () => {
+    const { resourceLogic, store } = buildResourceLogic()
+    const image = sym('https://example.com/workspace/image')
+    store.findTypeURIs.mockReturnValue({
+      'http://purl.org/dc/dcmitype/Image': true
+    })
+
+    expect(resourceLogic.isImage(image)).toBe(true)
+    expect(store.fetcher.webOperation).not.toHaveBeenCalled()
   })
 
   it('builds index resources consistently for containers with or without a trailing slash', () => {

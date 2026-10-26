@@ -173,6 +173,10 @@ export interface ResourceLogic {
     containerHasIndexDocument: (container: NamedNode) => boolean,
     isStorageRoot: (resource: NamedNode) => boolean,
     isHiddenFile: (resource: NamedNode) => boolean,
+    isMediaType: (resource: NamedNode, mediaType: string) => boolean,
+    isImage: (resource: NamedNode) => boolean,
+    isAudio: (resource: NamedNode) => boolean,
+    isVideo: (resource: NamedNode) => boolean,
     isWebId: (resource: string | NamedNode) => boolean
 }
 

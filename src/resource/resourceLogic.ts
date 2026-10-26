@@ -1,4 +1,4 @@
-import { NamedNode, sym } from 'rdflib'
+import { NamedNode, sym, Util } from 'rdflib'
 import { ACL_LINK } from '../acl/aclLogic'
 import { ns } from '../util/ns'
 import { assertSuccessfulHttpResponse, isMissingError } from './resourceHttp'
@@ -53,6 +53,42 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
 
     const pathEnd = resourceNode.uri.slice(directory.uri.length)
     return pathEnd.startsWith('.') || pathEnd.endsWith('.acl') || pathEnd.endsWith('.meta') || pathEnd.endsWith('~')
+  }
+
+  function isMediaType(resourceNode: NamedNode, mediaType: string) {
+    const typeURIs = store.findTypeURIs(resourceNode as any)
+    const normalizedMediaType = mediaType.toLowerCase()
+    const mediaTypePrefix = Util.mediaTypeClass(`${normalizedMediaType}/*`).uri.split('*')[0]
+
+    if (Object.keys(typeURIs).some(typeURI => typeURI.startsWith(mediaTypePrefix))) {
+      return true
+    }
+
+    const mediaTypeClasses: Record<string, string> = {
+      audio: 'http://purl.org/dc/dcmitype/Sound',
+      image: 'http://purl.org/dc/dcmitype/Image',
+      video: 'http://purl.org/dc/dcmitype/MovingImage'
+    }
+    if (mediaTypeClasses[normalizedMediaType] in typeURIs) {
+      return true
+    }
+
+    const contentTypes = store.fetcher.getHeader(resourceNode, 'content-type') || []
+    return contentTypes.some((contentType: string) =>
+      contentType.split(';', 1)[0].trim().toLowerCase().startsWith(`${normalizedMediaType}/`)
+    )
+  }
+
+  function isImage(resourceNode: NamedNode) {
+    return isMediaType(resourceNode, 'image')
+  }
+
+  function isAudio(resourceNode: NamedNode) {
+    return isMediaType(resourceNode, 'audio')
+  }
+
+  function isVideo(resourceNode: NamedNode) {
+    return isMediaType(resourceNode, 'video')
   }
 
   function isWebId(resource: string | NamedNode) {
@@ -259,6 +295,10 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     containerHasIndexDocument,
     isStorageRoot,
     isHiddenFile,
+    isMediaType,
+    isImage,
+    isAudio,
+    isVideo,
     isWebId
   }
 }
