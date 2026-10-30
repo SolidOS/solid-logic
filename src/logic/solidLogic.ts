@@ -14,6 +14,7 @@ import { createContainerLogic } from '../util/containerLogic'
 import { createUtilityLogic } from '../util/utilityLogic'
 import type { AuthnLogic, SolidLogic } from '../types'
 import * as debug from '../util/debug'
+import { shareConcurrentLoads } from '../util/shareConcurrentLoads'
 /*
 ** It is important to distinquish `fetch`, a function provided by the browser
 ** and `Fetcher`, a helper object for the rdflib Store which turns it
@@ -25,13 +26,14 @@ export function createSolidLogic(specialFetch: { fetch: (url: any, requestInit: 
     debug.log('SolidLogic: Unique instance created.  There should only be one of these.')
     const store: LiveStore = rdf.graph() as LiveStore
     rdf.fetcher(store, {fetch: specialFetch.fetch}) // Attach a web I/O module, store.fetcher
+    const invalidateSharedLoads = shareConcurrentLoads(store.fetcher)
     store.updater = new rdf.UpdateManager(store) // Add real-time live updates store.updater
     store.features = [] // disable automatic node merging on store load
     // Whose credentials a request would carry changed: mark every recorded
     // response out-of-date so editability answers "unknown" instead of the
     // previous identity's access. Decision points repair with
     // ensureDocumentAuthorization() (see flagAuthorizationOnTransitions.ts).
-    const unsubscribeAuthorization = flagAuthorizationOnSessionTransitions(store, session)
+    const unsubscribeAuthorization = flagAuthorizationOnSessionTransitions(store, session, invalidateSharedLoads)
 
     const authn: AuthnLogic = new SolidAuthnLogic(session)
 
