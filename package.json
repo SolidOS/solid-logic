@@ -55,6 +55,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
     "vitest": "^4.1.9",
+    "vite": "^8.0.16",
     "jsdom": "^21.1.0",
     "rdflib": "^2.4.1",
     "ts-loader": "^9.6.1",
@@ -66,9 +67,7 @@
   "dependencies": {
     "@dokieli/web-access-control": "^1.1.0",
     "@uvdsl/solid-oidc-client-browser": "^0.2.3",
-    "solid-namespace": "^0.5.4",
-    "vite": "^8.0.16",
-    "vitest": "^4.1.9"
+    "solid-namespace": "^0.5.4"
   },
   "solidosDependencies": [
     "rdflib"
