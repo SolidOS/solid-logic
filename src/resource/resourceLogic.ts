@@ -55,7 +55,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
             }
           }
 
-          const folderName = file.type.startsWith('image/') ? imageBase || fileBase : fileBase
+          const folderName = contentType.startsWith('image/') ? imageBase || fileBase : fileBase
           const destUri = `${folderName}${folderName.endsWith('/') ? '' : '/'}${encodeURIComponent(file.name)}${suffix}`
 
           store.fetcher.webOperation('PUT', destUri, { data, contentType }).then(
