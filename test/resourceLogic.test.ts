@@ -154,13 +154,12 @@ describe('resourceLogic', () => {
     expect(resourceLogic.isWebId(sym('https://alice.example.com/profile/card.jsonld#me'))).toBe(false)
   })
 
-  it('uploads image files to the image folder and adds the MIME extension when needed', async () => {
+  it('uploads image files to the destination and adds the MIME extension when needed', async () => {
     const resourceLogic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
     const file = new File(['image'], 'photo', { type: 'image/jpeg' })
 
     const [result] = await resourceLogic.uploadFiles(
       [file],
-      'https://example.com/files/',
       'https://example.com/images/'
     )
 
@@ -195,8 +194,7 @@ describe('resourceLogic', () => {
 
     const results = await resourceLogic.uploadFiles(
       [quotaFile, successfulFile, unknownErrorFile, unknownTypeFile],
-      'https://example.com/files',
-      'https://example.com/images'
+      'https://example.com/files'
     )
 
     expect(results[0]).toMatchObject({

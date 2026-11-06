@@ -10,8 +10,7 @@ import * as mime from 'mime-types'
 export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, typeIndexLogic: TypeIndexLogic): ResourceLogic {
   function uploadFiles (
     files: File[],
-    fileBase: string,
-    imageBase: string
+    destination: string
   ): Promise<ResourceUploadResult[]> {
     const getUploadError = (destUri: string | undefined, error: unknown) => {
       const uploadError = typeof error === 'object' && error !== null
@@ -55,11 +54,12 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
             }
           }
 
-          const folderName = contentType.startsWith('image/') ? imageBase || fileBase : fileBase
-          const destUri = `${folderName}${folderName.endsWith('/') ? '' : '/'}${encodeURIComponent(file.name)}${suffix}`
+          const destUri = `${destination}${destination.endsWith('/') ? '' : '/'}${encodeURIComponent(file.name)}${suffix}`
 
           store.fetcher.webOperation('PUT', destUri, { data, contentType }).then(
-            () => resolve({ success: true, file, uploadedUri: destUri }),
+            response => resolve(response.ok
+              ? { success: true, file, uploadedUri: destUri }
+              : { success: false, file, error: new ResourceUploadError(`HTTP error on PUT! Status: ${response.status}`, destUri, response.status) }),
             error => resolve({ success: false, file, error: getUploadError(destUri, error) })
           )
         } catch (error) {

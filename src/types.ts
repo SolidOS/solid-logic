@@ -177,8 +177,7 @@ export type ResourceContent = {
 export interface ResourceLogic {
     uploadFiles: (
         files: File[],
-        fileBase: string,
-        imageBase: string
+        destination: string
     ) => Promise<ResourceUploadResult[]>,
     recursiveDelete: (resource: NamedNode, options?: ResourceDeleteOptions) => Promise<any>,
     deleteResourceAndTypeIndexIfExists: (resource: NamedNode, user?: NamedNode | null) => Promise<void>,
