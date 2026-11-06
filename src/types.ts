@@ -154,12 +154,32 @@ export type ResourceMetadataWithDelete = ResourceMetadata & {
     access: ResourceAccessWithDelete
 }
 
+export class ResourceUploadError extends Error {
+    constructor(
+        message: string,
+        public readonly destinationUri?: string,
+        public readonly status?: number
+    ) {
+        super(message)
+        this.name = 'ResourceUploadError'
+    }
+}
+
+export type ResourceUploadResult =
+    | { success: true, file: File, uploadedUri: string }
+    | { success: false, file: File, error: ResourceUploadError }
+
 export type ResourceContent = {
     content: string
     metadata: ResourceMetadata
 }
 
 export interface ResourceLogic {
+    uploadFiles: (
+        files: File[],
+        fileBase: string,
+        imageBase: string
+    ) => Promise<ResourceUploadResult[]>,
     recursiveDelete: (resource: NamedNode, options?: ResourceDeleteOptions) => Promise<any>,
     deleteResourceAndTypeIndexIfExists: (resource: NamedNode, user?: NamedNode | null) => Promise<void>,
     fetchMetadata: (subject: NamedNode) => Promise<ResourceMetadata>,

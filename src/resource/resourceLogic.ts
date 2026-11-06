@@ -3,10 +3,89 @@ import { ACL_LINK } from '../acl/aclLogic'
 import { ns } from '../util/ns'
 import { assertSuccessfulHttpResponse, isMissingError } from './resourceHttp'
 import { readWacAccessInfo } from './resourceMetadata'
-import { type ResourceAccess, type ResourceAccessWithDelete, type ResourceContent, type ResourceDeleteOptions, type ResourceLogic, type ResourceMetadata, type ResourceMetadataWithDelete, type TypeIndexLogic } from '../types'
+import { ResourceUploadError, type ResourceAccess, type ResourceAccessWithDelete, type ResourceContent, type ResourceDeleteOptions, type ResourceLogic, type ResourceMetadata, type ResourceMetadataWithDelete, type ResourceUploadResult, type TypeIndexLogic } from '../types'
 import type { AclLogic } from '../types'
+import * as mime from 'mime-types'
 
 export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, typeIndexLogic: TypeIndexLogic): ResourceLogic {
+  function uploadFiles (
+    files: File[],
+    fileBase: string,
+    imageBase: string
+  ): Promise<ResourceUploadResult[]> {
+    const getUploadError = (destUri: string | undefined, error: unknown) => {
+      const uploadError = typeof error === 'object' && error !== null
+        ? error as { response?: { status?: unknown }, status?: unknown, message?: unknown }
+        : undefined
+      const responseStatus = uploadError?.response?.status
+      const directStatus = uploadError?.status
+      const status = typeof responseStatus === 'number'
+        ? responseStatus
+        : typeof directStatus === 'number' ? directStatus : undefined
+      const message = error instanceof Error
+        ? error.message
+        : typeof uploadError?.message === 'string'
+          ? uploadError.message
+          : typeof error === 'string' ? error : 'Upload failed'
+      return new ResourceUploadError(message, destUri, status)
+    }
+
+    const upload = (file: File): Promise<ResourceUploadResult> => new Promise<ResourceUploadResult>(resolve => {
+      const reader = new FileReader()
+      reader.onload = event => {
+        try {
+          const data = event.target?.result
+          if (!(data instanceof ArrayBuffer)) {
+            resolve({ success: false, file, error: getUploadError(undefined, new Error('Unable to read file as an ArrayBuffer')) })
+            return
+          }
+
+          let suffix = ''
+          let contentType = file.type
+          if (!contentType) {
+            contentType = mime.lookup(file.name) || ''
+            if (!contentType) {
+              resolve({ success: false, file, error: getUploadError(undefined, new Error('Filename has no recognized content type')) })
+              return
+            }
+          } else {
+            const extension = mime.extension(file.type)
+            if (extension && extension !== 'false' && !file.name.endsWith(`.${extension}`) && file.type !== mime.lookup(file.name)) {
+              suffix = `_.${extension}`
+            }
+          }
+
+          const folderName = file.type.startsWith('image/') ? imageBase || fileBase : fileBase
+          const destUri = `${folderName}${folderName.endsWith('/') ? '' : '/'}${encodeURIComponent(file.name)}${suffix}`
+
+          store.fetcher.webOperation('PUT', destUri, { data, contentType }).then(
+            () => resolve({ success: true, file, uploadedUri: destUri }),
+            error => resolve({ success: false, file, error: getUploadError(destUri, error) })
+          )
+        } catch (error) {
+          resolve({ success: false, file, error: getUploadError(undefined, error) })
+        }
+      }
+      reader.onerror = () => {
+        resolve({ success: false, file, error: getUploadError(undefined, new Error('Unable to read file')) })
+      }
+      reader.onabort = () => {
+        resolve({ success: false, file, error: getUploadError(undefined, new Error('File reading was aborted')) })
+      }
+      try {
+        reader.readAsArrayBuffer(file)
+      } catch (error) {
+        resolve({ success: false, file, error: getUploadError(undefined, error) })
+      }
+    }).catch(error => ({
+      success: false as const,
+      file,
+      error: getUploadError(undefined, error)
+    }))
+
+    return Promise.all(files.map(upload))
+  }
+
   function createContainer(url: string) {
     return containerLogic.createContainer(url)
   }
@@ -282,6 +361,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
   }
 
   return {
+    uploadFiles,
     recursiveDelete,
     deleteResourceAndTypeIndexIfExists,
     fetchMetadata,

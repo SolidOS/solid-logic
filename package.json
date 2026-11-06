@@ -1,6 +1,6 @@
 {
   "name": "solid-logic",
-  "version": "6.0.1-5",
+  "version": "6.0.1-6",
   "description": "Core business logic of SolidOS",
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
@@ -67,6 +67,7 @@
   "dependencies": {
     "@dokieli/web-access-control": "^1.1.0",
     "@uvdsl/solid-oidc-client-browser": "^0.2.3",
+    "mime-types": "^3.0.2",
     "solid-namespace": "^0.5.4"
   },
   "solidosDependencies": [
