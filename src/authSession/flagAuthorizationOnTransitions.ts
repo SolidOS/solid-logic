@@ -69,7 +69,8 @@ function invalidate (store: AuthorizationStore): boolean {
  */
 export function flagAuthorizationOnSessionTransitions (
   store: TransitionStore,
-  session: SessionLike
+  session: SessionLike,
+  onIdentityTransition?: () => void
 ): () => void {
   const onTransition = (): void => {
     const state = storeState(store)
@@ -77,6 +78,7 @@ export function flagAuthorizationOnSessionTransitions (
     // under the previous identity is suspect from here on.
     state.generation += 1
     state.invalidationFailed = !invalidate(store)
+    onIdentityTransition?.()
   }
   const subscription = subscribeIdentity(session, { onTransition })
   return () => subscription.unsubscribe()
