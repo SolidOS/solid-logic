@@ -96,8 +96,8 @@ describe('resourceLogic', () => {
     expect(store.fetcher._fetch).toHaveBeenCalledWith(member.value, { method: 'DELETE' })
     expect(store.fetcher._fetch).toHaveBeenCalledWith(container.value, { method: 'DELETE' })
     expect(store.removeMatches).toHaveBeenCalledTimes(2)
-    expect(store.removeMatches).toHaveBeenNthCalledWith(1, container, sym('http://www.w3.org/ns/ldp#contains'), member, container.doc())
-    expect(store.removeMatches).toHaveBeenNthCalledWith(2, sym('https://example.com/'), sym('http://www.w3.org/ns/ldp#contains'), container, sym('https://example.com/').doc())
+    expect(store.removeMatches).toHaveBeenNthCalledWith(1, container, sym('http://www.w3.org/ns/ldp#contains'), member)
+    expect(store.removeMatches).toHaveBeenNthCalledWith(2, sym('https://example.com/'), sym('http://www.w3.org/ns/ldp#contains'), container)
     expect(store.removeDocument).toHaveBeenCalledWith(member)
     expect(store.removeDocument).toHaveBeenCalledWith(container)
   })
@@ -123,6 +123,21 @@ describe('resourceLogic', () => {
 
     await expect(resourceLogic.recursiveDelete(resource)).resolves.toBeUndefined()
     expect(store.removeDocument).toHaveBeenCalledWith(resource)
+  })
+
+  it('surfaces document cleanup failures instead of reporting success', async () => {
+    const resourceLogic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    const resource = sym('https://example.com/resource.ttl')
+
+    containerLogic.isContainer.mockReturnValue(false)
+    store.removeDocument.mockImplementation(() => {
+      throw new Error(
+        'Statement to be removed is not on store: <https://example.com/resource.ttl> <http://www.w3.org/2007/ont/link#uri> "https://example.com/resource.ttl"'
+      )
+    })
+
+    await expect(resourceLogic.recursiveDelete(resource)).rejects.toThrow('Statement to be removed is not on store:')
+    expect(store.fetcher.unload).not.toHaveBeenCalled()
   })
 
   it('recognizes only profile-card.ttl WebIDs', () => {
