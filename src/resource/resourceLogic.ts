@@ -269,7 +269,7 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
     }
 
     if (resourceParent) {
-      store.removeMatches(resourceParent, ns.ldp('contains'), resourceNode, resourceParent.doc())
+      store.removeMatches(resourceParent, ns.ldp('contains'), resourceNode)
     }
 
     store.removeDocument(resourceNode)
