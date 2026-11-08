@@ -47,7 +47,7 @@ describe('social profile reads', () => {
     expect(socialAccountHomepage(store, account)).toBe('https://www.github.com/octocat')
   })
 
-  it('deduplicates named accounts while retaining accounts without a name', () => {
+  it('retains distinct account nodes even when names match', () => {
     const store = graph()
     const duplicateOne = sym('https://example.test/accounts/duplicate-one')
     const duplicateTwo = sym('https://example.test/accounts/duplicate-two')
@@ -62,6 +62,7 @@ describe('social profile reads', () => {
 
     expect(getSocialAccounts(subject, store).accounts.map(account => account.sourceNode.value)).toEqual([
       duplicateOne.value,
+      duplicateTwo.value,
       unnamedOne.value,
       unnamedTwo.value
     ])

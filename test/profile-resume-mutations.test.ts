@@ -84,6 +84,10 @@ describe('Resume selectors and mutations', () => {
 
     expect(organizationTypeValues).toContain(ns.vcard('Organization').value)
     expect(organizationTypeValues).toContain(ns.schema('Corporation').value)
+    expect(insertionsCaptured.find((statement) =>
+      statement.subject.value === organizationNode.value &&
+      statement.predicate.value === ns.schema('uri').value
+    )?.object.termType).toBe('NamedNode')
     expect(insertionsCaptured.some((statement) =>
       statement.subject.value === organizationNode.value &&
       statement.predicate.value === ns.org('classification').value
@@ -198,6 +202,106 @@ describe('Resume selectors and mutations', () => {
     expect(roles[0].orgPublicId).toBe(publicId.value)
   })
 
+  it('does not write the occupation presentation prefix back into the role title', async () => {
+    const store = graph() as any
+    const subject = sym('https://example.com/profile/card#me')
+    const doc = subject.doc()
+    const membership = sym('https://example.com/profile/card#role')
+    const occupation = sym('https://example.com/catalog/occupation/software-developer')
+
+    store.add(membership, ns.org('member'), subject, doc)
+    store.add(membership, ns.rdf('type'), ns.solid('CurrentRole'), doc)
+    store.add(membership, ns.vcard('role'), literal('Engineer'), doc)
+    store.add(membership, ns.org('role'), occupation, doc)
+    store.add(occupation, ns.schema('name'), literal('Software Developer'), doc)
+    store.updater = {
+      update: (deletions: any[], insertions: any[], callback: Function) => {
+        deletions.forEach((statement) => store.remove(statement))
+        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
+        callback('', true)
+      }
+    }
+
+    const row = presentCV(subject, store)[0]
+    expect(row.title).toBe('Software Developer - Engineer')
+
+    await processResumeMutations(store, subject, {
+      create: [],
+      remove: [],
+      update: [{ ...row, sourceNode: membership.value, status: 'modified' }]
+    } as any)
+
+    expect(store.any(membership, ns.vcard('role'), null, doc)?.value).toBe('Engineer')
+    expect(presentCV(subject, store)[0].title).toBe('Software Developer - Engineer')
+  })
+
+  it('preserves an organization still referenced by another membership', async () => {
+    const store = graph() as any
+    const subject = sym('https://example.com/profile/card#me')
+    const doc = subject.doc()
+    const membership = sym('https://example.com/profile/card#role')
+    const otherMembership = sym('https://example.com/profile/card#other-role')
+    const organization = sym('https://example.com/profile/card#organization')
+
+    for (const roleNode of [membership, otherMembership]) {
+      store.add(roleNode, ns.org('member'), subject, doc)
+      store.add(roleNode, ns.rdf('type'), ns.solid('CurrentRole'), doc)
+      store.add(roleNode, ns.org('organization'), organization, doc)
+    }
+    store.add(membership, ns.vcard('role'), literal('Engineer'), doc)
+    store.add(otherMembership, ns.vcard('role'), literal('Manager'), doc)
+    store.add(organization, ns.rdf('type'), ns.vcard('Organization'), doc)
+    store.add(organization, ns.schema('name'), literal('Shared Company'), doc)
+
+    store.updater = {
+      update: (deletions: any[], insertions: any[], callback: Function) => {
+        deletions.forEach((statement) => store.remove(statement))
+        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
+        callback('', true)
+      }
+    }
+
+    const row = presentCV(subject, store).find((item) => item.sourceNode.equals(membership))
+    expect(row).toBeTruthy()
+    await processResumeMutations(store, subject, {
+      create: [],
+      remove: [],
+      update: [{ ...row, sourceNode: membership.value, title: 'Senior Engineer', status: 'modified' }]
+    } as any)
+
+    expect(store.holds(otherMembership, ns.org('organization'), organization, doc)).toBe(true)
+    expect(store.any(organization, ns.schema('name'), null, doc)?.value).toBe('Shared Company')
+    expect(store.holds(membership, ns.org('organization'), organization, doc)).toBe(true)
+  })
+
+  it('deduplicates membership and linked-organization deletions', async () => {
+    const store = graph() as any
+    const subject = sym('https://example.com/profile/card#me')
+    const doc = subject.doc()
+    const membership = sym('https://example.com/profile/card#role')
+    const organization = sym('https://example.com/profile/card#organization')
+    const deletionsCaptured: any[] = []
+
+    store.add(membership, ns.org('member'), subject, doc)
+    store.add(membership, ns.org('organization'), organization, doc)
+    store.add(membership, ns.vcard('role'), literal('Engineer'), doc)
+    store.add(organization, ns.schema('name'), literal('Company'), doc)
+    store.updater = {
+      update: (deletions: any[], _insertions: any[], callback: Function) => {
+        deletionsCaptured.push(...deletions)
+        callback('', true)
+      }
+    }
+
+    await processResumeMutations(store, subject, {
+      create: [],
+      update: [],
+      remove: [{ sourceNode: membership.value, status: 'deleted' }]
+    } as any)
+
+    expect(new Set(deletionsCaptured.map((statement) => statement.toNT())).size).toBe(deletionsCaptured.length)
+  })
+
   it('does not write role classes as organization rdf:type', async () => {
     const store = graph() as any
     const subject = sym('https://example.com/profile/card#me')
@@ -291,7 +395,7 @@ describe('Resume selectors and mutations', () => {
     expect(publicIdStatement?.object.value).toBe('https://example.com/catalog/org/nasa')
   })
 
-  it('removes stale blank-node membership and organization statements during update', async () => {
+  it('migrates blank-node memberships without losing linked or extra data', async () => {
     const store = graph() as any
     const subject = sym('https://example.com/profile/card#me')
     const doc = subject.doc()
@@ -301,6 +405,8 @@ describe('Resume selectors and mutations', () => {
     store.add(oldMembership, ns.org('member'), subject, doc)
     store.add(oldMembership, ns.rdf('type'), ns.solid('PastRole'), doc)
     store.add(oldMembership, ns.vcard('role'), literal('Old role'), doc)
+    store.add(oldMembership, ns.rdf('type'), ns.schema('AdditionalRoleType'), doc)
+    store.add(oldMembership, ns.org('role'), sym('https://example.com/occupations/engineer'), doc)
     store.add(oldMembership, ns.org('organization'), oldOrganization, doc)
     store.add(oldOrganization, ns.schema('name'), literal('Old organization'), doc)
     store.updater = {
@@ -325,11 +431,14 @@ describe('Resume selectors and mutations', () => {
     } as any)
 
     expect(store.statementsMatching(oldMembership, null, null, doc)).toHaveLength(0)
-    expect(store.statementsMatching(oldOrganization, null, null, doc)).toHaveLength(0)
+    expect(store.any(oldOrganization, ns.schema('name'), null, doc)?.value).toBe('Old organization')
     const memberships = store.each(null, ns.org('member'), subject, doc)
     expect(memberships).toHaveLength(1)
     expect(memberships[0].termType).toBe('NamedNode')
     expect(store.any(memberships[0], ns.vcard('role'), null, doc)?.value).toBe('New role')
+    expect(store.holds(memberships[0], ns.rdf('type'), ns.schema('AdditionalRoleType'), doc)).toBe(true)
+    expect(store.holds(memberships[0], ns.org('role'), sym('https://example.com/occupations/engineer'), doc)).toBe(true)
+    expect(store.holds(memberships[0], ns.org('organization'), oldOrganization, doc)).toBe(true)
   })
 
 

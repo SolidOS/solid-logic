@@ -70,6 +70,21 @@ describe('resume selectors', () => {
     expect(roles[0].isCurrentRole).toBe(true)
   })
 
+  it('does not treat an explicit future role without an end date as current', () => {
+    const store = graph()
+    const future = sym(`${document.value}#future`)
+    addMembership(store, future)
+    store.add(future, ns.rdf('type'), ns.solid('FutureRole'), document)
+    store.add(future, ns.vcard('role'), literal('Incoming Engineer'), document)
+    store.add(future, ns.schema('startDate'), literal('2099-01-01'), document)
+
+    const roles = presentCV(subject, store as any)
+    expect(roles[0]).toEqual(expect.objectContaining({
+      roleType: 'FutureRole',
+      isCurrentRole: false
+    }))
+  })
+
   it('deduplicates matching roles and retains the named membership over a blank node', () => {
     const store = graph()
     const blankMembership = blankNode('role')

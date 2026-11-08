@@ -46,22 +46,22 @@ function accountPresentation (store: Store, sourceNode: NamedNode): Account {
 }
 
 /**
- * Reads `foaf:account` values in RDF list order. Accounts without an
- * `foaf:accountName` have no stable duplicate key, so each is retained.
+ * Reads `foaf:account` values in RDF list order, retaining distinct account
+ * nodes even when providers use the same accountName.
  */
 export function getSocialAccounts (subject: NamedNode, store: Store): SocialPresentation {
   const accountNodes = store.each(subject, ns.foaf('account')) as Node[]
   const expandedAccounts = accountNodes.flatMap(accountNode => expandRdfList(store, accountNode))
-  const accountNames = new Set<string>()
+  const accountKeys = new Set<string>()
   const accounts: Account[] = []
 
   for (const accountNode of expandedAccounts) {
     if (accountNode.termType !== 'NamedNode') continue
     const namedAccount = accountNode as NamedNode
 
-    const accountName = store.any(namedAccount, ns.foaf('accountName'))?.value
-    if (accountName && accountNames.has(accountName)) continue
-    if (accountName) accountNames.add(accountName)
+    const accountKey = `${namedAccount.termType}:${namedAccount.value}`
+    if (accountKeys.has(accountKey)) continue
+    accountKeys.add(accountKey)
 
     accounts.push(accountPresentation(store, namedAccount))
   }

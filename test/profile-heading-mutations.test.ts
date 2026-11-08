@@ -161,9 +161,11 @@ describe('Intro selectors and mutations', () => {
     const store = graph() as any
     const subject = sym('https://example.com/profile/card#me')
     const doc = subject.doc()
+    let updateCalls = 0
 
     store.updater = {
       update: (deletions: any[], insertions: any[], callback: Function) => {
+        updateCalls += 1
         deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
         insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
         callback('', true)
@@ -189,6 +191,7 @@ describe('Intro selectors and mutations', () => {
       addressOps: { create: [], update: [], remove: [] }
     } as any)
 
+    expect(updateCalls).toBe(1)
     expect(store.any(subject, ns.vcard('fn'), null, doc)?.value).toBe('Jane Doe')
     expect(store.any(subject, ns.foaf('nick'), null, doc)?.value).toBe('janey')
     expect(store.any(subject, ns.vcard('nickname'), null, doc)?.value).toBe('janey')
@@ -283,6 +286,46 @@ describe('Intro selectors and mutations', () => {
     } as any)
 
     expect(getHeading(subject, store).imageSrc).toBeUndefined()
+  })
+
+  it('preserves relative pronouns and writes typed birthdays during a heading save', async () => {
+    const store = graph() as any
+    const subject = sym('https://example.com/profile/card#me')
+    const doc = subject.doc()
+
+    store.add(st(subject, ns.solid('preferredRelativePronoun'), literal('person'), doc))
+    store.add(st(subject, ns.vcard('bday'), literal('1990-01-01', ns.xsd('date')), doc))
+    store.updater = {
+      update: (deletions: any[], insertions: any[], callback: Function) => {
+        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
+        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
+        callback('', true)
+      }
+    }
+
+    await processHeadingMutations(store, subject, {
+      basicOps: {
+        create: [],
+        update: [{
+          sourceNode: subject.value,
+          name: 'Jane Doe',
+          nickname: '',
+          pronouns: 'She/Her',
+          dateOfBirth: '2000-02-02',
+          imageSrc: '',
+          status: 'updated'
+        }],
+        remove: []
+      },
+      phoneOps: { create: [], update: [], remove: [] },
+      emailOps: { create: [], update: [], remove: [] },
+      addressOps: { create: [], update: [], remove: [] }
+    } as any)
+
+    expect(store.any(subject, ns.solid('preferredRelativePronoun'), null, doc)?.value).toBe('person')
+    const birthday = store.any(subject, ns.vcard('bday'), null, doc)
+    expect(birthday?.value).toBe('2000-02-02')
+    expect(birthday?.datatype.value).toBe(ns.xsd('date').value)
   })
 
 })

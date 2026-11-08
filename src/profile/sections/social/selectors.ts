@@ -24,17 +24,14 @@ export function presentSocial(
   }
   const accountNodes = store.each(subject, ns.foaf('account'))
   const accountThings = accountNodes.flatMap(node => expandRdfList(store, node))
-  // Deduplicate by foaf:accountName value
-  const accountNameSet = new Set<string>()
+  const accountNodeSet = new Set<string>()
   const accounts: Account[] = []
   for (const ac of accountThings) {
     if (ac.termType === 'NamedNode') {
-      const accountNameNode = store.any(ac as NamedNode, ns.foaf('accountName'))
-      const dedupeKey = accountNameNode ? accountNameNode.value : ''
-      if (!accountNameSet.has(dedupeKey)) {
-        accountNameSet.add(dedupeKey)
-        accounts.push(accountAsObject(ac as NamedNode))
-      }
+      const dedupeKey = `${ac.termType}:${ac.value}`
+      if (accountNodeSet.has(dedupeKey)) continue
+      accountNodeSet.add(dedupeKey)
+      accounts.push(accountAsObject(ac as NamedNode))
     }
   }
   if (!accounts.length) return { accounts: [] }

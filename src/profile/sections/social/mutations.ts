@@ -1,4 +1,4 @@
-import { LiveStore, NamedNode, Node, st, literal, sym } from 'rdflib'
+import { Collection, LiveStore, NamedNode, Node, st, literal, sym } from 'rdflib'
 import { ns } from '../../../util/ns'
 import { SocialAccountOption, SocialMutationPlan, SocialRow } from './types'
 import { MutationOps, RdfStatement } from '../shared/types'
@@ -7,7 +7,7 @@ import {
 	collectNodeStatements,
 	findExistingNode,
 	rdfNodeKey,
-	runUpdateTransport,
+	runCollectionPutTransport,
 	uniqueStatements
 } from '../shared/rdfMutationHelpers'
 import { logAndThrowMutationError } from '../shared/mutationErrors'
@@ -84,7 +84,14 @@ function buildSocialStatements(
 	}
 
 	const normalizedName = trimText(row.name)
-	const isOther = normalizedName.toLowerCase() === 'other' || accountOption?.classUri?.endsWith('#OtherAccount')
+	const isOther = normalizedName.toLowerCase() === 'other'
+		|| accountOption?.classUri?.endsWith('#OtherAccount')
+		|| Boolean(existingNode && store.holds(
+			existingNode,
+			ns.rdf('type'),
+			sym('https://solidos.github.io/profile-pane/src/ontology/socialMedia.ttl#OtherAccount'),
+			doc
+		))
 
 	if (isOther) {
 		const homepageNode = toObjectNode(row.homepage)
@@ -104,29 +111,6 @@ function buildSocialStatements(
 	}
 
 	return inserts
-}
-
-function collectListChainNodes(store: LiveStore, listHead: Node, doc: NamedNode): Node[] {
-	if (!store.any(listHead as any, ns.rdf('first'), null, doc)) return []
-
-	const visited = new Set<string>()
-	const nodes: Node[] = []
-	let current: Node | null = listHead
-
-	while (current) {
-		const key = `${current.termType}:${current.value}`
-		if (visited.has(key)) break
-		visited.add(key)
-		nodes.push(current)
-
-		const rest = store.any(current as any, ns.rdf('rest'), null, doc) as Node | null
-		if (!rest || (rest.termType === 'NamedNode' && rest.value === ns.rdf('nil').value)) {
-			break
-		}
-		current = rest
-	}
-
-	return nodes
 }
 
 function mergeSocialOps(existingRows: SocialRow[], socialOps: MutationOps<SocialRow>): SocialRow[] {
@@ -192,13 +176,6 @@ async function mutateSocialEntries(
 		: mergeSocialOps(existingRows, socialOps)
 
 	const accountObjects = store.each(subject, ns.foaf('account'), null, doc)
-	const existingListNodes = uniqueStatements(
-		accountObjects.flatMap((objectNode) => {
-			return collectListChainNodes(store, objectNode, doc)
-				.flatMap((node) => store.statementsMatching(node as any, null, null, doc))
-		})
-	)
-
 	const existingAccountNodes = Array.from(new Map(
 		accountObjects
 			.flatMap((objectNode) => expandRdfList(store, objectNode))
@@ -219,20 +196,6 @@ async function mutateSocialEntries(
 	const removedAccountNodes = existingAccountNodes.filter((node) => !retainedAccountNodeKeys.has(rdfNodeKey(node)))
 
 	const insertions: RdfStatement[] = []
-	if (rowEntryNodes.length > 0) {
-		const listNodes = rowEntryNodes.map(() => createIdNode(doc))
-		insertions.push(st(subject, ns.foaf('account'), listNodes[0], doc))
-		listNodes.forEach((listNode, index) => {
-			insertions.push(st(listNode, ns.rdf('first'), rowEntryNodes[index], doc))
-			insertions.push(st(
-				listNode,
-				ns.rdf('rest'),
-				listNodes[index + 1] || ns.rdf('nil'),
-				doc
-			))
-		})
-	}
-
 	nextRows.forEach((row, index) => {
 		const existingNode = existingAccountNodes.find((node) => rdfNodeKey(node) === rdfNodeKey(rowEntryNodes[index]))
 		insertions.push(...buildSocialStatements(store, doc, rowEntryNodes[index], row, optionForRow(row), existingNode))
@@ -240,7 +203,6 @@ async function mutateSocialEntries(
 
 	const deletions = uniqueStatements([
 		...store.statementsMatching(subject, ns.foaf('account'), null, doc),
-		...existingListNodes,
 		...removedAccountNodes.flatMap((node) => collectNodeStatements(store, node, doc)),
 		...retainedAccountNodes.flatMap((node) => [
 			...store.statementsMatching(node, ns.rdf('type'), null, doc),
@@ -251,7 +213,18 @@ async function mutateSocialEntries(
 		])
 	])
 
-	await runUpdateTransport(store, doc, deletions, uniqueStatements(insertions), {
+	const nextCollection = new Collection(rowEntryNodes)
+	const collectionStatement = st(subject, ns.foaf('account'), nextCollection, doc)
+
+	await runCollectionPutTransport(store, doc, () => {
+		store.remove(deletions)
+		if (rowEntryNodes.length > 0) {
+			store.add(collectionStatement.subject, collectionStatement.predicate, collectionStatement.object, collectionStatement.graph)
+		}
+		uniqueStatements(insertions).forEach((statement) => {
+			store.add(statement.subject, statement.predicate, statement.object, statement.graph)
+		})
+	}, {
 		unsupportedMessage: socialUpdatesUnsupportedMessageText,
 		failureMessage: saveSocialUpdatesFailedMessageText,
 	})

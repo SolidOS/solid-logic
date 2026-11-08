@@ -1,11 +1,11 @@
-import { LiveStore, NamedNode, st, sym, literal } from 'rdflib'
+import { Collection, LiveStore, NamedNode, st, sym, literal } from 'rdflib'
 import { ns } from '../../../util/ns'
 import { LanguageRow } from './types'
 import { MutationOps, RdfResourceNode, RdfStatement } from '../shared/types'
 import { presentLanguages } from './selectors'
 import { expandRdfList } from '../shared/rdfList'
 import { createIdNode } from '../shared/idNodeFactory'
-import { findExistingNode, isNamedOrBlankNode, rdfNodeKey, runUpdateTransport } from '../shared/rdfMutationHelpers'
+import { findExistingNode, isNamedOrBlankNode, rdfNodeKey, runCollectionPutTransport } from '../shared/rdfMutationHelpers'
 import { logAndThrowMutationError } from '../shared/mutationErrors'
 import { saveLanguageUpdatesFailedMessageText, languageUpdatesUnsupportedMessageText } from '../../texts'
 import { trimText } from '../shared/text'
@@ -59,18 +59,6 @@ function buildLanguageStatements(
   })
   const statements: RdfStatement[] = []
 
-  const listNodes = sourceNodes.map(() => createIdNode(doc))
-  statements.push(st(subject, ns.schema('knowsLanguage'), listNodes[0], doc))
-  listNodes.forEach((listNode, index) => {
-    statements.push(st(listNode, ns.rdf('first'), sourceNodes[index], doc))
-    statements.push(st(
-      listNode,
-      ns.rdf('rest'),
-      listNodes[index + 1] || ns.rdf('nil'),
-      doc
-    ))
-  })
-
   sourceNodes.forEach((sourceNode, index) => {
     const publicIdNode = sym(`${ianaLanguageVocabularyUri}${languageRows[index].publicId}`)
     statements.push(st(sourceNode, ns.solid('publicId'), publicIdNode, doc))
@@ -81,27 +69,6 @@ function buildLanguageStatements(
   })
 
   return { statements, sourceNodes }
-}
-
-function collectListChainNodes(store: LiveStore, listHead: NamedNode, doc: NamedNode): NamedNode[] {
-  const visited = new Set<string>()
-  const nodes: NamedNode[] = []
-  let current: NamedNode | null = listHead
-
-  while (current) {
-    const key = `${current.termType}:${current.value}`
-    if (visited.has(key)) break
-    visited.add(key)
-    nodes.push(current)
-
-    const rest = store.any(current as any, ns.rdf('rest'), null, doc)
-    if (!rest || (rest.termType === 'NamedNode' && rest.value === ns.rdf('nil').value)) {
-      break
-    }
-    current = (rest.termType === 'NamedNode' || rest.termType === 'BlankNode') ? rest as NamedNode : null
-  }
-
-  return nodes
 }
 
 function mergeLanguageOps(existingRows: LanguageRow[], languageOps: MutationOps<LanguageRow>): LanguageRow[] {
@@ -165,13 +132,6 @@ async function mutateLanguageEntries(
     : mergeLanguageOps(existingRows, languageOps)
 
   const listObjects = store.each(subject, ns.schema('knowsLanguage'), null, doc)
-  const existingListHeads = listObjects.filter((node): node is NamedNode => node.termType === 'BlankNode' || node.termType === 'NamedNode')
-
-  const existingListNodes = Array.from(new Map(
-    existingListHeads
-      .flatMap((node) => collectListChainNodes(store, node, doc))
-      .map((node) => [rdfNodeKey(node), node])
-  ).values())
 
   const existingLanguageNodes: RdfResourceNode[] = Array.from(new Set(
     listObjects
@@ -201,9 +161,6 @@ async function mutateLanguageEntries(
   ).values())
 
   const deletions: RdfStatement[] = store.statementsMatching(subject, ns.schema('knowsLanguage'), null, doc)
-  existingListNodes.forEach((node) => {
-    deletions.push(...store.statementsMatching(node, null, null, doc))
-  })
   removedLanguageNodes.forEach((node) => {
     deletions.push(...store.statementsMatching(node as NamedNode, null, null, doc))
   })
@@ -214,7 +171,19 @@ async function mutateLanguageEntries(
     deletions.push(...store.statementsMatching(node as NamedNode, ns.schema('name'), null, doc))
   })
 
-  await runUpdateTransport(store, doc, deletions, insertions, {
+  const nextCollection = new Collection(nextEntryNodes)
+  const collectionStatement = st(subject, ns.schema('knowsLanguage'), nextCollection, doc)
+  const collectionInsertions = insertions.filter((statement) => statement.predicate.value !== ns.rdf('first').value && statement.predicate.value !== ns.rdf('rest').value)
+
+  await runCollectionPutTransport(store, doc, () => {
+    store.remove(deletions)
+    if (nextEntryNodes.length > 0) {
+      store.add(collectionStatement.subject, collectionStatement.predicate, collectionStatement.object, collectionStatement.graph)
+    }
+    collectionInsertions.forEach((statement) => {
+      store.add(statement.subject, statement.predicate, statement.object, statement.graph)
+    })
+  }, {
     unsupportedMessage: languageUpdatesUnsupportedMessageText,
     failureMessage: saveLanguageUpdatesFailedMessageText,
   })

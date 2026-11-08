@@ -3,6 +3,7 @@ import { graph, literal, st, sym } from 'rdflib'
 import { ns } from '../src/util/ns'
 import { getContactInfo } from '../src/profile/sections/contactInfo/selectors'
 import { processContactInfoMutations } from '../src/profile/sections/contactInfo/mutations'
+import { buildAddressStatements, buildEmailStatements, buildPhoneStatements } from '../src/profile/sections/contactInfo/rdfBuilders'
 import { saveContactUpdatesFailedMessageText, updaterUnsupportedStoreErrorMessageText } from '../src/profile/texts'
 
 describe('Contact info selectors and mutations', () => {
@@ -36,9 +37,11 @@ describe('Contact info selectors and mutations', () => {
     const store = graph() as any
     const subject = sym('https://example.com/profile/card#me')
     const insertionsCaptured: any[] = []
+    let updateCalls = 0
 
     store.updater = {
       update: (_deletions: any[], insertions: any[], callback: Function) => {
+        updateCalls += 1
         insertionsCaptured.push(...insertions)
         callback('', true)
       }
@@ -64,6 +67,7 @@ describe('Contact info selectors and mutations', () => {
 
     await processContactInfoMutations(store, subject, plan as any)
 
+    expect(updateCalls).toBe(1)
     const idPattern = /^https:\/\/example\.com\/profile\/card#id\d{13}$/
 
     const emailLink = insertionsCaptured.find((statement) => statement.predicate.value === ns.vcard('hasEmail').value)
@@ -85,6 +89,45 @@ describe('Contact info selectors and mutations', () => {
     expect(emailValue?.object?.value).toBe('mailto:jane@example.com')
     expect(phoneValue?.object?.termType).toBe('NamedNode')
     expect(phoneValue?.object?.value).toBe('tel:+1-111-222-3333')
+  })
+
+  it('normalizes contact URI values and preserves full type IRIs', () => {
+    const subject = sym('https://example.com/profile/card#me')
+    const doc = subject.doc()
+    const node = sym(`${doc.value}#contact`)
+    const fullHomeType = 'http://www.w3.org/2006/vcard/ns#Home'
+
+    const phone = buildPhoneStatements(subject, doc, node, {
+      value: '  TEL: +1 555 010 1000  ',
+      type: fullHomeType,
+      sourceNode: '',
+      status: 'new'
+    } as any)
+    const email = buildEmailStatements(subject, doc, node, {
+      value: ' MAILTO:person@example.com ',
+      type: fullHomeType,
+      sourceNode: '',
+      status: 'new'
+    } as any)
+    const address = buildAddressStatements(subject, doc, node, {
+      type: fullHomeType,
+      streetAddress: '  Main St ',
+      locality: '',
+      region: '',
+      postalCode: '',
+      countryName: '',
+      sourceNode: '',
+      status: 'new'
+    } as any)
+
+    expect(phone.find((statement) => statement.predicate.equals(ns.vcard('value')))?.object.value)
+      .toBe('tel:+15550101000')
+    expect(email.find((statement) => statement.predicate.equals(ns.vcard('value')))?.object.value)
+      .toBe('mailto:person@example.com')
+    expect(address.find((statement) => statement.predicate.equals(ns.rdf('type')))?.object.value)
+      .toBe(fullHomeType)
+    expect(address.find((statement) => statement.predicate.equals(ns.vcard('street-address')))?.object.value)
+      .toBe('Main St')
   })
 
   it('selector resolves direct entry-node values and address details while ignoring invalid points', () => {
@@ -148,6 +191,123 @@ describe('Contact info selectors and mutations', () => {
     expect(newPhone?.value).toMatch(/#id\d{13}$/)
     expect(store.any(newPhone, ns.vcard('value'), null, doc)?.value).toBe('tel:+15557654321')
     expect(getContactInfo(subject, store).phones[0].valueNode.value).toBe('tel:+15557654321')
+  })
+
+  it('updates one contact dialog in one request without deleting secondary entries or metadata', async () => {
+    const store = graph() as any
+    const subject = sym('https://example.com/profile/card#me')
+    const doc = subject.doc()
+    const phone = sym(`${doc.value}#phone-1`)
+    const secondaryEmail = sym(`${doc.value}#email-2`)
+    let updateCalls = 0
+
+    store.add(st(subject, ns.vcard('hasTelephone'), phone, doc))
+    store.add(st(phone, ns.vcard('value'), sym('tel:+15551234567'), doc))
+    store.add(st(phone, ns.rdf('type'), ns.vcard('Work'), doc))
+    store.add(st(phone, ns.vcard('pref'), literal('1'), doc))
+    store.add(st(subject, ns.vcard('hasEmail'), secondaryEmail, doc))
+    store.add(st(secondaryEmail, ns.vcard('value'), sym('mailto:secondary@example.com'), doc))
+    store.updater = {
+      update: (deletions: any[], insertions: any[], callback: Function) => {
+        updateCalls += 1
+        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
+        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
+        callback('', true)
+      }
+    }
+
+    await processContactInfoMutations(store, subject, {
+      phoneOps: {
+        create: [],
+        update: [{ value: '+15557654321', type: 'Home', sourceNode: phone.value, status: 'updated' }],
+        remove: []
+      },
+      emailOps: { create: [], update: [], remove: [] },
+      addressOps: { create: [], update: [], remove: [] }
+    } as any)
+
+    expect(updateCalls).toBe(1)
+    expect(store.holds(phone, ns.vcard('pref'), literal('1'), doc)).toBe(true)
+    expect(store.holds(subject, ns.vcard('hasEmail'), secondaryEmail, doc)).toBe(true)
+    expect(store.any(secondaryEmail, ns.vcard('value'), null, doc)?.value).toBe('mailto:secondary@example.com')
+    expect(store.any(phone, ns.vcard('value'), null, doc)?.value).toBe('tel:+15557654321')
+    expect(store.any(phone, ns.rdf('type'), null, doc)?.value).toBe(ns.vcard('Home').value)
+    expect(store.any(phone, ns.vcard('pref'), null, doc)?.value).toBe('1')
+  })
+
+  it('replaces an email value and type without retaining the old value', async () => {
+    const store = graph() as any
+    const subject = sym('https://example.com/profile/card#me')
+    const doc = subject.doc()
+    const email = sym(`${doc.value}#email-1`)
+
+    store.add(st(subject, ns.vcard('hasEmail'), email, doc))
+    store.add(st(email, ns.vcard('value'), sym('mailto:old@example.com'), doc))
+    store.add(st(email, ns.rdf('type'), ns.vcard('Work'), doc))
+    store.updater = {
+      update: (deletions: any[], insertions: any[], callback: Function) => {
+        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
+        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
+        callback('', true)
+      }
+    }
+
+    await processContactInfoMutations(store, subject, {
+      phoneOps: { create: [], update: [], remove: [] },
+      emailOps: {
+        create: [],
+        update: [{ value: 'new@example.com', type: 'Home', sourceNode: email.value, status: 'updated' }],
+        remove: []
+      },
+      addressOps: { create: [], update: [], remove: [] }
+    } as any)
+
+    expect(store.any(email, ns.vcard('value'), null, doc)?.value).toBe('mailto:new@example.com')
+    expect(store.any(email, ns.rdf('type'), null, doc)?.value).toBe(ns.vcard('Home').value)
+    expect(store.holds(email, ns.vcard('value'), sym('mailto:old@example.com'), doc)).toBe(false)
+  })
+
+  it('preserves custom address metadata while replacing owned fields', async () => {
+    const store = graph() as any
+    const subject = sym('https://example.com/profile/card#me')
+    const doc = subject.doc()
+    const address = sym(`${doc.value}#address-1`)
+    const customPredicate = sym('https://example.com/metadata#verified')
+
+    store.add(st(subject, ns.vcard('hasAddress'), address, doc))
+    store.add(st(address, ns.rdf('type'), ns.vcard('Work'), doc))
+    store.add(st(address, ns.vcard('street-address'), literal('Old Street'), doc))
+    store.add(st(address, customPredicate, literal('yes'), doc))
+    store.updater = {
+      update: (deletions: any[], insertions: any[], callback: Function) => {
+        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
+        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
+        callback('', true)
+      }
+    }
+
+    await processContactInfoMutations(store, subject, {
+      phoneOps: { create: [], update: [], remove: [] },
+      emailOps: { create: [], update: [], remove: [] },
+      addressOps: {
+        create: [],
+        update: [{
+          sourceNode: address.value,
+          type: 'Home',
+          streetAddress: 'New Street',
+          locality: '',
+          region: '',
+          postalCode: '',
+          countryName: '',
+          status: 'updated'
+        }],
+        remove: []
+      }
+    } as any)
+
+    expect(store.any(address, ns.vcard('street-address'), null, doc)?.value).toBe('New Street')
+    expect(store.any(address, ns.rdf('type'), null, doc)?.value).toBe(ns.vcard('Home').value)
+    expect(store.holds(address, customPredicate, literal('yes'), doc)).toBe(true)
   })
 
   it('selector falls back to vcard:value statements outside the subject document', () => {

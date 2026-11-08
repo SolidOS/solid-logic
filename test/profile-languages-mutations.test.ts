@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Collection, graph, literal, NamedNode, st, sym } from 'rdflib'
+import { Collection, graph, literal, sym } from 'rdflib'
 import { ns } from '../src/util/ns'
 import { presentLanguages } from '../src/profile/sections/languages/selectors'
 import { processLanguageMutations } from '../src/profile/sections/languages/mutations'
@@ -16,8 +16,10 @@ describe('Languages selectors and mutations', () => {
   it('mutation surfaces updater callback failures', async () => {
     const store = graph() as any
     const subject = sym('https://example.com/profile/card#me')
-    store.updater = {
-      update: (_deletions: any[], _insertions: any[], callback: Function) => callback('', false, 'boom')
+    store.fetcher = {
+      putBack: async () => {
+        throw new Error('boom')
+      }
     }
 
     const plan = {
@@ -151,14 +153,8 @@ describe('Languages selectors and mutations', () => {
     store.add(legacyEntry2, ns.solid('publicId'), sym('https://www.w3.org/ns/iana/language-code/de'), doc)
     store.add(legacyEntry1, ns.rdf('type'), ns.schema('Language'), doc)
 
-    let insertionsCaptured: any[] = []
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        insertionsCaptured = insertions
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      }
+    store.fetcher = {
+      putBack: async () => new Response()
     }
 
     await processLanguageMutations(
@@ -173,11 +169,11 @@ describe('Languages selectors and mutations', () => {
 
     const knowsLanguageValues = store.statementsMatching(subject, ns.schema('knowsLanguage'), null, doc)
     expect(knowsLanguageValues).toHaveLength(1)
-    const listValue = knowsLanguageValues[0].object as NamedNode
-    expect(listValue.termType).toBe('NamedNode')
-    expect(listValue.value).toContain('#id')
+    const listValue = knowsLanguageValues[0].object as Collection
+    expect(listValue.termType).toBe('Collection')
+    expect(listValue.elements.every((node) => node.termType === 'NamedNode')).toBe(true)
 
-    const listElements = expandRdfList(store, listValue)
+    const listElements = expandRdfList(store, listValue as any)
     expect(listElements.every((node: any) => node?.termType === 'NamedNode')).toBe(true)
     expect(listElements.every((node: any) => node?.value.includes('#id'))).toBe(true)
 
@@ -196,7 +192,7 @@ describe('Languages selectors and mutations', () => {
     expect(nameStatements.map((node: any) => node?.value)).toEqual(['German', 'French'])
     expect(nameStatements.map((node: any) => node?.lang)).toEqual(['en', 'en'])
 
-    expect(insertionsCaptured.some((statement) => statement.predicate.value === ns.schema('knowsLanguage').value)).toBe(true)
+    expect(store.any(subject, ns.schema('knowsLanguage'), null, doc)?.termType).toBe('Collection')
 
     const legacyPublicIdLiteralStatements = store.statementsMatching(undefined, ns.solid('publicId'), literal('fr'), doc)
     expect(legacyPublicIdLiteralStatements).toHaveLength(0)
@@ -216,12 +212,8 @@ describe('Languages selectors and mutations', () => {
     store.add(frenchEntry, ns.solid('publicId'), sym('https://www.w3.org/ns/iana/language-code/fr'), doc)
     store.add(sym('https://www.w3.org/ns/iana/language-code/fr'), ns.schema('name'), literal('French', 'en'), doc)
 
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      }
+    store.fetcher = {
+      putBack: async () => new Response()
     }
 
     await processLanguageMutations(
@@ -257,12 +249,8 @@ describe('Languages selectors and mutations', () => {
     store.add(sym('https://www.w3.org/ns/iana/language-code/fr'), ns.schema('name'), literal('French', 'en'), doc)
     store.add(englishEntry, ns.rdf('type'), ns.schema('Language'), doc)
 
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      }
+    store.fetcher = {
+      putBack: async () => new Response()
     }
 
     await processLanguageMutations(
@@ -299,12 +287,8 @@ describe('Languages selectors and mutations', () => {
     store.add(frenchEntry, ns.solid('publicId'), frenchPublicId, doc)
     store.add(frenchPublicId, ns.schema('name'), literal('French', 'en'), doc)
 
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      }
+    store.fetcher = {
+      putBack: async () => new Response()
     }
 
     await processLanguageMutations(
@@ -337,12 +321,8 @@ describe('Languages selectors and mutations', () => {
     store.add(languageEntry, ns.solid('publicId'), publicIdNode, doc)
     store.add(publicIdNode, ns.schema('name'), literal('Spanish', 'en'), doc)
 
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      }
+    store.fetcher = {
+      putBack: async () => new Response()
     }
 
     await processLanguageMutations(

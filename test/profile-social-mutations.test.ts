@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Collection, graph, literal, st, sym } from 'rdflib'
+import { Collection, graph, literal, sym } from 'rdflib'
 import { ns } from '../src/util/ns'
 import { presentSocial } from '../src/profile/sections/social/selectors'
 import { processSocialMutations } from '../src/profile/sections/social/mutations'
@@ -16,6 +16,10 @@ vi.mock('../src/profile/sections/social/helpers', async () => {
 })
 
 describe('Social selectors and mutations', () => {
+  function configurePutBack(store: any) {
+    store.fetcher = { putBack: async () => new Response() }
+  }
+
   it('provides social account options including Facebook and Instagram', () => {
     const store = graph() as any
 
@@ -41,6 +45,31 @@ describe('Social selectors and mutations', () => {
     expect(presentSocial(subject, store)).toEqual({ accounts: [] })
   })
 
+  it('retains different providers that use the same account name', async () => {
+    const store = graph() as any
+    const subject = sym('https://example.com/profile/card#me')
+    const doc = subject.doc()
+    const github = sym('https://example.com/profile/card#github')
+    const facebook = sym('https://example.com/profile/card#facebook')
+    const githubType = sym('https://solidos.github.io/profile-pane/src/ontology/socialMedia.ttl#GithubAccount')
+    const facebookType = sym('https://solidos.github.io/profile-pane/src/ontology/socialMedia.ttl#FacebookAccount')
+
+    store.add(subject, ns.foaf('account'), new Collection([github, facebook]), doc)
+    store.add(github, ns.rdf('type'), githubType, doc)
+    store.add(facebook, ns.rdf('type'), facebookType, doc)
+    store.add(github, ns.foaf('accountName'), literal('same-user'), doc)
+    store.add(facebook, ns.foaf('accountName'), literal('same-user'), doc)
+    configurePutBack(store)
+
+    expect(presentSocial(subject, store).accounts.map((account) => account.sourceNode.value)).toEqual([
+      github.value,
+      facebook.value
+    ])
+
+    await processSocialMutations(store, subject, { create: [], update: [], remove: [] } as any)
+    expect(presentSocial(subject, store).accounts).toHaveLength(2)
+  })
+
   it('preserves multiple unnamed accounts and their types during an empty mutation', async () => {
     const store = graph() as any
     const subject = sym('https://example.com/profile/card#me')
@@ -57,13 +86,7 @@ describe('Social selectors and mutations', () => {
     store.add(secondAccount, ns.rdf('type'), secondType, doc)
     store.add(firstAccount, metadata, literal('one'), doc)
     store.add(secondAccount, metadata, literal('two'), doc)
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      }
-    }
+    configurePutBack(store)
 
     await processSocialMutations(store, subject, { create: [], update: [], remove: [] } as any)
 
@@ -91,13 +114,7 @@ describe('Social selectors and mutations', () => {
     const subject = sym('https://example.com/profile/card#me')
     const doc = subject.doc()
 
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      }
-    }
+    configurePutBack(store)
 
     const plan = {
       create: [{ name: 'Github', icon: '', homepage: 'https://www.github.com/sharon', sourceNode: '', status: 'new' }],
@@ -127,13 +144,7 @@ describe('Social selectors and mutations', () => {
     const subject = sym('https://example.com/profile/card#me')
     const doc = subject.doc()
 
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      }
-    }
+    configurePutBack(store)
 
     const plan = {
       create: [{
@@ -164,16 +175,10 @@ describe('Social selectors and mutations', () => {
     const subject = sym('https://example.com/profile/card#me')
     const doc = subject.doc()
 
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      },
-      serialize: vi.fn(() => ''),
-    }
+    configurePutBack(store)
 
     store.fetcher = {
+      putBack: async () => new Response(),
       webOperation: vi.fn(async () => ({ ok: true, status: 200 }))
     }
 
@@ -224,13 +229,7 @@ describe('Social selectors and mutations', () => {
     const facebookClass = sym('https://solidos.github.io/profile-pane/src/ontology/socialMedia.ttl#FacebookAccount')
     const instagramClass = sym('https://solidos.github.io/profile-pane/src/ontology/socialMedia.ttl#InstagramAccount')
 
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      }
-    }
+    configurePutBack(store)
 
     store.add(subject, ns.foaf('account'), new Collection([facebookNode, instagramNode]), doc)
     store.add(facebookNode, ns.rdf('type'), facebookClass, doc)
@@ -264,13 +263,7 @@ describe('Social selectors and mutations', () => {
     const facebookClass = sym('https://solidos.github.io/profile-pane/src/ontology/socialMedia.ttl#FacebookAccount')
     const instagramClass = sym('https://solidos.github.io/profile-pane/src/ontology/socialMedia.ttl#InstagramAccount')
 
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      }
-    }
+    configurePutBack(store)
 
     store.add(subject, ns.foaf('account'), new Collection([facebookNode, instagramNode]), doc)
     store.add(facebookNode, ns.rdf('type'), facebookClass, doc)
@@ -307,13 +300,7 @@ describe('Social selectors and mutations', () => {
     const facebookClass = sym('https://solidos.github.io/profile-pane/src/ontology/socialMedia.ttl#FacebookAccount')
     const instagramClass = sym('https://solidos.github.io/profile-pane/src/ontology/socialMedia.ttl#InstagramAccount')
 
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      }
-    }
+    configurePutBack(store)
 
     store.add(subject, ns.foaf('account'), new Collection([facebookNode, instagramNode]), doc)
     store.add(facebookNode, ns.rdf('type'), facebookClass, doc)
@@ -344,13 +331,7 @@ describe('Social selectors and mutations', () => {
     const subject = sym('https://example.com/profile/card#me')
     const doc = subject.doc()
 
-    store.updater = {
-      update: (deletions: any[], insertions: any[], callback: Function) => {
-        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
-        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
-        callback('', true)
-      }
-    }
+    configurePutBack(store)
 
     await processSocialMutations(store, subject, {
       create: [{
@@ -373,6 +354,37 @@ describe('Social selectors and mutations', () => {
     expect(store.any(sourceNode, ns.foaf('homepage'), null, doc)?.value).toBe('https://example.com/custom-profile')
     expect(store.any(sourceNode, ns.foaf('icon'), null, doc)?.value).toBe('https://example.com/icon.svg')
     expect(store.any(sourceNode, ns.foaf('accountName'), null, doc)).toBeNull()
+  })
+
+  it('preserves an existing labelled Other account shape on save', async () => {
+    const store = graph() as any
+    const subject = sym('https://example.com/profile/card#me')
+    const doc = subject.doc()
+    const accountNode = sym('https://example.com/profile/card#custom-account')
+    const otherClass = sym('https://solidos.github.io/profile-pane/src/ontology/socialMedia.ttl#OtherAccount')
+    const homepage = sym('https://example.com/my-account')
+    const icon = sym('https://example.com/icon.svg')
+
+    store.add(subject, ns.foaf('account'), new Collection([accountNode]), doc)
+    store.add(accountNode, ns.rdf('type'), otherClass, doc)
+    store.add(accountNode, ns.rdfs('label'), literal('My custom service'), doc)
+    store.add(accountNode, ns.foaf('homepage'), homepage, doc)
+    store.add(accountNode, ns.foaf('icon'), icon, doc)
+    configurePutBack(store)
+
+    await processSocialMutations(store, subject, { create: [], update: [], remove: [] } as any, [{
+      name: 'My custom service',
+      icon: icon.value,
+      homepage: homepage.value,
+      sourceNode: accountNode.value,
+      status: 'existing'
+    }] as any)
+
+    expect(store.holds(accountNode, ns.rdf('type'), otherClass, doc)).toBe(true)
+    expect(store.holds(accountNode, ns.rdfs('label'), literal('My custom service'), doc)).toBe(true)
+    expect(store.holds(accountNode, ns.foaf('homepage'), homepage, doc)).toBe(true)
+    expect(store.holds(accountNode, ns.foaf('icon'), icon, doc)).toBe(true)
+    expect(store.any(accountNode, ns.foaf('accountName'), null, doc)).toBeNull()
   })
 
 

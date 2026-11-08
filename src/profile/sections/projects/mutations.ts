@@ -85,7 +85,9 @@ async function mutateProjectEntries(store: LiveStore, subject: NamedNode, projec
 		currentUrlsByKey: Map<string, string>
 	}
 
-	const existingLinks = store.statementsMatching(subject, ns.solid('community'), null, null)
+	// Project membership belongs to the profile document. Do not let unrelated
+	// loaded graphs become mutation targets.
+	const existingLinks = store.statementsMatching(subject, ns.solid('community'), null, doc)
 	const batchesByDoc = new Map<string, DocBatch>()
 	const docKeyByUrl = new Map<string, string>()
 	const touchedDocs = new Set<string>()

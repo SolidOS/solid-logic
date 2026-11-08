@@ -83,9 +83,9 @@ describe('SocialPresenter', () => {
     expect(result).toEqual({ accounts: [] })
   })
 
-  it('deduplicates accounts in presentSocial', () => {
+  it('retains distinct account nodes in presentSocial', () => {
     // Call presentSocial
     const result = presentSocial(subject, store)
-    expect(result.accounts.length).toBe(10)
+    expect(result.accounts.length).toBe(14)
   })
 })

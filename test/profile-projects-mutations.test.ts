@@ -182,7 +182,7 @@ describe('Projects selectors and mutations', () => {
     expect(store.statementsMatching(subject, ns.schema('memberOf'), null, doc)).toHaveLength(0)
   })
 
-  it('dedupes created project URLs after normalization', async () => {
+  it('dedupes project URLs after removing the WebID fragment', async () => {
     const store = graph() as any
     const subject = sym('https://example.com/profile/card#me')
     const doc = subject.doc()
@@ -208,6 +208,69 @@ describe('Projects selectors and mutations', () => {
     const links = store.statementsMatching(subject, ns.solid('community'), null, doc)
     expect(links).toHaveLength(1)
     expect(links[0].object.value).toBe('https://example.org/project-a#first')
+  })
+
+  it('does not mutate community links loaded from another document', async () => {
+    const store = graph() as any
+    const subject = sym('https://example.com/profile/card#me')
+    const profileDoc = subject.doc()
+    const externalDoc = sym('https://example.com/other-profile.ttl')
+    const externalProject = sym('https://example.org/external-project#me')
+
+    store.add(subject, ns.solid('community'), externalProject, externalDoc)
+    store.updater = {
+      update: (deletions: any[], insertions: any[], callback: Function) => {
+        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
+        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
+        callback('', true)
+      }
+    }
+
+    await processProjectsMutations(store, subject, {
+      create: [],
+      update: [],
+      remove: [{
+        url: externalProject.value,
+        sourceNode: externalProject.value,
+        status: 'deleted'
+      }]
+    } as any)
+
+    expect(store.holds(subject, ns.solid('community'), externalProject, externalDoc)).toBe(true)
+    expect(store.statementsMatching(subject, ns.solid('community'), null, profileDoc)).toHaveLength(0)
+  })
+
+  it('updates one project while preserving the other profile links', async () => {
+    const store = graph() as any
+    const subject = sym('https://example.com/profile/card#me')
+    const doc = subject.doc()
+    const first = sym('https://example.org/project-first#me')
+    const second = sym('https://example.org/project-second#me')
+    const replacement = sym('https://example.org/project-replacement#me')
+
+    store.add(subject, ns.solid('community'), first, doc)
+    store.add(subject, ns.solid('community'), second, doc)
+    store.updater = {
+      update: (deletions: any[], insertions: any[], callback: Function) => {
+        deletions.forEach((statement) => store.remove(st(statement.subject, statement.predicate, statement.object, statement.why)))
+        insertions.forEach((statement) => store.add(statement.subject, statement.predicate, statement.object, statement.why))
+        callback('', true)
+      }
+    }
+
+    await processProjectsMutations(store, subject, {
+      create: [],
+      update: [{
+        url: replacement.value,
+        sourceNode: first.value,
+        status: 'updated'
+      }],
+      remove: []
+    } as any)
+
+    expect(store.holds(subject, ns.solid('community'), first, doc)).toBe(false)
+    expect(store.holds(subject, ns.solid('community'), replacement, doc)).toBe(true)
+    expect(store.holds(subject, ns.solid('community'), second, doc)).toBe(true)
   })
 
 

@@ -10,6 +10,7 @@ import { processProjectsMutations } from './sections/projects/mutations'
 import { processResumeMutations } from './sections/resume/mutations'
 import { processSkillsMutations } from './sections/skills/mutations'
 import { processSocialMutations } from './sections/social/mutations'
+import { setDocumentEtag } from './sections/shared/rdfMutationHelpers'
 import type { HeadingMutationPlan } from './sections/heading/types'
 import type { BioMutationPlan } from './sections/bio/types'
 import type { ContactMutationPlan } from './sections/contactInfo/types'
@@ -23,7 +24,18 @@ import type { SocialMutationPlan, SocialRow } from './sections/social/types'
 
 export function createProfileMutationService (store: LiveStore): ProfileMutationService {
   async function prepareProfileDocument (doc: NamedNode): Promise<void> {
-    await store.fetcher.load(doc, { force: true })
+    const previousStatements = store.statementsMatching(null, null, null, doc)
+    store.removeMatches(null, null, null, doc)
+    try {
+      const response = await store.fetcher.load(doc, { force: true })
+      const etag = response?.headers?.get?.('etag')
+      setDocumentEtag(store, doc, etag || undefined)
+    } catch (error) {
+      previousStatements.forEach((statement) => {
+        store.add(statement.subject, statement.predicate, statement.object, doc)
+      })
+      throw error
+    }
     if (!store.updater.editable(doc)) {
       throw new NotEditableError(`Cannot edit profile document ${doc.value}`)
     }

@@ -1,4 +1,4 @@
-import { LiveStore, NamedNode, Node, st, literal } from 'rdflib'
+import { LiveStore, NamedNode, Node, Statement, st, literal } from 'rdflib'
 import { RdfResourceNode, RdfStatement } from './types'
 import { fallbackSaveUpdatesErrorMessageText, updaterUnsupportedStoreErrorMessageText } from '../../texts'
 import { NotEditableError } from '../../../logic/CustomError'
@@ -7,6 +7,24 @@ import { trimText } from './text'
 type UpdateTransportOptions = {
   unsupportedMessage?: string
   failureMessage?: string
+}
+
+type CollectionPutOptions = {
+  unsupportedMessage?: string
+  failureMessage?: string
+}
+
+const documentEtags = new WeakMap<LiveStore, Map<string, string>>()
+
+export function setDocumentEtag (store: LiveStore, doc: NamedNode, etag?: string): void {
+  if (!etag) return
+  const etags = documentEtags.get(store) || new Map<string, string>()
+  etags.set(doc.value, etag)
+  documentEtags.set(store, etags)
+}
+
+function documentEtag (store: LiveStore, doc: NamedNode): string | undefined {
+  return documentEtags.get(store)?.get(doc.value)
 }
 
 export function uniqueStatements (statements: RdfStatement[]): RdfStatement[] {
@@ -74,7 +92,26 @@ function updateFailureError (
 
   const error = new Error(message || fallbackMessage || fallbackSaveUpdatesErrorMessageText)
   if (response && typeof response === 'object') {
-    Object.assign(error, response)
+    const candidate = response as {
+      status?: unknown
+      statusText?: unknown
+      response?: { status?: unknown, statusText?: unknown }
+    }
+    const nestedResponse = candidate.response
+    const status = typeof candidate.status === 'number'
+      ? candidate.status
+      : typeof nestedResponse?.status === 'number'
+        ? nestedResponse.status
+        : undefined
+    const statusText = typeof candidate.statusText === 'string'
+      ? candidate.statusText
+      : typeof nestedResponse?.statusText === 'string'
+        ? nestedResponse.statusText
+        : undefined
+
+    if (status !== undefined) Object.assign(error, { status })
+    if (statusText) Object.assign(error, { statusText })
+    Object.assign(error, { response })
   }
   return error
 }
@@ -102,4 +139,32 @@ export async function runUpdateTransport (
       ;(result as Promise<void>).then(() => done(resolve), error => done(() => reject(error)))
     }
   })
+}
+
+export async function runCollectionPutTransport (
+  store: LiveStore,
+  doc: NamedNode,
+  applyChanges: () => void,
+  options: CollectionPutOptions = {}
+): Promise<void> {
+  if (!store.fetcher || typeof store.fetcher.putBack !== 'function') {
+    throw new Error(options.unsupportedMessage || updaterUnsupportedStoreErrorMessageText)
+  }
+  if (typeof store.updater?.editable === 'function' && !store.updater.editable(doc)) {
+    throw new NotEditableError(`Cannot edit profile document ${doc.value}`)
+  }
+
+  const originalStatements: Statement[] = [...store.statementsMatching(null, null, null, doc)]
+  applyChanges()
+
+  try {
+    const etag = documentEtag(store, doc)
+    await store.fetcher.putBack(doc, etag ? { headers: { 'If-Match': etag } } : undefined)
+  } catch (error) {
+    store.removeMatches(null, null, null, doc)
+    originalStatements.forEach((statement) => {
+      store.add(statement.subject, statement.predicate, statement.object, statement.why)
+    })
+    throw updateFailureError(options.failureMessage, error, fallbackSaveUpdatesErrorMessageText)
+  }
 }

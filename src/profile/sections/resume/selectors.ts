@@ -53,13 +53,27 @@ function roleDedupeKey (role: RoleDetails): string {
 
 function sortRoles (roles: RoleDetails[]): RoleDetails[] {
   return roles.sort((left, right) => {
-    const leftCurrent = !left.endDate
-    const rightCurrent = !right.endDate
+    const leftCurrent = Boolean(left.isCurrentRole)
+    const rightCurrent = Boolean(right.isCurrentRole)
     if (leftCurrent !== rightCurrent) return leftCurrent ? -1 : 1
 
     return (right.endDate?.value || '').localeCompare(left.endDate?.value || '') ||
       (right.startDate?.value || '').localeCompare(left.startDate?.value || '')
   })
+}
+
+function isCurrentRole(
+  roleType: string,
+  startDate: RoleDetails['startDate'],
+  endDate: RoleDetails['endDate']
+): boolean {
+  if (roleType === 'CurrentRole') return true
+  if (roleType === 'PastRole' || roleType === 'FutureRole') return false
+  if (endDate) return false
+
+  const startIso = startDate?.value?.slice(0, 10) || ''
+  const todayIso = new Date().toISOString().slice(0, 10)
+  return !startIso || startIso <= todayIso
 }
 
 export function presentCV (subject: NamedNode, store: LiveStore): RoleDetails[] {
@@ -81,13 +95,16 @@ export function presentCV (subject: NamedNode, store: LiveStore): RoleDetails[] 
       : null
     const roleText = store.anyJS(membership, ns.vcard('role'), null, doc) as string | null
 
+    const startDate = store.any(membership, ns.schema('startDate'), null, doc) as RoleDetails['startDate']
+    const endDate = store.any(membership, ns.schema('endDate'), null, doc) as RoleDetails['endDate']
+    const roleType = roleTypeFromMembership(store, membership, doc)
     const item: RoleDetails = {
       title: roleText && roleName ? `${roleName} - ${roleText}` : roleText || roleName || '',
-      roleType: roleTypeFromMembership(store, membership, doc),
+      roleType,
       sourceNode: membership,
-      startDate: store.any(membership, ns.schema('startDate'), null, doc) as RoleDetails['startDate'],
-      endDate: store.any(membership, ns.schema('endDate'), null, doc) as RoleDetails['endDate'],
-      isCurrentRole: !store.any(membership, ns.schema('endDate'), null, doc),
+      startDate,
+      endDate,
+      isCurrentRole: isCurrentRole(roleType, startDate, endDate),
       orgName: (publicIdNode && store.anyJS(publicIdNode, ns.schema('name'), null, doc) as string | null) ||
         (organizationNode && store.anyJS(organizationNode, ns.schema('name'), null, doc) as string | null) || '',
       orgPublicId: publicIdNode?.value || '',

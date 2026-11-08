@@ -2,7 +2,7 @@ import { LiveStore, NamedNode, Node, literal, sym } from 'rdflib'
 import { ns } from '../../../util/ns'
 import { ProfileBasicRow, HeadingMutationPlan } from './types'
 import { MutationOps } from '../shared/types'
-import { collectLinkedNodeStatements, collectNodeStatements, findExistingNode, replaceLiteralPredicateStatements, replacePredicateStatements, runUpdateTransport } from '../shared/rdfMutationHelpers'
+import { collectLinkedNodeStatements, collectNodeStatements, findExistingNode, replaceLiteralPredicateStatements, replacePredicateStatements, runUpdateTransport, uniqueStatements } from '../shared/rdfMutationHelpers'
 import { logAndThrowMutationError } from '../shared/mutationErrors'
 import { createIdNode } from '../shared/idNodeFactory'
 import { ContactAddressRow, ContactPointRow } from '../contactInfo/types'
@@ -16,6 +16,20 @@ const profileImagePredicates = [
   ns.vcard('logo'),
   ns.vcard('photo'),
   ns.foaf('depiction')
+]
+
+function collectOwnedNodeStatements(store: LiveStore, node: Node, doc: NamedNode, predicates: NamedNode[]) {
+  return predicates.flatMap(predicate => store.statementsMatching(node as any, predicate, null, doc))
+}
+
+const pointValuePredicates = [ns.vcard('value'), ns.rdf('type')]
+const addressValuePredicates = [
+  ns.rdf('type'),
+  ns.vcard('street-address'),
+  ns.vcard('locality'),
+  ns.vcard('region'),
+  ns.vcard('postal-code'),
+  ns.vcard('country-name')
 ]
 
 function splitPronouns(value?: string): { subjectPronoun?: string, objectPronoun?: string } {
@@ -37,11 +51,9 @@ function findCreateOp<T extends { sourceNode: string }>(ops: T[]): T | undefined
   return ops.find((op) => !op.sourceNode)
 }
 
-async function mutatePhoneEntry(store: LiveStore, subject: NamedNode, phoneOps: MutationOps<ContactPointRow>) {
+function mutatePhoneEntry(store: LiveStore, subject: NamedNode, phoneOps: MutationOps<ContactPointRow>, deletions: any[], insertions: any[]) {
   const doc = subject.doc()
   const existingPhoneNodes = store.each(subject, ns.vcard('hasTelephone'), null, doc) as Node[]
-  const deletions: any[] = []
-  const insertions: any[] = []
 
   const removePhone = findOpWithExistingEntry(phoneOps.remove, existingPhoneNodes)
   const updatePhone = findOpWithExistingEntry(phoneOps.update, existingPhoneNodes)
@@ -62,9 +74,15 @@ async function mutatePhoneEntry(store: LiveStore, subject: NamedNode, phoneOps: 
   if (updatePhone) {
     const existingNode = findExistingNode(existingPhoneNodes, updatePhone.sourceNode)
     if (existingNode) {
-      deletions.push(...collectNodeStatements(store, existingNode, doc))
       const isDirectPhoneValue = existingNode.termType === 'NamedNode' && /^tel:/i.test(existingNode.value)
       const targetNode = isDirectPhoneValue ? createIdNode(doc) : existingNode
+      if (isDirectPhoneValue) {
+        const linkedPhoneStatements = collectLinkedNodeStatements(store, subject, ns.vcard('hasTelephone'), doc)
+        const matchingLinkStatement = linkedPhoneStatements.linkStatements.find((statement) => statement.object?.value === existingNode.value)
+        if (matchingLinkStatement) deletions.push(matchingLinkStatement)
+      } else {
+        deletions.push(...collectOwnedNodeStatements(store, existingNode, doc, pointValuePredicates))
+      }
       insertions.push(...buildPhoneStatements(subject, doc, targetNode, updatePhone))
     }
   }
@@ -73,17 +91,11 @@ async function mutatePhoneEntry(store: LiveStore, subject: NamedNode, phoneOps: 
     insertions.push(...buildPhoneStatements(subject, doc, createIdNode(doc), createPhone))
   }
 
-  await runUpdateTransport(store, doc, deletions, insertions, {
-    unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: saveHeadingUpdatesFailedMessageText,
-  })
 }
 
-async function mutateEmailEntry(store: LiveStore, subject: NamedNode, emailOps: MutationOps<ContactPointRow>) {
+function mutateEmailEntry(store: LiveStore, subject: NamedNode, emailOps: MutationOps<ContactPointRow>, deletions: any[], insertions: any[]) {
   const doc = subject.doc()
   const existingEmailNodes = store.each(subject, ns.vcard('hasEmail'), null, doc) as Node[]
-  const deletions: any[] = []
-  const insertions: any[] = []
 
   const removeEmail = findOpWithExistingEntry(emailOps.remove, existingEmailNodes)
   const updateEmail = findOpWithExistingEntry(emailOps.update, existingEmailNodes)
@@ -104,7 +116,7 @@ async function mutateEmailEntry(store: LiveStore, subject: NamedNode, emailOps: 
   if (updateEmail) {
     const existingNode = findExistingNode(existingEmailNodes, updateEmail.sourceNode)
     if (existingNode) {
-      deletions.push(...collectNodeStatements(store, existingNode, doc))
+      deletions.push(...collectOwnedNodeStatements(store, existingNode, doc, pointValuePredicates))
       insertions.push(...buildEmailStatements(subject, doc, existingNode, updateEmail))
     }
   }
@@ -113,17 +125,11 @@ async function mutateEmailEntry(store: LiveStore, subject: NamedNode, emailOps: 
     insertions.push(...buildEmailStatements(subject, doc, createIdNode(doc), createEmail))
   }
 
-  await runUpdateTransport(store, doc, deletions, insertions, {
-    unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: saveHeadingUpdatesFailedMessageText,
-  })
 }
 
-async function mutateAddressEntry(store: LiveStore, subject: NamedNode, addressOps: MutationOps<ContactAddressRow>) {
+function mutateAddressEntry(store: LiveStore, subject: NamedNode, addressOps: MutationOps<ContactAddressRow>, deletions: any[], insertions: any[]) {
   const doc = subject.doc()
   const existingAddressNodes = store.each(subject, ns.vcard('hasAddress'), null, doc) as Node[]
-  const deletions: any[] = []
-  const insertions: any[] = []
 
   const removeAddress = findOpWithExistingEntry(addressOps.remove, existingAddressNodes)
   const updateAddress = findOpWithExistingEntry(addressOps.update, existingAddressNodes)
@@ -144,7 +150,7 @@ async function mutateAddressEntry(store: LiveStore, subject: NamedNode, addressO
   if (updateAddress) {
     const existingNode = findExistingNode(existingAddressNodes, updateAddress.sourceNode)
     if (existingNode) {
-      deletions.push(...collectNodeStatements(store, existingNode, doc))
+      deletions.push(...collectOwnedNodeStatements(store, existingNode, doc, addressValuePredicates))
       insertions.push(...buildAddressStatements(subject, doc, existingNode, updateAddress))
     }
   }
@@ -153,16 +159,10 @@ async function mutateAddressEntry(store: LiveStore, subject: NamedNode, addressO
     insertions.push(...buildAddressStatements(subject, doc, createIdNode(doc), createAddress))
   }
 
-  await runUpdateTransport(store, doc, deletions, insertions, {
-    unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: saveHeadingUpdatesFailedMessageText,
-  })
 }
 
-async function mutateBasicProfileEntry(store: LiveStore, subject: NamedNode, basicOps: MutationOps<ProfileBasicRow>) {
+function mutateBasicProfileEntry(store: LiveStore, subject: NamedNode, basicOps: MutationOps<ProfileBasicRow>, deletions: any[], insertions: any[]) {
   const doc = subject.doc()
-  const deletions: any[] = []
-  const insertions: any[] = []
 
   const replacePhotoField = (value?: string) => {
     const normalized = trimText(value)
@@ -198,15 +198,6 @@ async function mutateBasicProfileEntry(store: LiveStore, subject: NamedNode, bas
       insertions,
       objectPronoun ? literal(objectPronoun) : null
     )
-    replacePredicateStatements(
-      store,
-      subject,
-      ns.solid('preferredRelativePronoun'),
-      doc,
-      deletions,
-      insertions,
-      null
-    )
   }
 
   const applyBasics = (basic: ProfileBasicRow, clearAll = false) => {
@@ -224,7 +215,16 @@ async function mutateBasicProfileEntry(store: LiveStore, subject: NamedNode, bas
     // Keep foaf:nick in sync where available in existing data.
     replaceLiteralPredicateStatements(store, subject, ns.foaf('nick'), doc, deletions, insertions, data.nickname)
     replaceLiteralPredicateStatements(store, subject, ns.vcard('nickname'), doc, deletions, insertions, data.nickname)
-    replaceLiteralPredicateStatements(store, subject, ns.vcard('bday'), doc, deletions, insertions, data.dateOfBirth)
+    const dateOfBirth = trimText(data.dateOfBirth)
+    replacePredicateStatements(
+      store,
+      subject,
+      ns.vcard('bday'),
+      doc,
+      deletions,
+      insertions,
+      dateOfBirth ? literal(dateOfBirth, ns.xsd('date')) : null
+    )
     replacePronounFields(data.pronouns)
     replacePhotoField(data.imageSrc)
   }
@@ -238,18 +238,23 @@ async function mutateBasicProfileEntry(store: LiveStore, subject: NamedNode, bas
     applyBasics(selectedBasic, Boolean(removeBasic && !updateBasic && !createBasic))
   }
 
-  await runUpdateTransport(store, doc, deletions, insertions, {
-    unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
-    failureMessage: saveHeadingUpdatesFailedMessageText,
-  })
 }
 
 export async function processHeadingMutations(store: LiveStore, subject: NamedNode, mutationPlan: HeadingMutationPlan) {
   try {
-    await mutateBasicProfileEntry(store, subject, mutationPlan.basicOps)
-    await mutatePhoneEntry(store, subject, mutationPlan.phoneOps)
-    await mutateEmailEntry(store, subject, mutationPlan.emailOps)
-    await mutateAddressEntry(store, subject, mutationPlan.addressOps)
+    const doc = subject.doc()
+    const deletions: any[] = []
+    const insertions: any[] = []
+
+    mutateBasicProfileEntry(store, subject, mutationPlan.basicOps, deletions, insertions)
+    mutatePhoneEntry(store, subject, mutationPlan.phoneOps, deletions, insertions)
+    mutateEmailEntry(store, subject, mutationPlan.emailOps, deletions, insertions)
+    mutateAddressEntry(store, subject, mutationPlan.addressOps, deletions, insertions)
+
+    await runUpdateTransport(store, doc, uniqueStatements(deletions), uniqueStatements(insertions), {
+      unsupportedMessage: updaterUnsupportedStoreErrorMessageText,
+      failureMessage: saveHeadingUpdatesFailedMessageText,
+    })
   } catch (error) {
     logAndThrowMutationError(error, saveHeadingUpdatesFailedMessageText)
   }
