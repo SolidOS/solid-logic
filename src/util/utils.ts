@@ -1,5 +1,26 @@
 import { NamedNode, sym } from 'rdflib'
 
+export function isAbsoluteHttpUri (value: string | null | undefined): boolean {
+    if (!value) return false
+    try {
+        const parsed = new URL(value)
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    } catch (_error) {
+        return false
+    }
+}
+
+export function documentDirectoryUri (node: NamedNode): string | null {
+    const directory = node.doc().dir()
+    if (directory?.uri && isAbsoluteHttpUri(directory.uri)) return directory.uri
+
+    const documentUri = node.doc().uri
+    if (!isAbsoluteHttpUri(documentUri)) return null
+    const withoutFragment = documentUri.split('#')[0]
+    const lastSlash = withoutFragment.lastIndexOf('/')
+    return lastSlash === -1 ? null : withoutFragment.slice(0, lastSlash + 1)
+}
+
 export function newThing(doc: NamedNode): NamedNode {
     return sym(doc.uri + '#' + 'id' + ('' + Date.now()))
 }
