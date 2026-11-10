@@ -29,7 +29,7 @@ export function createContainerLogic(store) {
         return getContainerElements(containerNode).length
     }
 
-    async function createContainer(url: string) {
+    async function createContainer(url: string, options: { allowExisting?: boolean } = {}) {
         const stringToNode = sym(url)
         if (!isContainer(stringToNode)) {
             throw new Error(`Not a container URL ${url}`)
@@ -45,11 +45,11 @@ export function createContainerLogic(store) {
             body: ' ', // work around https://github.com/michielbdejong/community-server/issues/4#issuecomment-776222863
         })
         // Treat 409 as idempotent success: another process/request already created the container.
-        if (result.status === 409) {
+        if (result.status === 409 && options.allowExisting !== false) {
             return
         }
         if (result.status.toString()[0] !== '2') {
-            throw new Error(`Not OK: got ${result.status} response while creating container at ${url}`)
+            throw Object.assign(new Error(`Not OK: got ${result.status} response while creating container at ${url}`), { status: result.status })
         }
     }
 
