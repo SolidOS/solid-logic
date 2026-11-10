@@ -5,10 +5,13 @@ import { assertSuccessfulHttpResponse, isMissingError } from './resourceHttp'
 import { readWacAccessInfo } from './resourceMetadata'
 import { ResourceUploadError, type ResourceAccess, type ResourceAccessWithDelete, type ResourceContent, type ResourceDeleteOptions, type ResourceLogic, type ResourceMetadata, type ResourceMetadataWithDelete, type ResourceUploadResult, type TypeIndexLogic } from '../types'
 import type { AclLogic } from '../types'
+import { createResourceCopyLogic } from './resourceCopy'
 import * as mime from 'mime-types'
 import * as debug from '../util/debug'
 
 export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, typeIndexLogic: TypeIndexLogic): ResourceLogic {
+  const { copyResource, copyContainer } = createResourceCopyLogic(store, containerLogic)
+
   function uploadFiles (
     files: File[],
     destination: string
@@ -364,6 +367,8 @@ export function createResourceLogic(store, aclLogic: AclLogic, containerLogic, t
 
   return {
     uploadFiles,
+    copyResource,
+    copyContainer,
     recursiveDelete,
     deleteResourceAndTypeIndexIfExists,
     fetchMetadata,

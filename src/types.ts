@@ -174,11 +174,26 @@ export type ResourceContent = {
     metadata: ResourceMetadata
 }
 
+export type ResourceCopyCollision = {
+    source: string
+    destination: string
+    isContainer: boolean
+}
+
+export type ResourceCopyOptions = {
+    /** Folders support keep-both or cancel, never replacement/merging. */
+    onCollision?: (collision: ResourceCopyCollision) => Promise<'replace' | 'keep-both' | 'cancel'>
+}
+
 export interface ResourceLogic {
     uploadFiles: (
         files: File[],
         destination: string
     ) => Promise<ResourceUploadResult[]>,
+    /** Copies without deleting the source. Failures report any destination resources left by a partial copy. */
+    copyResource: (source: NamedNode, destinationContainer: string | NamedNode, options?: ResourceCopyOptions) => Promise<string | undefined>,
+    /** Copies a container and its descendants without deleting the source. */
+    copyContainer: (source: NamedNode, destinationContainer: string | NamedNode, options?: ResourceCopyOptions) => Promise<string | undefined>,
     recursiveDelete: (resource: NamedNode, options?: ResourceDeleteOptions) => Promise<any>,
     deleteResourceAndTypeIndexIfExists: (resource: NamedNode, user?: NamedNode | null) => Promise<void>,
     fetchMetadata: (subject: NamedNode) => Promise<ResourceMetadata>,
