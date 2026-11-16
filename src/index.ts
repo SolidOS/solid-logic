@@ -6,13 +6,18 @@ const authn = solidLogicSingleton.authn
 const authSession = solidLogicSingleton.authn.authSession
 const store = solidLogicSingleton.store
 
-export { ACL_LINK } from './acl/aclLogic'
+export { ACL_LINK, ACCESS_ROLES, PUBLIC_ACCESS_ROLES, WRITE_LOCKED_OWNER_ROLE, Authenticated, Public, classifyContainerAccessScope, analyzeContainerAccessScope, classifyAuthorizationScope, filterAuthorizationsByContainerScope } from './acl/aclLogic'
+export type { AccessRole, ContainerAccessScope, ContainerAccessScopeResult, PublicAccessRole } from './acl/aclLogic'
 export { offlineTestID, appContext } from './authn/authUtil'
 export { performServerSideLogout } from './authn/serverLogout'
 export { reloadOnIdentityReplaced } from './authSession/identityState'
 export { getSuggestedIssuers } from './issuer/issuerLogic'
 export { createTypeIndexLogic } from './typeIndex/typeIndexLogic'
-export type { AppDetails, SolidNamespace, AuthenticationContext, SolidLogic, ChatLogic } from './types'
+export { createDirectoryLogic, DEFAULT_DIRECTORY_CATALOG_URL, DEFAULT_DIRECTORY_SOURCES } from './directory/directoryLogic'
+export type { AccessControlSubjectKind, AccessControlSubject } from './acl/accessControlSubjects'
+export type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan } from './types'
+export { ResourceUploadError } from './types'
+export type { AppDetails, SolidNamespace, AuthenticationContext, SolidLogic, ResourceLogic, ResourceContent, ResourceMetadata, ResourceUploadResult, ChatLogic, DirectoryLogic, DirectoryEntry, DirectorySearchOptions, DirectoryRelationshipLabel, DirectorySource } from './types'
 export { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError, NotEditableError, WebOperationError } from './logic/CustomError'
 
 export {
@@ -21,4 +26,3 @@ export {
   authn,
   authSession
 }
-

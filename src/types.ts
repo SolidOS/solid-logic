@@ -1,5 +1,8 @@
 import type { SessionWithLegacyEvents } from './authSession/authSession'
+import type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan } from '@dokieli/web-access-control'
 import { LiveStore, NamedNode, Statement } from 'rdflib'
+import type { AccessControlSubject } from './acl/accessControlSubjects'
+import type { AccessRole, ContainerAccessScope, PublicAccessRole } from './acl/aclLogic'
 
 export type AppDetails = {
     noun: string
@@ -79,6 +82,24 @@ export interface ProfileLogic {
 
 export interface AclLogic {
     findAclDocUrl: (url: NamedNode) => Promise<string | undefined>,
+    findEffectiveAcl: (resourceURL: string | NamedNode) => Promise<ACLContext>,
+    findAccessGrants: (resourceURL: string | NamedNode) => Promise<Authorization[]>,
+    classifyContainerScope: (context: ACLContext) => ContainerAccessScope,
+    isProtectedResource: (resourceURL: string | NamedNode) => boolean,
+    classifyAccessControlSubject: (principle: string) => Promise<AccessControlSubject | undefined>,
+    roleFromModes: (modes: Iterable<AccessMode>) => AccessRole,
+    modesFromRole: (role: AccessRole) => AccessMode[],
+    publicRoleFromModes: (modes: Iterable<AccessMode>) => PublicAccessRole,
+    modesFromPublicRole: (role: PublicAccessRole) => AccessMode[],
+    planGrant: (resourceURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>,
+    planGrantContainer: (containerURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>,
+    planGrantContainerAndContents: (containerURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>,
+    planGrantContainerContents: (containerURL: string | NamedNode, subject: AccessSubject, modes: AccessMode[]) => Promise<PatchPlan>,
+    planRevokeContainerContents: (containerURL: string | NamedNode, subject: AccessSubject) => Promise<PatchPlan>,
+    planRevoke: (resourceURL: string | NamedNode, subject: AccessSubject) => Promise<PatchPlan>,
+    planPublicRead: (resourceURL: string | NamedNode, enabled: boolean) => Promise<PatchPlan>,
+    resetToDefault: (resourceURL: string | NamedNode) => Promise<Response>,
+    applyPlan: (plan: PatchPlan) => Promise<Response>,
     setACLUserPublic: (docURI: string, me: NamedNode,
         options: {
             defaultForNew?: boolean,
@@ -91,7 +112,12 @@ export interface AclLogic {
             public?: []
         }
     ) => string | undefined
+    Authenticated: AccessSubject
+    Public: AccessSubject
+    PUBLIC_ACCESS_ROLES: readonly PublicAccessRole[]
 }
+
+export type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan }
 
 export interface InboxLogic {
     createInboxFor: (peerWebId: string, nick: string) => Promise<string>,
@@ -106,7 +132,10 @@ export type ResourceDeleteOptions = {
 
 export type ResourceAccess = {
     canEdit: boolean
+    canManageAccess: boolean
     isPublic: boolean
+    /** False when the server did not provide WAC-Allow metadata. */
+    isPublicKnown?: boolean
 }
 
 export type ResourceAccessWithDelete = ResourceAccess & {
@@ -125,14 +154,49 @@ export type ResourceMetadataWithDelete = ResourceMetadata & {
     access: ResourceAccessWithDelete
 }
 
+export class ResourceUploadError extends Error {
+    constructor(
+        message: string,
+        public readonly destinationUri?: string,
+        public readonly status?: number
+    ) {
+        super(message)
+        this.name = 'ResourceUploadError'
+    }
+}
+
+export type ResourceUploadResult =
+    | { success: true, file: File, uploadedUri: string }
+    | { success: false, file: File, error: ResourceUploadError }
+
+export type ResourceContent = {
+    content: string
+    metadata: ResourceMetadata
+}
+
 export interface ResourceLogic {
+    uploadFiles: (
+        files: File[],
+        destination: string
+    ) => Promise<ResourceUploadResult[]>,
     recursiveDelete: (resource: NamedNode, options?: ResourceDeleteOptions) => Promise<any>,
     deleteResourceAndTypeIndexIfExists: (resource: NamedNode, user?: NamedNode | null) => Promise<void>,
     fetchMetadata: (subject: NamedNode) => Promise<ResourceMetadata>,
     fetchMetadataWithDelete: (subject: NamedNode) => Promise<ResourceMetadataWithDelete>,
+    fetchContentAndMetadata: (subject: NamedNode) => Promise<ResourceContent>,
     createContainer: (url: string) => Promise<void>,
     isContainer: (resource: NamedNode) => boolean,
-    getContainerMemberCount: (resource: NamedNode) => number
+    getContainerMembers: (resource: NamedNode) => NamedNode[],
+    getContainerMemberCount: (resource: NamedNode) => number,
+    getContainerIndexThing: (container: NamedNode) => NamedNode,
+    containerHasIndexDocument: (container: NamedNode) => boolean,
+    isStorageRoot: (resource: NamedNode) => boolean,
+    isHiddenFile: (resource: NamedNode) => boolean,
+    isMediaType: (resource: NamedNode, mediaType: string) => boolean,
+    isImage: (resource: NamedNode) => boolean,
+    isAudio: (resource: NamedNode) => boolean,
+    isVideo: (resource: NamedNode) => boolean,
+    isWebId: (resource: string | NamedNode) => boolean
 }
 
 export interface TypeIndexLogic {
@@ -150,6 +214,32 @@ export interface TypeIndexLogic {
     getScopedAppsFromIndex: (scope: TypeIndexScope, theClass: NamedNode | null) => Promise<ScopedApp[]>,
 }
 
+export type DirectorySource = 'contacts' | 'friends' | 'catalog' | 'groups'
+
+export type DirectoryRelationshipLabel = 'Friend' | 'People' | 'Contact' | 'Group'
+
+export type DirectoryEntry = {
+    kind: 'person' | 'group'
+    uri: string
+    label: string
+    searchableLabels?: string[]
+    subjectType: 'agent' | 'agentGroup'
+    relationshipLabel: DirectoryRelationshipLabel
+    sources: DirectorySource[]
+}
+
+export type DirectorySearchOptions = {
+    query?: string
+    sources?: DirectorySource[]
+    catalogUrl?: string
+    user?: NamedNode | null
+    maxFoafDistance?: number
+}
+
+export interface DirectoryLogic {
+    search: (options?: DirectorySearchOptions) => Promise<DirectoryEntry[]>
+}
+
 export interface SolidLogic {
     store: LiveStore,
     authn: AuthnLogic,
@@ -159,6 +249,7 @@ export interface SolidLogic {
     inbox: InboxLogic,
     typeIndex: TypeIndexLogic,
     chat: ChatLogic,
+    directory: DirectoryLogic,
     load: (doc: NamedNode | NamedNode[] | string) => void,
     updatePromise: (del: Array<Statement>, ins: Array<Statement>) => Promise<void>,
     clearStore: () => void
