@@ -119,9 +119,18 @@ export function isHttpUri (value: string | null | undefined): boolean {
 export function fallbackLabel (uri: string): string {
   const withoutFragment = uri.split('#')[0]
   const fragment = uri.includes('#') ? uri.slice(uri.indexOf('#') + 1) : ''
+  let profileName = ''
+  try {
+    const url = new URL(withoutFragment)
+    const pathParts = url.pathname.split('/').filter(Boolean)
+    const profileIndex = pathParts.findIndex((part, index) => part === 'profile' && pathParts[index + 1] === 'card')
+    profileName = profileIndex > 0 ? pathParts[profileIndex - 1] : url.hostname
+  } catch {
+    // Keep using the URI path as a label for non-URL identifiers.
+  }
   const base = fragment && fragment !== 'this' && fragment !== 'me'
     ? fragment
-    : withoutFragment.slice(withoutFragment.lastIndexOf('/') + 1)
+    : profileName || withoutFragment.slice(withoutFragment.lastIndexOf('/') + 1)
   return decodeURIComponent(base || uri).replace(/[_-]+/g, ' ')
 }
 
