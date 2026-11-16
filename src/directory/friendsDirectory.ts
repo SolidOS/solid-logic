@@ -1,7 +1,7 @@
 import { type DirectoryEntry } from '../types'
 import { type LiveStore, NamedNode } from 'rdflib'
 import { ns } from '../util/ns'
-import { loadDocumentSilently, storedLabelForNode } from './directoryHelpers'
+import { labelForNode, loadDocumentSilently } from './directoryHelpers'
 
 const PEOPLE_SEARCH_CONCURRENCY = 6
 
@@ -15,8 +15,7 @@ export function createFriendsDirectoryDiscovery (store: LiveStore) {
     depth: number,
     onEntry: (entry: DirectoryEntry) => void | Promise<void>
   ): Promise<void> {
-    const personName = storedLabelForNode(store, person)
-    if (!personName) return
+    const personName = labelForNode(store, person)
 
     await onEntry({
       kind: 'person',
@@ -34,7 +33,6 @@ export function createFriendsDirectoryDiscovery (store: LiveStore) {
     onEntry: (entry: DirectoryEntry) => void | Promise<void>
   ): Promise<void> {
     const visited = new Set<string>([user.value])
-    const emitted = new Set<string>()
     const loadedDocs = new Set<string>()
     let queue: Array<{ person: NamedNode, depth: number }> = [{ person: user, depth: 0 }]
 
@@ -47,10 +45,7 @@ export function createFriendsDirectoryDiscovery (store: LiveStore) {
       }
 
       if (current.value !== user.value) {
-        if (!emitted.has(current.value)) {
-          emitted.add(current.value)
-          await emitPersonEntry(current, depth, onEntry)
-        }
+        await emitPersonEntry(current, depth, onEntry)
       }
 
       if (depth >= maxFoafDistance) {
@@ -61,19 +56,6 @@ export function createFriendsDirectoryDiscovery (store: LiveStore) {
       const contacts = store.each(current, ns.foaf('knows')) as NamedNode[]
       for (const contact of contacts) {
         if (contact.termType === 'NamedNode') {
-          const contactName = storedLabelForNode(store, contact)
-          if (contact.value !== user.value && contactName && !emitted.has(contact.value)) {
-            emitted.add(contact.value)
-            await onEntry({
-              kind: 'person',
-              uri: contact.value,
-              label: contactName,
-              subjectType: 'agent',
-              relationshipLabel: depth === 0 ? 'Friend' : 'People',
-              sources: ['friends']
-            })
-          }
-
           if (!visited.has(contact.value)) {
             visited.add(contact.value)
             nextPeople.push({ person: contact, depth: depth + 1 })
