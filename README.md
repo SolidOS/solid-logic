@@ -33,6 +33,10 @@ The UMD bundles externalize `rdflib` only.
 
 The ESM bundles externalize both `rdflib` and the auth library packages `@uvdsl/solid-oidc-client-browser` / `@uvdsl/solid-oidc-client-browser/core`.
 
+The ESM and CommonJS builds bundle `@dokieli/web-access-control` and its
+runtime dependencies so CommonJS consumers do not need to load its ESM-only
+package entry directly.
+
 ## Available Files
 
 | Format | File | Usage | Global Variable |
