@@ -4,14 +4,9 @@ import type { AclLogic } from '../types'
 import { ns as namespace } from '../util/ns'
 import * as accessControlSubjects from './accessControlSubjects'
 
-export const ACCESS_ROLES = ['Owner', 'Editor', 'No Access', 'Viewer', 'Poster', 'Submitter'] as const
+export const ACCESS_ROLES = ['Owner', 'Admin', 'Editor', 'No Access', 'Viewer', 'Commenter', 'Appender'] as const
 export const PUBLIC_ACCESS_ROLES = ['No Access', 'Viewer'] as const
-/**
- * A Control grant without Write is the legacy "write locked" owner grant.
- *
- * It is intentionally not part of ACCESS_ROLES yet: that list is consumed by
- * the existing UI, whose selector will be updated in a later change.
- */
+
 export const WRITE_LOCKED_OWNER_ROLE = 'Owner (write locked)' as const
 export { Authenticated, Public } from '@dokieli/web-access-control'
 
@@ -103,10 +98,10 @@ export function createAclLogic(store): AclLogic {
     const ns = namespace
     const ACCESS_ROLE_RULES: Array<{ label: AccessRole, modes: AccessMode[] }> = [
         { label: 'Owner', modes: ['Read', 'Write', 'Control'] },
-        { label: WRITE_LOCKED_OWNER_ROLE, modes: ['Read', 'Control'] },
+        { label: 'Admin', modes: ['Read', 'Control'] },
         { label: 'Editor', modes: ['Read', 'Write'] },
-        { label: 'Poster', modes: ['Append', 'Read'] },
-        { label: 'Submitter', modes: ['Append'] },
+        { label: 'Commenter', modes: ['Append', 'Read'] },
+        { label: 'Appender', modes: ['Append'] },
         { label: 'Viewer', modes: ['Read'] },
         { label: 'No Access', modes: [] }
     ]
