@@ -17,6 +17,7 @@ export { createDirectoryLogic, DEFAULT_DIRECTORY_CATALOG_URL, DEFAULT_DIRECTORY_
 export type { AccessControlSubjectKind, AccessControlSubject } from './acl/accessControlSubjects'
 export type { ACLContext, AccessMode, AccessSubject, Authorization, PatchPlan } from './types'
 export { ResourceUploadError } from './types'
+export type { ResourceCopyCollision, ResourceCopyOptions } from './types'
 export type { AppDetails, SolidNamespace, AuthenticationContext, SolidLogic, ResourceLogic, ResourceContent, ResourceMetadata, ResourceUploadResult, ChatLogic, DirectoryLogic, DirectoryEntry, DirectorySearchOptions, DirectoryRelationshipLabel, DirectorySource } from './types'
 export { UnauthorizedError, CrossOriginForbiddenError, SameOriginForbiddenError, NotFoundError, FetchError, NotEditableError, WebOperationError } from './logic/CustomError'
 

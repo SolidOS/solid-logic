@@ -108,6 +108,214 @@ describe('resourceLogic', () => {
     expect(store.removeDocument).toHaveBeenCalledWith(container)
   })
 
+  it('copies a resource with its content type using conditional creation', async () => {
+    const resourceLogic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    const source = sym('https://source.example/a.txt')
+    containerLogic.isContainer.mockReturnValue(false)
+    store.fetcher._fetch
+      .mockResolvedValueOnce(new Response('hello', { status: 200, headers: { 'content-type': 'text/plain' } }))
+      .mockResolvedValueOnce(new Response(null, { status: 201 }))
+
+    await expect(resourceLogic.copyResource(source, 'https://pod.example/files/'))
+      .resolves.toBe('https://pod.example/files/a.txt')
+    expect(store.fetcher._fetch).toHaveBeenLastCalledWith('https://pod.example/files/a.txt', expect.objectContaining({
+      method: 'PUT',
+      headers: { 'Content-Type': 'text/plain', 'If-None-Match': '*' },
+      body: expect.any(ArrayBuffer)
+    }))
+  })
+
+  it('copies folders recursively without deleting the source', async () => {
+    const resourceLogic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    const source = sym('https://source.example/folder/')
+    const file = sym('https://source.example/folder/a.txt')
+    const nested = sym('https://source.example/folder/nested/')
+    const nestedFile = sym('https://source.example/folder/nested/b.txt')
+    containerLogic.isContainer.mockImplementation(resource => resource.value.endsWith('/'))
+    containerLogic.getContainerMembers
+      .mockResolvedValueOnce([file, nested])
+      .mockResolvedValueOnce([nestedFile])
+    store.fetcher._fetch
+      .mockResolvedValueOnce(new Response('a', { status: 200, headers: { 'content-type': 'text/plain' } }))
+      .mockResolvedValueOnce(new Response(null, { status: 201 }))
+      .mockResolvedValueOnce(new Response('b', { status: 200, headers: { 'content-type': 'text/plain' } }))
+      .mockResolvedValueOnce(new Response(null, { status: 201 }))
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+
+    await expect(resourceLogic.copyContainer(source, 'https://pod.example/files/'))
+      .resolves.toBe('https://pod.example/files/folder/')
+    expect(containerLogic.createContainer).toHaveBeenNthCalledWith(1, 'https://pod.example/files/folder/', { allowExisting: false })
+    expect(containerLogic.createContainer).toHaveBeenNthCalledWith(2, 'https://pod.example/files/folder/nested/', { allowExisting: false })
+    expect(store.fetcher._fetch).not.toHaveBeenCalledWith(source.value, { method: 'DELETE' })
+  })
+
+  it('rejects copying a folder into itself or a descendant', async () => {
+    const resourceLogic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    const source = sym('https://pod.example/folder/')
+    containerLogic.isContainer.mockReturnValue(true)
+
+    await expect(resourceLogic.copyContainer(source, 'https://pod.example/folder/child/'))
+      .rejects.toThrow('itself or one of its descendants')
+    expect(containerLogic.createContainer).not.toHaveBeenCalled()
+  })
+
+  it('keeps both files using a fresh name and conditional creation', async () => {
+    containerLogic.isContainer.mockReturnValue(false)
+    store.fetcher._fetch
+      .mockResolvedValueOnce(new Response('source'))
+      .mockResolvedValueOnce(new Response(null, { status: 412 }))
+      .mockResolvedValueOnce(new Response(null, { status: 201 }))
+    const onCollision = vi.fn().mockResolvedValue('keep-both')
+    const logic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    const target = await logic.copyResource(sym('https://source.example/a.txt'), 'https://pod.example/files/', { onCollision })
+    expect(target).toMatch(/^https:\/\/pod.example\/files\/a-copy-[\w-]+\.txt$/)
+    expect(onCollision).toHaveBeenCalledWith({
+      source: 'https://source.example/a.txt', destination: 'https://pod.example/files/a.txt', isContainer: false
+    })
+    expect(store.fetcher._fetch).toHaveBeenLastCalledWith(target, expect.objectContaining({
+      headers: expect.objectContaining({ 'If-None-Match': '*' })
+    }))
+  })
+
+  it('replaces only after confirmation and with the current destination ETag', async () => {
+    containerLogic.isContainer.mockReturnValue(false)
+    store.fetcher._fetch
+      .mockResolvedValueOnce(new Response('source'))
+      .mockResolvedValueOnce(new Response(null, { status: 412 }))
+      .mockResolvedValueOnce(new Response(null, { headers: { etag: '"original"' } }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const logic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    await logic.copyResource(sym('https://source.example/a.txt'), 'https://pod.example/files/', {
+      onCollision: async () => 'replace'
+    })
+    expect(store.fetcher._fetch).toHaveBeenLastCalledWith('https://pod.example/files/a.txt', expect.objectContaining({
+      headers: expect.objectContaining({ 'If-Match': '"original"' })
+    }))
+  })
+
+  it('does not replace a destination without a strong ETag', async () => {
+    containerLogic.isContainer.mockReturnValue(false)
+    store.fetcher._fetch
+      .mockResolvedValueOnce(new Response('source'))
+      .mockResolvedValueOnce(new Response(null, { status: 412 }))
+      .mockResolvedValueOnce(new Response(null))
+    const logic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    await expect(logic.copyResource(sym('https://source.example/a.txt'), 'https://pod.example/files/', {
+      onCollision: async () => 'replace'
+    })).rejects.toThrow('strong ETag')
+    expect(store.fetcher._fetch).toHaveBeenCalledTimes(3)
+  })
+
+  it('cancels without issuing a replacement write', async () => {
+    containerLogic.isContainer.mockReturnValue(false)
+    store.fetcher._fetch
+      .mockResolvedValueOnce(new Response('source'))
+      .mockResolvedValueOnce(new Response(null, { status: 412 }))
+    const logic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    await expect(logic.copyResource(sym('https://source.example/a.txt'), 'https://pod.example/files/', {
+      onCollision: async () => 'cancel'
+    })).resolves.toBeUndefined()
+    expect(store.fetcher._fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not retry or ask again if replacement loses a race', async () => {
+    containerLogic.isContainer.mockReturnValue(false)
+    store.fetcher._fetch
+      .mockResolvedValueOnce(new Response('source'))
+      .mockResolvedValueOnce(new Response(null, { status: 412 }))
+      .mockResolvedValueOnce(new Response(null, { headers: { etag: '"original"' } }))
+      .mockResolvedValueOnce(new Response(null, { status: 412 }))
+    const onCollision = vi.fn().mockResolvedValue('replace')
+    const logic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    await expect(logic.copyResource(sym('https://source.example/a.txt'), 'https://pod.example/files/', { onCollision }))
+      .rejects.toThrow()
+    expect(onCollision).toHaveBeenCalledTimes(1)
+    expect(store.fetcher._fetch).toHaveBeenCalledTimes(4)
+  })
+
+  it('fails explicitly without a collision policy and never overwrites', async () => {
+    containerLogic.isContainer.mockReturnValue(false)
+    store.fetcher._fetch
+      .mockResolvedValueOnce(new Response('source'))
+      .mockResolvedValueOnce(new Response(null, { status: 412 }))
+    const logic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    await expect(logic.copyResource(sym('https://source.example/a.txt'), 'https://pod.example/files/'))
+      .rejects.toThrow('already exists at https://pod.example/files/a.txt')
+    expect(store.fetcher._fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not retry a collided keep-both destination', async () => {
+    containerLogic.isContainer.mockReturnValue(false)
+    store.fetcher._fetch
+      .mockResolvedValueOnce(new Response('source'))
+      .mockImplementation(async () => new Response(null, { status: 412 }))
+    const onCollision = vi.fn().mockResolvedValue('keep-both')
+    const logic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    await expect(logic.copyResource(sym('https://source.example/a.txt'), 'https://pod.example/files/', { onCollision }))
+      .rejects.toThrow()
+    expect(onCollision).toHaveBeenCalledTimes(1)
+    expect(store.fetcher._fetch).toHaveBeenCalledTimes(3)
+  })
+
+  it('keeps colliding folders separate instead of merging their members', async () => {
+    containerLogic.isContainer.mockReturnValue(true)
+    containerLogic.getContainerMembers.mockResolvedValue([])
+    containerLogic.createContainer
+      .mockRejectedValueOnce(Object.assign(new Error('exists'), { status: 409 }))
+      .mockResolvedValueOnce(undefined)
+    const logic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    const target = await logic.copyContainer(sym('https://source.example/folder/'), 'https://pod.example/files/', {
+      onCollision: async () => 'keep-both'
+    })
+    expect(target).toMatch(/\/folder-copy-[\w-]+\/$/)
+    expect(containerLogic.createContainer).toHaveBeenLastCalledWith(target, { allowExisting: false })
+  })
+
+  it('does not prompt again for a nested collision', async () => {
+    const nested = sym('https://source.example/folder/nested/')
+    containerLogic.isContainer.mockReturnValue(true)
+    containerLogic.getContainerMembers
+      .mockResolvedValueOnce([nested])
+      .mockResolvedValueOnce([])
+    containerLogic.createContainer
+      .mockRejectedValueOnce(Object.assign(new Error('exists'), { status: 409 }))
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(Object.assign(new Error('exists'), { status: 409 }))
+    const onCollision = vi.fn().mockResolvedValue('keep-both')
+    const logic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+
+    await expect(logic.copyContainer(sym('https://source.example/folder/'), 'https://pod.example/files/', { onCollision }))
+      .rejects.toThrow('already exists')
+    expect(onCollision).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports the retained partial destination if a nested copy fails', async () => {
+    containerLogic.isContainer.mockImplementation(resource => resource.value.endsWith('/'))
+    containerLogic.getContainerMembers.mockResolvedValue([sym('https://source.example/folder/a.txt')])
+    store.fetcher._fetch.mockResolvedValueOnce(new Response(null, { status: 403 }))
+    const logic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    await expect(logic.copyContainer(sym('https://source.example/folder/'), 'https://pod.example/files/'))
+      .rejects.toThrow('Copy is incomplete; 1 destination resource(s) were written and remain at https://pod.example/files/folder/')
+  })
+
+  it('rejects invalid containment before creating the destination folder', async () => {
+    containerLogic.isContainer.mockReturnValue(true)
+    containerLogic.getContainerMembers.mockResolvedValue([sym('https://source.example/folder/')])
+    const logic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+    await expect(logic.copyContainer(sym('https://source.example/folder/'), 'https://pod.example/files/'))
+      .rejects.toThrow('Invalid container member')
+    expect(containerLogic.createContainer).not.toHaveBeenCalled()
+  })
+
+  it.each(['https://pod.example/files/?q=1', 'https://pod.example/files/#me', 'ftp://pod.example/files/'])(
+    'rejects ambiguous or unsupported destination URLs: %s', async destination => {
+      const logic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
+      await expect(logic.copyResource(sym('https://source.example/a.txt'), destination)).rejects.toThrow()
+      expect(store.fetcher._fetch).not.toHaveBeenCalled()
+    }
+  )
+
   it('invokes type index cleanup when deleteTypeIndexes is true', async () => {
     const resourceLogic = createResourceLogic(store, aclLogic, containerLogic, typeIndexLogic)
     const resource = sym('https://example.com/resource.ttl')

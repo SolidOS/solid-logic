@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { UpdateManager, Store, Fetcher, sym, NamedNode } from 'rdflib'
+import { UpdateManager, Store, Fetcher, sym } from 'rdflib'
 import { createContainerLogic } from '../src/util/containerLogic'
 import { alice } from './helpers/dataSetup'
 
@@ -7,7 +7,7 @@ window.$SolidTestEnvironment = { username: alice.uri }
 
 describe('Container', () => {
     let store
-    let containerLogic: { getContainerMembers: any; isContainer?: (url: NamedNode) => boolean; createContainer?: (url: string) => Promise<void>; getContainerElements?: (containerNode: NamedNode) => NamedNode[] }
+    let containerLogic: ReturnType<typeof createContainerLogic>
     beforeEach(() => {
         fetchMock.resetMocks()
         store = new Store()
@@ -29,6 +29,17 @@ describe('Container', () => {
         containerIsEmpty()
         const result = await containerLogic.getContainerMembers(sym('https://container.com/'))
         expect(result).toEqual([])
+    })
+
+    it('preserves idempotent creation for existing callers', async () => {
+        fetchMock.mockResponseOnce('', { status: 409 })
+        await expect(containerLogic.createContainer('https://container.com/')).resolves.toBeUndefined()
+    })
+
+    it.each([409, 412])('rejects an existing container in strict creation mode (HTTP %s)', async status => {
+        fetchMock.mockResponseOnce('', { status })
+        await expect(containerLogic.createContainer('https://container.com/', { allowExisting: false }))
+            .rejects.toMatchObject({ status })
     })
 
     function containerIsEmpty() {
