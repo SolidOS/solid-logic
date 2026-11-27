@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Fetcher, Store, literal, namedNode, sym, UpdateManager } from 'rdflib'
 import { ACL, applyPlan, buildACLContext, findEffectiveACL, parseTurtle, planGrant, planPublicRead, planRevoke, Public, quad, type PatchPlan, type Quad } from '@dokieli/web-access-control'
-import { ACL_LINK, WRITE_LOCKED_OWNER_ROLE, analyzeContainerAccessScope, classifyAuthorizationScope, classifyContainerAccessScope, createAclLogic, filterAuthorizationsByContainerScope } from '../src/acl/aclLogic'
+import { ACL_LINK, analyzeContainerAccessScope, classifyAuthorizationScope, classifyContainerAccessScope, createAclLogic, filterAuthorizationsByContainerScope } from '../src/acl/aclLogic'
 
 var actualFindEffectiveACL: typeof findEffectiveACL
 var actualPlanGrant: typeof planGrant
@@ -165,16 +165,15 @@ describe('createAclLogic', () => {
   it('maps roles to ACL modes and back', () => {
     expect(aclLogic.modesFromRole('Editor')).toEqual(['Read', 'Write'])
     expect(aclLogic.modesFromRole('Owner')).toEqual(['Read', 'Write', 'Control'])
-    expect(aclLogic.modesFromRole(WRITE_LOCKED_OWNER_ROLE)).toEqual(['Read', 'Control'])
     expect(aclLogic.modesFromRole('No Access')).toEqual([])
     expect(aclLogic.roleFromModes(['Read', 'Write'])).toBe('Editor')
     expect(aclLogic.roleFromModes(['Read'])).toBe('Viewer')
-    expect(aclLogic.roleFromModes(['Control', 'Read'])).toBe(WRITE_LOCKED_OWNER_ROLE)
+    expect(aclLogic.roleFromModes(['Control', 'Read'])).toBe('Admin')
     expect(aclLogic.roleFromModes(['Read', 'Write', 'Control', 'Append'])).toBe('No Access')
     expect(aclLogic.roleFromModes([])).toBe('No Access')
   })
 
-  it('preserves write-locked owner modes in a grant plan', async () => {
+  it('plans admin modes without write access', async () => {
     const resource = 'https://example.com/write-locked.ttl'
     const ownACL = `@prefix acl: <${ACL}>.
 <#existing> a acl:Authorization;
@@ -184,7 +183,7 @@ describe('createAclLogic', () => {
     const plan = await sharingLogic(resource, ownACL).planGrant(resource, {
       type: 'agent',
       iri: 'https://example.com/profile/card#owner'
-    }, aclLogic.modesFromRole(WRITE_LOCKED_OWNER_ROLE))
+    }, aclLogic.modesFromRole('Admin'))
 
     expect(plan.inserts
       .filter(statement => statement.predicate.value === ACL + 'mode')

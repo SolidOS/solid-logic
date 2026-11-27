@@ -19,7 +19,7 @@ import {
 
 describe('public ACL API', () => {
   it('exports the role list and exposes mapping through the singleton', () => {
-    expect(ACCESS_ROLES).toEqual(['Owner', 'Editor', 'No Access', 'Viewer', 'Poster', 'Submitter'])
+    expect(ACCESS_ROLES).toEqual(['Owner', 'Admin', 'Editor', 'No Access', 'Viewer', 'Commenter', 'Appender'])
     expect(PUBLIC_ACCESS_ROLES).toEqual(['No Access', 'Viewer'])
     expect(WRITE_LOCKED_OWNER_ROLE).toBe('Owner (write locked)')
     expect(Authenticated).toMatchObject({ type: 'agentClass', iri: 'http://www.w3.org/ns/auth/acl#AuthenticatedAgent' })
